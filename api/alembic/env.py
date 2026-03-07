@@ -9,7 +9,7 @@ from sqlmodel import SQLModel
 
 from alembic import context
 from app.config import settings
-from app.models import Agency, User  # noqa: F401 — register models for autogenerate
+from app.models import Agency, AuditEvent, User  # noqa: F401 — register models for autogenerate
 
 config = context.config
 if config.config_file_name is not None:
