@@ -13,6 +13,7 @@ Multi-tenant SaaS platform for home care coordination. Ground-up rebuild with Fa
 | Testing | See `docs/developer/TESTING.md` | pytest/vitest/Playwright guides |
 | Test Budget | See `docs/developer/TEST_BUDGET.md` | Layer decision checklist |
 | Design System | See `docs/design-system/` | Brand, tokens, components, responsive, a11y |
+| Agent Split | See `docs/adr/009-multi-agent-engineering-split.md` | Claude Code vs Gemini role assignments |
 
 ---
 
@@ -56,6 +57,13 @@ Test accounts (seeded by `make api-seed`):
 - **All GitHub operations must be performed as `suniljames`.**
 - Before any `gh` CLI command, run `gh auth switch --user suniljames`.
 - Git commits use `suniljames <suniljames@users.noreply.github.com>`.
+
+### Multi-Agent Architecture
+- **Two AI agents:** Claude Code (builder/executor, 7 roles) and Google Gemini (validator/risk manager, 4 roles).
+- **Claude Code owns:** Engineering Manager, Software Engineer, System Architect, Data Engineer, AI/ML Engineer, UX Designer, SRE.
+- **Gemini owns:** Security Engineer, QA Engineer, PM, Tech Writer.
+- **Flow:** Gemini PM defines requirements → Claude Code builds → Gemini QA/Security validates → Claude Code addresses feedback.
+- See `docs/adr/009-multi-agent-engineering-split.md` for full rationale and coordination protocol.
 
 ### Fully Autonomous Workflow
 - **No human review gates.** The AI agent fills every role: PM, UX Designer, Software Engineer, System Architect, Data Engineer, AI/ML Engineer, Security Engineer, QA Engineer, SRE, Tech Writer, and the Engineering Manager.
