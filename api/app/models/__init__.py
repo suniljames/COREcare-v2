@@ -7,6 +7,7 @@ from app.models.caregiver import CaregiverProfile
 from app.models.client import Client, ClientStatus, FamilyLink
 from app.models.shift import Shift, ShiftStatus
 from app.models.user import User, UserRole
+from app.models.visit import ShiftOffer, ShiftOfferStatus, Visit
 
 __all__ = [
     "Agency",
@@ -18,8 +19,11 @@ __all__ = [
     "ClientStatus",
     "FamilyLink",
     "Shift",
+    "ShiftOffer",
+    "ShiftOfferStatus",
     "ShiftStatus",
     "TenantScopedModel",
     "User",
     "UserRole",
+    "Visit",
 ]
