@@ -9,6 +9,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
+from app.routers.users import router as users_router
 
 logger = structlog.get_logger()
 
@@ -59,6 +60,8 @@ def create_app() -> FastAPI:
             duration_ms=round(elapsed * 1000, 2),
         )
         return response
+
+    app.include_router(users_router)
 
     @app.get("/healthz")
     async def healthz() -> dict[str, str]:
