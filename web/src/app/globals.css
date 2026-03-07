@@ -1,0 +1,75 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Primary — Soothing Greens */
+    --primary-50: 145 60% 96%;
+    --primary-100: 146 55% 90%;
+    --primary-200: 147 50% 80%;
+    --primary-300: 148 45% 65%;
+    --primary-400: 150 42% 50%;
+    --primary-500: 152 45% 40%;
+    --primary-600: 153 48% 33%;
+    --primary-700: 155 50% 26%;
+    --primary-800: 156 52% 20%;
+    --primary-900: 158 55% 14%;
+    --primary: 152 45% 40%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Lavender Accent */
+    --lavender-50: 260 60% 97%;
+    --lavender-100: 261 55% 92%;
+    --lavender-200: 262 50% 82%;
+    --lavender-300: 263 45% 70%;
+    --lavender-400: 264 40% 60%;
+    --lavender-500: 265 42% 52%;
+
+    /* Coral Accent */
+    --coral-50: 12 80% 97%;
+    --coral-100: 13 75% 92%;
+    --coral-200: 14 70% 82%;
+    --coral-300: 15 65% 70%;
+    --coral-400: 16 60% 60%;
+    --coral-500: 17 62% 52%;
+
+    /* Sky Accent */
+    --sky-50: 200 70% 97%;
+    --sky-100: 201 65% 92%;
+    --sky-200: 202 60% 82%;
+    --sky-300: 203 55% 70%;
+    --sky-400: 204 50% 60%;
+    --sky-500: 205 52% 52%;
+
+    /* shadcn/ui Semantic Tokens */
+    --background: 0 0% 100%;
+    --foreground: 220 20% 14%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 20% 14%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 20% 14%;
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 220 20% 14%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 10% 46%;
+    --accent: 260 40% 96%;
+    --accent-foreground: 260 40% 14%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 152 45% 40%;
+    --radius: 0.625rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
