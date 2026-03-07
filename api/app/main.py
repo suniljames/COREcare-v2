@@ -10,7 +10,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.routers.caregivers import router as caregivers_router
+from app.routers.charts import router as charts_router
 from app.routers.clients import router as clients_router
+from app.routers.credentials import router as credentials_router
 from app.routers.shifts import router as shifts_router
 from app.routers.users import router as users_router
 
@@ -68,6 +70,8 @@ def create_app() -> FastAPI:
     app.include_router(clients_router)
     app.include_router(caregivers_router)
     app.include_router(shifts_router)
+    app.include_router(charts_router)
+    app.include_router(credentials_router)
 
     @app.get("/healthz")
     async def healthz() -> dict[str, str]:
