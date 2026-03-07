@@ -2,7 +2,7 @@
 name = "corecare-api"
 version = "2.0.0"
 description = "COREcare v2 API — FastAPI backend for multi-tenant home care SaaS"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.14"
 dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.34",
@@ -20,7 +20,7 @@ dependencies = [
     "python-multipart>=0.0.18",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "pytest>=8.3",
     "pytest-asyncio>=0.24",
@@ -50,6 +50,9 @@ plugins = ["pydantic.mypy"]
 asyncio_mode = "auto"
 testpaths = ["app/tests"]
 addopts = "--tb=short -q"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
 
 [build-system]
 requires = ["hatchling"]

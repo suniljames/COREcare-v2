@@ -1,10 +1,36 @@
 """COREcare v2 API — FastAPI application factory."""
 
-from fastapi import FastAPI
+import time
+from collections.abc import Callable
+from typing import Any
+
+import structlog
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+
+from app.config import settings
+
+logger = structlog.get_logger()
+
+
+def setup_logging() -> None:
+    """Configure structlog for structured JSON logging."""
+    structlog.configure(
+        processors=[
+            structlog.contextvars.merge_contextvars,
+            structlog.processors.add_log_level,
+            structlog.processors.TimeStamper(fmt="iso"),
+            structlog.dev.ConsoleRenderer()
+            if settings.debug
+            else structlog.processors.JSONRenderer(),
+        ],
+        logger_factory=structlog.PrintLoggerFactory(),
+    )
 
 
 def create_app() -> FastAPI:
+    setup_logging()
+
     app = FastAPI(
         title="COREcare v2 API",
         version="2.0.0",
@@ -19,6 +45,20 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    @app.middleware("http")
+    async def log_requests(request: Request, call_next: Callable[..., Any]) -> Response:
+        start = time.monotonic()
+        response: Response = await call_next(request)
+        elapsed = time.monotonic() - start
+        await logger.ainfo(
+            "request",
+            method=request.method,
+            path=request.url.path,
+            status=response.status_code,
+            duration_ms=round(elapsed * 1000, 2),
+        )
+        return response
 
     @app.get("/healthz")
     async def healthz() -> dict[str, str]:
