@@ -82,7 +82,7 @@ Read `.claude/commands/references/code-review-lenses.md` for role definitions.
 Each of the 9 members reviews the diff, categorizing findings as MUST-FIX, SHOULD-FIX, or NIT.
 Post each review as a PR comment.
 
-### B.3: Judge synthesizes
+### B.3: Engineering Manager synthesizes
 
 Collect all MUST-FIX and SHOULD-FIX items. NITs noted but don't block.
 If zero MUST-FIX and zero SHOULD-FIX, break out of loop.
@@ -97,7 +97,7 @@ On subsequent rounds, only affected members re-review new commits.
 
 ## Loop exit
 
-Judge posts APPROVED sign-off comment. If MAX_ROUNDS reached with MUST-FIX,
+Engineering Manager posts APPROVED sign-off comment. If MAX_ROUNDS reached with MUST-FIX,
 create follow-up issues but don't block merge.
 
 ---
