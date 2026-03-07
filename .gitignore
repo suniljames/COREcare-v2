@@ -56,3 +56,4 @@ playwright-report/
 # Misc
 *.log
 *.pid
+test.db
