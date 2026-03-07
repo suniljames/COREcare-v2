@@ -2,19 +2,7 @@
 
 Multi-tenant SaaS platform for home care coordination. Ground-up rebuild with FastAPI + Next.js 15 + shadcn/ui + PostgreSQL RLS + Clerk + Claude API.
 
-> **For everyone.** This file is the universal entry point for all developers — human, Claude Code, Gemini, or any future agent. Read this first, then read your agent-specific file if applicable.
-
-## Directives
-
-This project follows the engineering directives at [`suniljames/directives`](https://github.com/suniljames/directives). Read them for:
-- [Team structure & personas](https://github.com/suniljames/directives/blob/main/process/committee-process.md)
-- [Pipeline & workflow](https://github.com/suniljames/directives/blob/main/process/pipeline.md)
-- [Agent architecture](https://github.com/suniljames/directives/blob/main/process/agent-architecture.md)
-- [Safety guardrails](https://github.com/suniljames/directives/blob/main/process/safety.md)
-- [Code review framework](https://github.com/suniljames/directives/blob/main/process/code-review-framework.md)
-- [Test budget policy](https://github.com/suniljames/directives/blob/main/process/test-budget.md)
-- [PRD template](https://github.com/suniljames/directives/blob/main/process/prd-template.md)
-- [Healthcare overlay](https://github.com/suniljames/directives/blob/main/overlays/healthcare/) (HIPAA, PHI handling)
+This project follows the [engineering directives](https://github.com/suniljames/directives) (includes [healthcare overlay](https://github.com/suniljames/directives/blob/main/overlays/healthcare/)).
 
 ## Tech Stack
 
@@ -46,11 +34,20 @@ Test accounts (seeded by `make api-seed`):
 | Family 1 | family1@test.com | `TestFamily123!` |
 | Family 2 | family2@test.com | `TestFamily123!` |
 
+```bash
+make check        # Lint + typecheck + test + build (must pass before PRs)
+make test         # All tests
+make api-test     # API tests only
+make web-test     # Web tests only
+make test-e2e     # E2E tests (requires Docker stack)
+```
+
+Tailscale for network access from other devices.
+
 ## Project Docs
 
 | Topic | File |
 |-------|------|
-| Access & credentials | [`docs/developer/SETUP.md`](docs/developer/SETUP.md) |
 | Architecture & patterns | [`docs/developer/ARCHITECTURE.md`](docs/developer/ARCHITECTURE.md) |
 | Testing guide | [`docs/developer/TESTING.md`](docs/developer/TESTING.md) |
 | Safety (project-specific) | [`docs/developer/SAFETY.md`](docs/developer/SAFETY.md) |
@@ -58,24 +55,3 @@ Test accounts (seeded by `make api-seed`):
 | Project context | [`docs/developer/project-context.md`](docs/developer/project-context.md) |
 | Design system | [`docs/design-system/`](docs/design-system/) |
 | ADRs | [`docs/adr/`](docs/adr/) |
-
-## Agent-Specific Config
-
-| Agent | File |
-|-------|------|
-| Claude Code | [`CLAUDE.md`](CLAUDE.md) |
-| Gemini | [`GEMINI.md`](GEMINI.md) |
-
-## GitHub Identity
-
-All developers (human and AI) operate as `suniljames`. See [`docs/developer/SETUP.md`](docs/developer/SETUP.md) for access setup.
-
-## Deployment
-
-**Local only.** Docker Compose on Mac Mini. No cloud hosting.
-
-```bash
-docker compose up --build -d && curl http://localhost:8000/healthz
-```
-
-Tailscale for network access from other devices.
