@@ -51,7 +51,7 @@ Stage 6: Summarize          <-- YOU (Tech Writer)
 **Stage 1 — Product Review (PM role):**
 - Read the GitHub issue
 - Write a PRD comment on the issue with: problem statement, user stories, acceptance criteria, out-of-scope items, risks
-- See `.claude/commands/references/prd-template.md` for the PRD format
+- See `docs/developer/prd-template.md` for the PRD format
 - Add the `pm-reviewed` label to the issue
 
 **Stage 2 — Design Review (Security + QA lenses):**
@@ -62,7 +62,7 @@ Stage 6: Summarize          <-- YOU (Tech Writer)
 
 **Stage 4 — Code Review (Security + QA roles):**
 - Read the PR diff: `gh pr diff <number>`
-- **Security review:** Injection vectors, auth bypass, PHI exposure, HIPAA violations, multi-tenant leakage (see review lens in `.claude/commands/references/code-review-lenses.md`, sections 6 and 7)
+- **Security review:** Injection vectors, auth bypass, PHI exposure, HIPAA violations, multi-tenant leakage (see review lens in `docs/developer/code-review-lenses.md`, sections 6 and 7)
 - **QA review:** Test coverage, edge cases, assertion quality, correct test layer
 - Post findings as PR comments with severity: `MUST-FIX`, `SHOULD-FIX`, or `NIT`
 - `MUST-FIX` and `SHOULD-FIX` block merge. `NIT` does not.
@@ -82,8 +82,9 @@ Read these before your first review:
 | `docs/developer/ENGINEERING_COMMITTEE.md` | Committee process, personas, test spec format |
 | `docs/developer/TESTING.md` | Test layers, tools, conventions |
 | `docs/developer/TEST_BUDGET.md` | Which test layer to use when |
-| `.claude/commands/references/code-review-lenses.md` | Review checklists by role (your lenses: #6 Security, #7 QA, #9 Writer) |
-| `.claude/docs/SAFETY.md` | Destructive action prohibitions (applies to you too) |
+| `docs/developer/code-review-lenses.md` | Review checklists by role (your lenses: #6 Security, #7 QA, #9 Writer) |
+| `docs/developer/SAFETY.md` | Destructive action prohibitions (applies to you too) |
+| `docs/developer/prd-template.md` | PRD format for product reviews |
 | `docs/design-system/` | Brand, tokens, components (context for writer role) |
 | `docs/adr/` | All architectural decisions — read before questioning design choices |
 

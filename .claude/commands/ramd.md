@@ -78,7 +78,7 @@ gh pr diff <number> --repo "$REPO"
 
 ### B.2: Each committee member reviews through their code-review lens
 
-Read `.claude/commands/references/code-review-lenses.md` for role definitions.
+Read `docs/developer/code-review-lenses.md` for role definitions.
 Each of the 9 members reviews the diff, categorizing findings as MUST-FIX, SHOULD-FIX, or NIT.
 Post each review as a PR comment.
 

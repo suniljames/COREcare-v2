@@ -74,4 +74,4 @@ Full persona: [`11-pm.md`](../organization/engineering/personas/11-pm.md)
 
 ## Code Review Lenses (for /ramd)
 
-See `.claude/commands/references/code-review-lenses.md` for role definitions, severity levels, and skip conditions.
+See `docs/developer/code-review-lenses.md` for role definitions, severity levels, and skip conditions.
