@@ -52,7 +52,7 @@ Follow `docs/developer/ENGINEERING_COMMITTEE.md`:
 2. Each committee member posts their review **in order** (1-9), reading ALL prior comments
    - Post each review as a separate GitHub issue comment
    - **Committee is primed for FastAPI + Next.js 15 + shadcn/ui + PostgreSQL RLS + Clerk**
-3. The Judge synthesizes all feedback into a final unified plan
+3. The Engineering Manager synthesizes all feedback into a final unified plan
 4. **Overwrite-to-final-consensus:** Members whose positions changed overwrite their comments
    - QA Engineer overwrite rule: behavior changes only, not UI-treatment-only
 5. Update the issue title and description to include:

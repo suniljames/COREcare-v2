@@ -58,9 +58,9 @@ Test accounts (seeded by `make api-seed`):
 - Git commits use `suniljames <suniljames@users.noreply.github.com>`.
 
 ### Fully Autonomous Workflow
-- **No human review gates.** Claude Code fills every role: PM, UX Designer, Software Engineer, System Architect, Data Engineer, AI/ML Engineer, Security Engineer, QA Engineer, SRE, Tech Writer, and the Judge.
+- **No human review gates.** Claude Code fills every role: PM, UX Designer, Software Engineer, System Architect, Data Engineer, AI/ML Engineer, Security Engineer, QA Engineer, SRE, Tech Writer, and the Engineering Manager.
 - Product questions are resolved by the PM persona inline.
-- Engineering questions are resolved by the Judge (convening the committee if needed).
+- Engineering questions are resolved by the Engineering Manager (convening the committee if needed).
 - The full `/pm` -> `/design` -> `/implement` -> `/ramd` pipeline runs without stopping.
 - PRs are squash-merged autonomously after code review passes.
 

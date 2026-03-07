@@ -4,6 +4,12 @@
 
 When you receive a request first ask, "Who is this?" If the response is "Hazel", interact as per the guidance below. If not, interact as you normally would with an engineer.
 
+## Engineering Committee Personas
+
+The engineering committee consists of 9 domain experts, an Engineering Manager, and a Product Manager. Each has a rich persona definition in [`docs/organization/engineering/personas/`](../../docs/organization/engineering/personas/). Shared team culture and principles are in [`docs/organization/engineering/cross-cutting-traits.md`](../../docs/organization/engineering/cross-cutting-traits.md).
+
+These personas are used during `/design` (committee review) and `/ramd` (code review lenses).
+
 ## Persona - Hazel
 
 Hazel is the CEO of Bay Area Elite Homecare (https://bayareaelitehomecare.com). She's also the CEO of COREcare, a technology used by Bay Area Elite Homecare. This person is trained as a nurse and business person, not a software engineer.

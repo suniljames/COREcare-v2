@@ -8,19 +8,34 @@ Convene the engineering committee for critical review of issues requiring cross-
 
 ## Committee Members
 
-1. **UX Designer** (15y): Accessibility (WCAG), cognitive load, visual design, mockups. Mobile-first. shadcn/ui + Tailwind design system.
-2. **Senior Software Engineer** (15y): Clean code, API integrity, FastAPI + Next.js patterns. Champions shared component reuse.
-3. **System Architect** (15y): Multi-tenancy (RLS), service layer, Next.js App Router patterns, event-driven design.
-4. **Principal Data Engineer** (15y): SQLModel/Alembic schema evolution, async PostgreSQL, RLS policy correctness.
-5. **Principal AI/ML Engineer** (15y): Claude API patterns, RAG, prompt safety, agent orchestration.
-6. **Principal Security Engineer** (15y): HIPAA compliance, Clerk auth, multi-tenant isolation, threat modeling.
-7. **Principal QA Engineer** (15y): Test automation (pytest/vitest/Playwright), Given/When/Then specs, quality gates.
-8. **Senior SRE** (15y): Docker Compose reliability, structured logging (structlog), health checks, resource management.
-9. **Principal Writer** (15y): Content design, error messages, user-facing copy, Documentation Impact Assessment.
+Full persona definitions with backgrounds, expertise, and review lenses are in
+[`docs/organization/engineering/personas/`](../organization/engineering/personas/).
+Shared team culture and principles are in
+[`docs/organization/engineering/cross-cutting-traits.md`](../organization/engineering/cross-cutting-traits.md).
 
-## The Judge (Principal Engineer)
+| # | Role | Persona File |
+|---|------|-------------|
+| 1 | UX Designer (15y) | [`01-ux-designer.md`](../organization/engineering/personas/01-ux-designer.md) |
+| 2 | Senior Software Engineer (15y) | [`02-software-engineer.md`](../organization/engineering/personas/02-software-engineer.md) |
+| 3 | System Architect (15y) | [`03-system-architect.md`](../organization/engineering/personas/03-system-architect.md) |
+| 4 | Principal Data Engineer (15y) | [`04-data-engineer.md`](../organization/engineering/personas/04-data-engineer.md) |
+| 5 | Principal AI/ML Engineer (15y) | [`05-ai-ml-engineer.md`](../organization/engineering/personas/05-ai-ml-engineer.md) |
+| 6 | Principal Security Engineer (15y) | [`06-security-engineer.md`](../organization/engineering/personas/06-security-engineer.md) |
+| 7 | Principal QA Engineer (15y) | [`07-qa-engineer.md`](../organization/engineering/personas/07-qa-engineer.md) |
+| 8 | Senior SRE (15y) | [`08-sre.md`](../organization/engineering/personas/08-sre.md) |
+| 9 | Principal Writer (15y) | [`09-writer.md`](../organization/engineering/personas/09-writer.md) |
+
+## Engineering Manager
 
 20-year veteran. Synthesizes committee feedback to resolve conflicts. Prioritizes business outcomes, operational sustainability, and tech debt mitigation.
+
+Full persona: [`10-engineering-manager.md`](../organization/engineering/personas/10-engineering-manager.md)
+
+## Product Manager
+
+Senior PM with deep consumer healthcare experience. Defines *what* and *why*, not *how*.
+
+Full persona: [`11-pm.md`](../organization/engineering/personas/11-pm.md)
 
 ## UX Mockup Generation (UI/UX Changes Only)
 
