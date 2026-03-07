@@ -8,6 +8,7 @@ from app.models.caregiver import CaregiverProfile
 from app.models.chart import Chart, ChartStatus, ChartTemplate
 from app.models.client import Client, ClientStatus, FamilyLink
 from app.models.credential import Credential, CredentialStatus, CredentialType
+from app.models.notification import Message, Notification, NotificationType, PushSubscription
 from app.models.payroll import PayrollEntry, PayrollPeriod, PayrollPeriodStatus
 from app.models.shift import Shift, ShiftStatus
 from app.models.user import User, UserRole
@@ -31,9 +32,13 @@ __all__ = [
     "Invoice",
     "InvoiceLineItem",
     "InvoiceStatus",
+    "Message",
+    "Notification",
+    "NotificationType",
     "PayrollEntry",
     "PayrollPeriod",
     "PayrollPeriodStatus",
+    "PushSubscription",
     "Shift",
     "ShiftOffer",
     "ShiftOfferStatus",
