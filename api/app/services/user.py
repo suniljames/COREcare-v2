@@ -42,8 +42,12 @@ class UserService:
         total = total_result.scalar() or 0
 
         # Apply pagination
-        query = query.offset((page - 1) * size).limit(size).order_by(
-            User.created_at.desc()  # type: ignore[attr-defined]
+        query = (
+            query.offset((page - 1) * size)
+            .limit(size)
+            .order_by(
+                User.created_at.desc()  # type: ignore[attr-defined]
+            )
         )
         result = await self.session.execute(query)
         users = list(result.scalars().all())

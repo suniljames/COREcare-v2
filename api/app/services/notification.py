@@ -2,7 +2,6 @@
 
 import uuid
 from datetime import UTC, datetime
-
 from typing import Any
 
 from sqlalchemy import and_, distinct, func, or_, select
