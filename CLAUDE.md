@@ -13,7 +13,9 @@ Multi-tenant SaaS platform for home care coordination. Ground-up rebuild with Fa
 | Testing | See `docs/developer/TESTING.md` | pytest/vitest/Playwright guides |
 | Test Budget | See `docs/developer/TEST_BUDGET.md` | Layer decision checklist |
 | Design System | See `docs/design-system/` | Brand, tokens, components, responsive, a11y |
-| Safety & Guardrails | See `.claude/docs/SAFETY.md` | Destructive action prohibitions (shared rules, Claude path) |
+| Safety & Guardrails | See `docs/developer/SAFETY.md` | Destructive action prohibitions |
+| PRD Template | See `docs/developer/prd-template.md` | Product requirements document format |
+| Code Review Lenses | See `docs/developer/code-review-lenses.md` | Role-specific review checklists and severity levels |
 | Personas | See `.claude/docs/PERSONAS.md` | Hazel interaction guide (Claude-specific) |
 | Workflow | See `.claude/docs/WORKFLOW.md` | Issue lifecycle details (Claude-specific) |
 
@@ -116,7 +118,7 @@ Each agent implements this pipeline using its own tooling. Claude Code uses `/pm
 - See `docs/developer/TESTING.md` for backend/frontend test guides.
 
 ### Safety & Guardrails
-- See `.claude/docs/SAFETY.md` for the full list. Key rules:
+- See `docs/developer/SAFETY.md` for the full list. Key rules:
 - **Never** delete repos, databases, or broad paths. **Never** force-push. **Never** expose PHI.
 - **Never** commit secrets. **Stop and ask** if a destructive action seems necessary.
 
