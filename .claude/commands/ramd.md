@@ -40,7 +40,7 @@ Closes #<issue-number>
 - [ ] CI passes
 - [ ] Docker health check passes
 EOF
-)" --label "ai:claude-code"
+)" --label "ai:autonomous"
 ```
 
 ---

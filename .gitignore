@@ -42,7 +42,7 @@ htmlcov/
 coverage/
 *.lcov
 
-# Claude Code
+# AI Agent
 .claude/worktrees/
 .claude/memory/progress/*.md
 
