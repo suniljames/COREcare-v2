@@ -30,6 +30,7 @@ dev = [
     "mypy>=1.13",
     "factory-boy>=3.3",
     "aiosqlite>=0.20",
+    "types-python-jose>=3.5.0.20250531",
 ]
 
 [tool.ruff]
