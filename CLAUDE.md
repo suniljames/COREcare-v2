@@ -2,18 +2,20 @@
 
 Multi-tenant SaaS platform for home care coordination. Ground-up rebuild with FastAPI + Next.js 15 + shadcn/ui + PostgreSQL RLS + Clerk + Claude API.
 
+> **For all AI agents.** Sections under "Project Rules" apply to every agent working in this repo (Claude Code, Gemini, or any future agent). Sections under "Claude Code Agent Config" are Claude-specific — Gemini should read them for context but follow its own `GEMINI.md` for agent-specific behavior.
+
 ## Documentation Index
 
 | Topic | File | Description |
 |-------|------|-------------|
-| Personas | See `.claude/docs/PERSONAS.md` | Hazel interaction guide |
-| Engineering Committee | See `docs/developer/ENGINEERING_COMMITTEE.md` | Committee review process |
-| Workflow | See `.claude/docs/WORKFLOW.md` | Fully autonomous issue lifecycle |
-| Safety & Guardrails | See `.claude/docs/SAFETY.md` | Destructive action prohibitions |
+| Agent Split | See `docs/adr/009-multi-agent-engineering-split.md` | Role assignments, rationale, coordination protocol |
+| Engineering Committee | See `docs/developer/ENGINEERING_COMMITTEE.md` | Committee review process, personas, test spec format |
 | Testing | See `docs/developer/TESTING.md` | pytest/vitest/Playwright guides |
 | Test Budget | See `docs/developer/TEST_BUDGET.md` | Layer decision checklist |
 | Design System | See `docs/design-system/` | Brand, tokens, components, responsive, a11y |
-| Agent Split | See `docs/adr/009-multi-agent-engineering-split.md` | Claude Code vs Gemini role assignments |
+| Safety & Guardrails | See `.claude/docs/SAFETY.md` | Destructive action prohibitions (shared rules, Claude path) |
+| Personas | See `.claude/docs/PERSONAS.md` | Hazel interaction guide (Claude-specific) |
+| Workflow | See `.claude/docs/WORKFLOW.md` | Issue lifecycle details (Claude-specific) |
 
 ---
 
@@ -51,7 +53,9 @@ Test accounts (seeded by `make api-seed`):
 
 ---
 
-## Critical Rules (Always Apply)
+# Project Rules (All Agents)
+
+These rules apply to every AI agent working in this repo.
 
 ### GitHub Identity
 - **All GitHub operations must be performed as `suniljames`.**
@@ -63,14 +67,30 @@ Test accounts (seeded by `make api-seed`):
 - **Claude Code owns:** Engineering Manager, Software Engineer, System Architect, Data Engineer, AI/ML Engineer, UX Designer, SRE.
 - **Gemini owns:** Security Engineer, QA Engineer, PM, Tech Writer.
 - **Flow:** Gemini PM defines requirements → Claude Code builds → Gemini QA/Security validates → Claude Code addresses feedback.
+- The builder and validator should be different models to maximize independent verification.
 - See `docs/adr/009-multi-agent-engineering-split.md` for full rationale and coordination protocol.
 
-### Fully Autonomous Workflow
-- **No human review gates.** The AI agent fills every role: PM, UX Designer, Software Engineer, System Architect, Data Engineer, AI/ML Engineer, Security Engineer, QA Engineer, SRE, Tech Writer, and the Engineering Manager.
-- Product questions are resolved by the PM persona inline.
-- Engineering questions are resolved by the Engineering Manager (convening the committee if needed).
-- The full `/pm` -> `/design` -> `/implement` -> `/ramd` pipeline runs without stopping.
-- PRs are squash-merged autonomously after code review passes.
+### Autonomous Workflow (Abstract Pipeline)
+
+No human review gates. The pipeline runs end-to-end without stopping. Each stage produces artifacts the next stage consumes.
+
+| Stage | Purpose | Produces | Label |
+|-------|---------|----------|-------|
+| **1. Product Review** | Evaluate the issue, write a PRD with acceptance criteria | PRD comment on the GitHub issue | `pm-reviewed` |
+| **2. Design Review** | Engineering committee reviews feasibility, architecture, UX, security | Design decision + test specification comments | `design-complete` |
+| **3. Implementation** | TDD: scaffold failing tests → implement → green → refactor | Code in a feature branch, all tests passing | `implementing` |
+| **4. Code Review & Merge** | CI gate → autonomous eng-committee code review (up to 3 rounds) → squash merge | Merged PR | `merged` |
+| **5. Deploy & Verify** | Docker rebuild, health check, close issue | Running deployment | Issue closed |
+| **6. Summarize** (optional) | Plain-language stakeholder summary | Summary comment | `summarized` |
+
+Each agent implements this pipeline using its own tooling. Claude Code uses `/pm`, `/design`, `/implement`, `/ramd`, `/summarize` slash commands. Gemini uses its equivalent commands. The labels and artifacts are the shared contract — tooling is agent-specific.
+
+### Cross-Agent Handoff Protocol
+- **The repo is the source of truth.** All handoffs happen through files, PR comments, and issue comments — never through inter-agent messages.
+- **Structured artifacts:** PRDs, test reports, security findings, and review comments follow defined formats (see `docs/developer/ENGINEERING_COMMITTEE.md` for test spec format).
+- **Label-driven coordination:** Agents check GitHub issue labels to determine which pipeline stage is complete before proceeding.
+- **PR labels:** All autonomously created PRs are labeled `ai:autonomous`.
+- **Review findings:** Posted as PR comments with severity levels: `MUST-FIX`, `SHOULD-FIX`, `NIT`.
 
 ### Data Verification
 - **Never report data loss without full verification.**
@@ -95,16 +115,37 @@ Test accounts (seeded by `make api-seed`):
 - CI runs against PostgreSQL 16.
 - See `docs/developer/TESTING.md` for backend/frontend test guides.
 
-### Session Isolation
-- **Every code change must be associated with a GitHub issue.**
-- **The main checkout must stay on `main`.** All feature work happens in worktrees.
-- Use `claude -w` or `EnterWorktree` for isolation.
-- Resume with `claude --from-pr <url>`.
+### Safety & Guardrails
+- See `.claude/docs/SAFETY.md` for the full list. Key rules:
+- **Never** delete repos, databases, or broad paths. **Never** force-push. **Never** expose PHI.
+- **Never** commit secrets. **Stop and ask** if a destructive action seems necessary.
 
 ### Deployment
 - **Local only.** Docker Compose on Mac Mini. No cloud hosting.
 - `docker compose up --build -d && curl http://localhost:8000/healthz`
 - Tailscale for network access from other devices.
+
+### Session Isolation
+- **Every code change must be associated with a GitHub issue.**
+- **The main checkout must stay on `main`.** All feature work happens in isolated branches or worktrees.
+
+---
+
+# Claude Code Agent Config
+
+These sections are specific to Claude Code. Other agents: read for context, follow your own config.
+
+### Worktree & Session Management
+- Use `claude -w` or `EnterWorktree` for branch isolation.
+- Resume with `claude --from-pr <url>`.
+- Progress tracked at `.claude/memory/progress/<issue-number>-progress.md`.
+
+### Pipeline Commands
+- `/pm` — Product review (PRD generation)
+- `/design` — Engineering committee design review
+- `/implement` — TDD implementation in a worktree
+- `/ramd` — Review gates, approve, merge, deploy
+- `/summarize` — Stakeholder summary
 
 ### For Hazel
 - Always ask "Who is this?" at the start of a conversation.
