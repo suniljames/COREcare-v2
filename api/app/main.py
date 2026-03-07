@@ -9,10 +9,12 @@ from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
+from app.routers.ai import router as ai_router
 from app.routers.billing import router as billing_router
 from app.routers.caregivers import router as caregivers_router
 from app.routers.charts import router as charts_router
 from app.routers.clients import router as clients_router
+from app.routers.compliance import router as compliance_router
 from app.routers.credentials import router as credentials_router
 from app.routers.dashboard import router as dashboard_router
 from app.routers.notifications import router as notifications_router
@@ -80,6 +82,8 @@ def create_app() -> FastAPI:
     app.include_router(billing_router)
     app.include_router(notifications_router)
     app.include_router(dashboard_router)
+    app.include_router(compliance_router)
+    app.include_router(ai_router)
 
     @app.get("/healthz")
     async def healthz() -> dict[str, str]:
