@@ -4,31 +4,17 @@ Multi-tenant SaaS platform for home care coordination. Ground-up rebuild with Fa
 
 > **For everyone.** This file is the universal entry point for all developers — human, Claude Code, Gemini, or any future agent. Read this first, then read your agent-specific file if applicable.
 
-## Documentation Index
+## Directives
 
-| Topic | File |
-|-------|------|
-| **Getting Started** | |
-| Access & credentials setup | [`docs/developer/SETUP.md`](docs/developer/SETUP.md) |
-| Project rules (mandatory) | [`docs/developer/PROJECT_RULES.md`](docs/developer/PROJECT_RULES.md) |
-| **How We Work** | |
-| Team structure & personas | [`docs/developer/TEAM.md`](docs/developer/TEAM.md) |
-| Pipeline & workflow | [`docs/developer/PIPELINE.md`](docs/developer/PIPELINE.md) |
-| Architecture & patterns | [`docs/developer/ARCHITECTURE.md`](docs/developer/ARCHITECTURE.md) |
-| **Quality** | |
-| Testing guide | [`docs/developer/TESTING.md`](docs/developer/TESTING.md) |
-| Test layer budget | [`docs/developer/TEST_BUDGET.md`](docs/developer/TEST_BUDGET.md) |
-| Safety & guardrails | [`docs/developer/SAFETY.md`](docs/developer/SAFETY.md) |
-| Code review lenses | [`docs/developer/code-review-lenses.md`](docs/developer/code-review-lenses.md) |
-| PRD template | [`docs/developer/prd-template.md`](docs/developer/prd-template.md) |
-| **Design** | |
-| Design system | [`docs/design-system/`](docs/design-system/) |
-| **Decisions** | |
-| ADRs | [`docs/adr/`](docs/adr/) |
-| Agent split rationale | [`docs/adr/009-multi-agent-engineering-split.md`](docs/adr/009-multi-agent-engineering-split.md) |
-| **Agent-Specific** | |
-| Claude Code config | [`CLAUDE.md`](CLAUDE.md) |
-| Gemini config | [`GEMINI.md`](GEMINI.md) |
+This project follows the engineering directives at [`suniljames/directives`](https://github.com/suniljames/directives). Read them for:
+- [Team structure & personas](https://github.com/suniljames/directives/blob/main/process/committee-process.md)
+- [Pipeline & workflow](https://github.com/suniljames/directives/blob/main/process/pipeline.md)
+- [Agent architecture](https://github.com/suniljames/directives/blob/main/process/agent-architecture.md)
+- [Safety guardrails](https://github.com/suniljames/directives/blob/main/process/safety.md)
+- [Code review framework](https://github.com/suniljames/directives/blob/main/process/code-review-framework.md)
+- [Test budget policy](https://github.com/suniljames/directives/blob/main/process/test-budget.md)
+- [PRD template](https://github.com/suniljames/directives/blob/main/process/prd-template.md)
+- [Healthcare overlay](https://github.com/suniljames/directives/blob/main/overlays/healthcare/) (HIPAA, PHI handling)
 
 ## Tech Stack
 
@@ -60,9 +46,36 @@ Test accounts (seeded by `make api-seed`):
 | Family 1 | family1@test.com | `TestFamily123!` |
 | Family 2 | family2@test.com | `TestFamily123!` |
 
-## Next Steps
+## Project Docs
 
-1. Read [`docs/developer/SETUP.md`](docs/developer/SETUP.md) to configure access.
-2. Read [`docs/developer/PROJECT_RULES.md`](docs/developer/PROJECT_RULES.md) — these are mandatory.
-3. If you are an AI agent, read your agent file ([`CLAUDE.md`](CLAUDE.md) or [`GEMINI.md`](GEMINI.md)).
-4. Browse the documentation index above for deeper reference.
+| Topic | File |
+|-------|------|
+| Access & credentials | [`docs/developer/SETUP.md`](docs/developer/SETUP.md) |
+| Architecture & patterns | [`docs/developer/ARCHITECTURE.md`](docs/developer/ARCHITECTURE.md) |
+| Testing guide | [`docs/developer/TESTING.md`](docs/developer/TESTING.md) |
+| Safety (project-specific) | [`docs/developer/SAFETY.md`](docs/developer/SAFETY.md) |
+| Code review lenses | [`docs/developer/code-review-lenses.md`](docs/developer/code-review-lenses.md) |
+| Project context | [`docs/developer/project-context.md`](docs/developer/project-context.md) |
+| Design system | [`docs/design-system/`](docs/design-system/) |
+| ADRs | [`docs/adr/`](docs/adr/) |
+
+## Agent-Specific Config
+
+| Agent | File |
+|-------|------|
+| Claude Code | [`CLAUDE.md`](CLAUDE.md) |
+| Gemini | [`GEMINI.md`](GEMINI.md) |
+
+## GitHub Identity
+
+All developers (human and AI) operate as `suniljames`. See [`docs/developer/SETUP.md`](docs/developer/SETUP.md) for access setup.
+
+## Deployment
+
+**Local only.** Docker Compose on Mac Mini. No cloud hosting.
+
+```bash
+docker compose up --build -d && curl http://localhost:8000/healthz
+```
+
+Tailscale for network access from other devices.

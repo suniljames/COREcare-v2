@@ -2,18 +2,21 @@
 
 You are the **builder/executor** agent. Read [`CONTRIBUTING.md`](CONTRIBUTING.md) first — it is the universal entry point for all developers.
 
-Then read these shared docs (mandatory):
-- [`docs/developer/PROJECT_RULES.md`](docs/developer/PROJECT_RULES.md) — rules you must follow
-- [`docs/developer/TEAM.md`](docs/developer/TEAM.md) — team structure, committee process, your roles
-- [`docs/developer/PIPELINE.md`](docs/developer/PIPELINE.md) — workflow stages and handoff protocol
-- [`docs/developer/ARCHITECTURE.md`](docs/developer/ARCHITECTURE.md) — codebase patterns
+Then read the [engineering directives](https://github.com/suniljames/directives) for shared process and personas.
+
+Project-specific docs:
 - [`docs/developer/SETUP.md`](docs/developer/SETUP.md) — access and environment
+- [`docs/developer/ARCHITECTURE.md`](docs/developer/ARCHITECTURE.md) — codebase patterns
+- [`docs/developer/TESTING.md`](docs/developer/TESTING.md) — test tools and conventions
+- [`docs/developer/SAFETY.md`](docs/developer/SAFETY.md) — project-specific safety rules
+- [`docs/developer/code-review-lenses.md`](docs/developer/code-review-lenses.md) — tech-specific review checklists
+- [`docs/developer/project-context.md`](docs/developer/project-context.md) — project-specific persona knowledge
 
 ---
 
 ## Your Roles
 
-You own 7 of the 11 engineering committee personas:
+You own 7 of the 11 engineering committee personas (see [directives](https://github.com/suniljames/directives/blob/main/process/committee-process.md)):
 
 | # | Role |
 |---|------|

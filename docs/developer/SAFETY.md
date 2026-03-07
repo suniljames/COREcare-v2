@@ -1,24 +1,8 @@
-# Safety & Guardrails
+# Safety & Guardrails (COREcare-Specific)
 
-## Behavioral Rules
+For universal safety rules, see the [engineering directives](https://github.com/suniljames/directives/blob/main/process/safety.md). For HIPAA-specific rules, see the [healthcare overlay](https://github.com/suniljames/directives/blob/main/overlays/healthcare/safety-addendum.md).
 
-- **Never delete** repositories, services, or databases
-- **Never** `rm -rf` on broad paths (`/`, `~`, `.`, `/Users`, etc.)
-- **Never** `git push --force` (use `--force-with-lease` if necessary)
-- **Never** `git reset --hard`, `git clean -f`, `git branch -D main`
-- **Never** `DROP DATABASE`, `DROP TABLE`, `TRUNCATE TABLE`
-- **Never** pipe remote content to shell (`curl | bash`)
-- **Never** `chmod 777`, `pkill -9`, `killall -9`
-- **Never** expose PHI in logs, error messages, or API responses
-- **Never** commit secrets (.env files, API keys)
-- **Stop and ask** if a destructive action seems genuinely necessary
-
-## Safe Branch-Switching
-
-1. Prefer `git worktree` over stash
-2. If stashing, use `git stash push -m "descriptive message"`
-3. Never drop a stash after failed pop
-4. Verify restoration after switching back
+This file covers COREcare project-specific safety only.
 
 ## Docker Safety
 
@@ -32,3 +16,10 @@
 - Never bypass RLS except for super-admin operations
 - Test tenant isolation in every data-access service test
 - Log all cross-tenant access attempts
+
+## Safe Branch-Switching
+
+1. Prefer `git worktree` over stash
+2. If stashing, use `git stash push -m "descriptive message"`
+3. Never drop a stash after failed pop
+4. Verify restoration after switching back

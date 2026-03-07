@@ -1,7 +1,7 @@
 # Code Review Lenses
 
-> Detailed persona backgrounds, career histories, and full expertise profiles are in
-> [`docs/organization/engineering/personas/`](../organization/engineering/personas/).
+> Persona backgrounds and generic review lenses are in the [engineering directives](https://github.com/suniljames/directives/blob/main/process/code-review-framework.md).
+> Below are the **COREcare-specific** technology checklists for each role.
 
 Each engineering committee member reviews the PR diff through a **code-review-specific**
 lens during `/ramd` Phase B.
