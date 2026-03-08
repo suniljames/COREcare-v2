@@ -43,13 +43,13 @@ If purely backend/API/infra, skip mockups.
 
 ## Conduct the committee review
 
-Follow `docs/developer/ENGINEERING_COMMITTEE.md`:
+Follow the [committee process](https://github.com/suniljames/directives/blob/main/teams/engineering/process/committee-process.md):
 
 1. **If UI/UX change:** UX Designer documents Design Direction and generates SVG mockups
    - Create `docs/mockups/<issue-number>/` directory
    - Generate high-fidelity SVGs consistent with `docs/design-system/`
    - Commit and push the SVGs
-2. Each committee member posts their review **in order** (1-9), reading ALL prior comments
+2. Each committee member posts their review **in review order** (per manifest), reading ALL prior comments
    - Post each review as a separate GitHub issue comment
    - **Committee is primed for FastAPI + Next.js 15 + shadcn/ui + PostgreSQL RLS + Clerk**
 3. The Engineering Manager synthesizes all feedback into a final unified plan
