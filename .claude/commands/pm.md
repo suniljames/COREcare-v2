@@ -13,7 +13,7 @@ Use `--repo "$REPO"` on every `gh` command.
 
 ## Persona
 
-Read `docs/organization/engineering/personas/11-pm.md` for the PM persona.
+Read the [PM persona](https://github.com/suniljames/directives/blob/main/teams/engineering/personas/pm.md).
 
 Read `.claude/pm-context.md` for domain context (in-home medical care, HIPAA,
 multi-tenant SaaS, care workflows, compliance requirements, stakeholder personas).
