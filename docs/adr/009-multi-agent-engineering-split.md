@@ -10,7 +10,7 @@ A single AI model acting as both builder and validator creates correlated failur
 
 ## Decision
 
-Split engineering agent roles across two LLM backends: **Claude Code** (builder/executor) and **Google Gemini** (validator/risk manager).
+Split engineering agent roles across two LLM backends: **Claude Code** (builder) and **Google Gemini** (validator).
 
 The full rationale, role assignments, coordination protocol, and guiding principles are documented in the [engineering directives](https://github.com/suniljames/directives/blob/main/process/agent-architecture.md).
 

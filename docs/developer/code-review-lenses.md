@@ -16,7 +16,7 @@ lens during `/ramd` Phase B.
 
 ---
 
-## 1. UX Designer
+## UX Designer
 
 **Skip if:** No frontend files (tsx, css, components) in the diff.
 
@@ -29,7 +29,7 @@ lens during `/ramd` Phase B.
 
 ---
 
-## 2. Senior Software Engineer
+## Software Engineer
 
 **What to look for:**
 - Code quality: DRY, dead code, complexity
@@ -40,7 +40,7 @@ lens during `/ramd` Phase B.
 
 ---
 
-## 3. System Architect
+## System Architect
 
 **What to look for:**
 - Service layer separation (routers -> services -> models)
@@ -50,7 +50,7 @@ lens during `/ramd` Phase B.
 
 ---
 
-## 4. Principal Data Engineer
+## Data Engineer
 
 **What to look for:**
 - Alembic migration safety: reversible, separate data from schema migrations
@@ -60,7 +60,7 @@ lens during `/ramd` Phase B.
 
 ---
 
-## 5. Principal AI/ML Engineer
+## AI/ML Engineer
 
 **Skip if:** No AI/ML code (no Claude API calls, no prompt construction).
 
@@ -72,7 +72,7 @@ lens during `/ramd` Phase B.
 
 ---
 
-## 6. Principal Security Engineer
+## Security Engineer
 
 **What to look for:**
 - Injection vectors (SQL via raw queries, XSS, template injection)
@@ -84,17 +84,17 @@ lens during `/ramd` Phase B.
 
 ---
 
-## 7. Principal QA Engineer
+## QA Engineer
 
 **What to look for:**
 - Test coverage for changed/added code
 - Edge cases, assertion quality, fixture adequacy
 - Test isolation, mock boundaries
-- Correct test layer per TEST_BUDGET.md (service > integration > E2E)
+- Correct test layer per [test-budget.md](https://github.com/suniljames/directives/blob/main/teams/engineering/process/test-budget.md) (service > integration > E2E)
 
 ---
 
-## 8. Senior SRE
+## SRE
 
 **What to look for:**
 - Error handling: graceful degradation for external services
@@ -104,7 +104,7 @@ lens during `/ramd` Phase B.
 
 ---
 
-## 9. Principal Writer
+## Writer
 
 **What to look for:**
 - User-facing copy: helpful errors, clear labels
