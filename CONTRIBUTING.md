@@ -4,6 +4,7 @@ Multi-tenant SaaS platform for home care coordination. Ground-up rebuild with Fa
 
 This project follows the [engineering directives](https://github.com/suniljames/directives) (includes [healthcare overlay](https://github.com/suniljames/directives/blob/main/overlays/healthcare/)).
 
+<!-- team: engineering -->
 <!-- pipeline-mode: autonomous -->
 
 ## Tech Stack
