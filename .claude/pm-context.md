@@ -1,27 +1,37 @@
-# COREcare v2 Product & Domain Context
+# PM Persona Context — COREcare v2
 
-This file provides domain context for the PM persona used in `/pm`.
+## Domain
 
-## Product
+Multi-tenant SaaS for home health agencies. COREcare connects caregivers, family members, and agency administrators around a shared patient/client record. A platform-level super-admin manages all tenant agencies.
 
-**COREcare v2** is a multi-tenant SaaS platform for home health agencies.
-It connects caregivers, family members, and agency administrators around
-a shared patient/client record. A platform-level super-admin manages all
-tenant agencies.
+## Domain Vocabulary
 
-## Domain: In-Home Medical Care
+| Term | Definition |
+|------|-----------|
+| **Agency** | A home care business that employs caregivers and serves clients. Each agency is a tenant. |
+| **Care Plan** | A structured document defining a client's care needs, goals, interventions, and schedule. |
+| **Care Manager** | Supervising nurse or coordinator who creates care plans and oversees caregiver assignments. |
+| **Caregiver** | Field worker (RN, CNA, HHA, therapist) who provides direct care in client homes. |
+| **Client** | The person receiving home care services (often elderly or disabled). |
+| **Family Member** | A client's relative or authorized representative with limited platform visibility. |
+| **Visit** | A scheduled caregiver-client interaction with clock-in/out, tasks, and documentation. |
+| **Shift** | A time block during which a caregiver is assigned to a client. |
+| **Super-Admin** | Platform operator who can see all agencies (bypasses RLS). |
+| **Tenant** | An agency and all its associated data, isolated by PostgreSQL Row-Level Security. |
+| **ADLs** | Activities of Daily Living — bathing, dressing, eating, mobility, toileting. |
+| **PHI** | Protected Health Information — any individually identifiable health data. |
 
-- **Caregivers** include registered nurses (RNs), certified nursing assistants
-  (CNAs), home health aides (HHAs), and therapists. They perform shift-based
-  visits, document vitals, administer medications, and chart patient progress.
-- **Family members** need visibility into their loved one's care — who visited,
-  what was done, and whether the care plan is being followed.
-- **Agency administrators** manage caregiver assignments, schedules, compliance
-  documentation, and agency operations.
-- **Platform super-admin** manages all agencies, can impersonate users, and
-  monitors platform-wide metrics.
+## Stakeholders
 
-### Key Workflows
+| Persona | Typical User | Key Needs |
+|---------|-------------|-----------|
+| Super-Admin | Platform owner | Agency management, impersonation, platform metrics |
+| Agency Admin | Agency manager | Scheduling, compliance, oversight, billing |
+| Care Manager | Supervising nurse | Team oversight, care plan management |
+| Caregiver | Nurse, CNA, HHA | Efficient documentation, clear assignments, minimal paperwork |
+| Family Member | Spouse, adult child | Visibility, peace of mind, communication |
+
+## Key Workflows
 
 | Workflow | Description |
 |----------|-------------|
@@ -34,43 +44,52 @@ tenant agencies.
 | Credentialing | License/cert tracking, expiration alerts |
 | AI Assistant | Conversational care coordination, smart scheduling |
 
-## Compliance: HIPAA
+## Privacy / Data Model
 
-COREcare handles **Protected Health Information (PHI)** and must comply with
-HIPAA requirements:
+- **Multi-tenant isolation via PostgreSQL RLS** — each agency sees only its own data.
+- **Role-based visibility** — caregivers see only their assigned clients; families see only their linked client.
+- **Super-Admin bypass** — platform operators can see all tenants for support and onboarding.
+- **Minimum Necessary Rule** — only expose the PHI needed for a given role.
+- **Audit logging** — who accessed what, when, and why.
 
-- **Minimum Necessary Rule** — only expose the PHI needed for a given role
-- **Access controls** — role-based permissions (super-admin > agency-admin > care-manager > caregiver > family)
-- **Audit logging** — who accessed what, when, and why (event-sourced)
-- **PHI in transit and at rest** — encrypted connections (HTTPS), encrypted database
-- **Notification content** — never include diagnosis, medications, or detailed health data in emails, SMS, or push notifications
-- **Error messages and logs** — never expose PHI in user-facing errors or application logs
-- **BAA** — Business Associate Agreements with third-party services
+## Compliance
 
-## Technology Stack
+- **HIPAA** — All client health data is PHI. Encryption at rest and in transit. Audit logging for access. BAA required with third-party services.
+- **State home care regulations** — vary by state; care plan structure must be flexible.
 
-| Layer | Technology |
-|-------|-----------|
-| Backend | FastAPI (Python 3.12) |
-| Frontend | Next.js 15 App Router + shadcn/ui |
-| Database | PostgreSQL 16 with RLS |
-| Auth | Clerk |
-| AI | Claude API |
-| Deployment | Docker Compose (local) |
-| CI | GitHub Actions |
+**Hard rules:**
+- Never expose cross-tenant data in API responses
+- Never include PHI in error messages, logs, or analytics
+- Never store PHI in browser localStorage or unencrypted cookies
+- Never include diagnosis, medications, or detailed health data in notifications (email, SMS, push)
+- All data-access endpoints must have tenant isolation tests
+- AI features must redact PHI before sending to external APIs
 
-## Multi-Tenancy
+## Decision Heuristics
 
-Each agency is an isolated tenant. PostgreSQL Row-Level Security ensures
-data isolation at the database level. The super-admin bypasses RLS for
-platform management.
+- Default to the **caregiver's mobile experience** — they are the highest-volume, lowest-patience user
+- When in doubt about data visibility, **restrict access** and let admins widen it
+- Prefer **structured data** (dropdowns, checklists) over free-text for care documentation — aids reporting and AI analysis
+- **Offline-capable** where possible — caregivers work in homes with unreliable connectivity
+- Keep agency onboarding **self-service** — minimize super-admin involvement
+- Features should work for a **single-caregiver agency** and a **200-caregiver agency** alike
 
-## User Personas
+## Anti-Patterns
 
-| Persona | Typical User | Key Needs |
-|---------|-------------|-----------|
-| Super-Admin | Platform owner | Agency management, impersonation, platform metrics |
-| Agency Admin | Agency manager | Scheduling, compliance, oversight, billing |
-| Care Manager | Supervising nurse | Team oversight, care plan management |
-| Caregiver | Nurse, CNA, HHA | Efficient documentation, clear assignments |
-| Family Member | Spouse, adult child | Visibility, peace of mind, communication |
+- No direct access to another agency's data, even for "reporting"
+- No bulk export of PHI without audit trail
+- No real-time location tracking of caregivers
+- No social features or inter-agency communication
+- No storing care credentials (medical record numbers, SSNs) in the platform
+- No gamification of care quality metrics
+
+## Product Phase
+
+Early build (v0.x) — ground-up rebuild. Core entities (agencies, users, clients, care plans, visits) are being established. Keep scope tight — build the foundation before adding AI-powered features.
+
+## Communication Channels
+
+- **Primary:** Web application (desktop for admins/managers, mobile-responsive for caregivers)
+- **Notifications:** In-app + email (future: SMS/push)
+- **AI:** Claude API for care plan assistance, documentation help, and insights (future phases)
+- **No SMS yet** — planned for caregiver alerts and family updates
