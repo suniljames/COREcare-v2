@@ -13,7 +13,7 @@ Project-specific persona knowledge and engineering compromises. This extends the
 
 ## Persona: Project-Specific Knowledge
 
-### 1. UX Designer
+### UX Designer
 
 | Expertise | COREcare Application |
 |-----------|---------------------|
@@ -24,7 +24,7 @@ Project-specific persona knowledge and engineering compromises. This extends the
 | Component reuse | Shared component library across admin, caregiver, and family portals |
 | Multi-tenant UI | Agency branding, tenant-scoped navigation, super-admin views |
 
-### 2. Software Engineer
+### Software Engineer
 
 | Expertise | COREcare Application |
 |-----------|---------------------|
@@ -35,7 +35,7 @@ Project-specific persona knowledge and engineering compromises. This extends the
 | Code quality | `make check` gate: linters, type checking, tests, build |
 | Auth integration | Clerk JWT validation in FastAPI dependencies |
 
-### 3. System Architect
+### System Architect
 
 | Expertise | COREcare Application |
 |-----------|---------------------|
@@ -46,7 +46,7 @@ Project-specific persona knowledge and engineering compromises. This extends the
 | Deployment | Docker Compose on local Mac Mini, single-node simplicity |
 | Event patterns | Domain events for audit logging, notification triggers |
 
-### 4. Data Engineer
+### Data Engineer
 
 | Expertise | COREcare Application |
 |-----------|---------------------|
@@ -57,7 +57,7 @@ Project-specific persona knowledge and engineering compromises. This extends the
 | Audit trails | Temporal tracking for care plans, medication changes, visit logs |
 | Data integrity | Foreign keys, check constraints, unique constraints for business rules |
 
-### 5. AI/ML Engineer
+### AI/ML Engineer
 
 | Expertise | COREcare Application |
 |-----------|---------------------|
@@ -68,7 +68,7 @@ Project-specific persona knowledge and engineering compromises. This extends the
 | Cost management | Token tracking, model selection (Haiku vs Sonnet vs Opus), caching |
 | Audit trail | Logging all AI interactions for HIPAA compliance and quality review |
 
-### 6. Security Engineer
+### Security Engineer
 
 | Expertise | COREcare Application |
 |-----------|---------------------|
@@ -79,18 +79,18 @@ Project-specific persona knowledge and engineering compromises. This extends the
 | Logging | PHI exclusion from logs, structured audit logging for compliance |
 | Secrets | Environment variable management, no secrets in code or Docker images |
 
-### 7. QA Engineer
+### QA Engineer
 
 | Expertise | COREcare Application |
 |-----------|---------------------|
-| Test layers | pytest (service/endpoint), vitest (components), Playwright (E2E) per `TEST_BUDGET.md` |
+| Test layers | pytest (service/endpoint), vitest (components), Playwright (E2E) per [test-budget.md](https://github.com/suniljames/directives/blob/main/teams/engineering/process/test-budget.md) |
 | Test format | Given/When/Then specs for all test layers |
 | Quality gates | `make check` must pass: linters + tests + typecheck + build |
 | CI | GitHub Actions against PostgreSQL 16 |
 | Multi-tenant testing | Tenant isolation verification in service tests for every data-access endpoint |
 | Test markers | `@smoke`, `@security` for Playwright; unmarked for standard tests |
 
-### 8. SRE
+### SRE
 
 | Expertise | COREcare Application |
 |-----------|---------------------|
@@ -101,7 +101,7 @@ Project-specific persona knowledge and engineering compromises. This extends the
 | Resource management | PostgreSQL connection pooling, Redis connection management |
 | Monitoring | Health check verification, container resource usage tracking |
 
-### 9. Writer
+### Writer
 
 | Expertise | COREcare Application |
 |-----------|---------------------|
@@ -112,7 +112,7 @@ Project-specific persona knowledge and engineering compromises. This extends the
 | Documentation | Developer docs, ADRs, design system documentation |
 | Accessibility | Alt text, ARIA labels, meaningful link text, screen reader support |
 
-### 10. Engineering Manager
+### Engineering Manager
 
 | Expertise | COREcare Application |
 |-----------|---------------------|
@@ -123,7 +123,7 @@ Project-specific persona knowledge and engineering compromises. This extends the
 | Tech debt tracking | Identifying shortcuts that need to be repaid and when |
 | Operational health | Ensuring shipped features are operable, not just functional |
 
-### 11. PM
+### PM
 
 | Expertise | COREcare Application |
 |-----------|---------------------|

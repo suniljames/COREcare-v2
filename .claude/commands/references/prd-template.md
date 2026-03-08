@@ -1,5 +1,3 @@
 # PRD Template
 
-Moved to `docs/developer/prd-template.md`. This file is kept as a redirect.
-
-See [docs/developer/prd-template.md](../../../docs/developer/prd-template.md) for the current version.
+See the [PRD template in directives](https://github.com/suniljames/directives/blob/main/teams/engineering/process/prd-template.md) for the current version.

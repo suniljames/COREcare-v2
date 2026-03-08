@@ -61,7 +61,7 @@ gh issue view <number> --repo "$REPO" --comments
 
 ## Step 4: Write the PRD
 
-Read the PRD template from `docs/developer/prd-template.md`.
+Read the [PRD template](https://github.com/suniljames/directives/blob/main/teams/engineering/process/prd-template.md).
 
 Compose the PRD using that template with the persona context from
 `.claude/pm-context.md`. Every section is **required** — use "N/A" with a
