@@ -25,9 +25,6 @@ export function roleLevel(role: UserRoleType): number {
   return ROLE_HIERARCHY.indexOf(role);
 }
 
-export function hasMinRole(
-  userRole: UserRoleType,
-  minRole: UserRoleType
-): boolean {
+export function hasMinRole(userRole: UserRoleType, minRole: UserRoleType): boolean {
   return roleLevel(userRole) >= roleLevel(minRole);
 }

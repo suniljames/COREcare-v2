@@ -5,9 +5,7 @@ import Home from "../page";
 describe("Home page", () => {
   it("renders the COREcare v2 heading", () => {
     render(<Home />);
-    expect(
-      screen.getByRole("heading", { name: /corecare v2/i })
-    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /corecare v2/i })).toBeInTheDocument();
   });
 
   it("renders the platform description", () => {

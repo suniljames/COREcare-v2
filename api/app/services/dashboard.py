@@ -1,7 +1,7 @@
 """Dashboard service — aggregation queries for KPIs and portal summaries."""
 
 import uuid
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 from sqlalchemy import and_, func, select
@@ -31,7 +31,7 @@ class DashboardService:
 
     async def get_agency_kpis(self, agency_id: uuid.UUID) -> AgencyKPIs:
         """Get KPIs for an agency admin dashboard."""
-        today = date.today()
+        today = datetime.now(UTC).date()
         today_start = datetime(today.year, today.month, today.day, tzinfo=UTC)
         today_end = today_start + timedelta(days=1)
         week_start = today_start - timedelta(days=today.weekday())
@@ -170,7 +170,7 @@ class DashboardService:
         """Get platform-wide KPIs for super-admin."""
         from app.models.agency import Agency
 
-        today = date.today()
+        today = datetime.now(UTC).date()
         month_start = datetime(today.year, today.month, 1, tzinfo=UTC)
 
         agencies_r = await self.session.execute(select(func.count()).select_from(Agency))
@@ -220,7 +220,8 @@ class DashboardService:
         )
 
         # Completed visits this week
-        week_start = now - timedelta(days=now.weekday())
+        today_midnight = datetime(now.year, now.month, now.day, tzinfo=UTC)
+        week_start = today_midnight - timedelta(days=now.weekday())
         visits_r = await self.session.execute(
             select(func.count())
             .select_from(Visit)

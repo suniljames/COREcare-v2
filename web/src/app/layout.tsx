@@ -21,17 +21,11 @@ export const viewport: Viewport = {
   themeColor: "#4a9d6e",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <ClerkProvider>
       <html lang="en">
-        <body className={`${inter.variable} font-sans antialiased`}>
-          {children}
-        </body>
+        <body className={`${inter.variable} font-sans antialiased`}>{children}</body>
       </html>
     </ClerkProvider>
   );
