@@ -4,7 +4,7 @@
 > Below are the **COREcare-specific** technology checklists for each role.
 
 Each engineering committee member reviews the PR diff through a **code-review-specific**
-lens during `/ramd` Phase B.
+lens during `/review` Phase B.
 
 ## Severity Levels
 

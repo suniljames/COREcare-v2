@@ -1,6 +1,6 @@
 # Safety & Guardrails (COREcare-Specific)
 
-For universal safety rules, see the [engineering directives](https://github.com/suniljames/directives/blob/main/process/safety.md). For HIPAA-specific rules, see the [healthcare overlay](https://github.com/suniljames/directives/blob/main/overlays/healthcare/safety-addendum.md).
+For universal safety rules, see the [engineering directives](https://github.com/suniljames/directives/blob/main/framework/safety.md). For HIPAA-specific rules, see the [healthcare overlay](https://github.com/suniljames/directives/blob/main/overlays/healthcare/safety-addendum.md).
 
 This file covers COREcare project-specific safety only.
 

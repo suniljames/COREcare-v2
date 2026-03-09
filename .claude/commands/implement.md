@@ -76,6 +76,6 @@ All linters, type checks, tests, and build must pass.
 
 Create `.claude/memory/progress/<issue-number>-progress.md` with status.
 
-## Proceed to /ramd
+## Proceed to /review
 
-Autonomous mode: proceed directly to `/ramd`. No human review checkpoint.
+Autonomous mode: proceed directly to `/review`. No human review checkpoint.

@@ -12,11 +12,11 @@ A single AI model acting as both builder and validator creates correlated failur
 
 Split engineering agent roles across two LLM backends: **Claude Code** (builder) and **Google Gemini** (validator).
 
-The full rationale, role assignments, coordination protocol, and guiding principles are documented in the [engineering directives](https://github.com/suniljames/directives/blob/main/process/agent-architecture.md).
+The full rationale, role assignments, coordination protocol, and guiding principles are documented in the [engineering directives](https://github.com/suniljames/directives/blob/main/framework/agent-architecture.md).
 
 ## COREcare-Specific Implementation
 
-- **Builder agent:** Claude Code — uses `/pm`, `/design`, `/implement`, `/ramd`, `/summarize` commands
+- **Builder agent:** Claude Code — uses `/define`, `/design`, `/implement`, `/review`, `/summarize` commands
 - **Validator agent:** Google Gemini CLI — uses equivalent commands per `GEMINI.md`
 - **Coordination:** GitHub issues and PRs in this repo, label-driven handoff
 - **Identity:** Both agents operate as `suniljames`

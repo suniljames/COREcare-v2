@@ -1,4 +1,4 @@
-/ramd — Review gates. Approve. Merge. Deploy.
+/review — Review gates. Approve. Merge. Deploy.
 
 Create the PR (if needed), run quality gates, perform autonomous eng-committee
 code review, merge via squash, and verify Docker deployment.
