@@ -1,0 +1,78 @@
+{
+  "_comment": "Hooks are sourced from suniljames/dotfiles via ~/.claude/hooks/. Each command guards with [ -x ... ] so missing hooks gracefully no-op rather than erroring. Install dotfiles to activate hooks.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -x $HOME/.claude/hooks/check-gh-token-drift.sh ] && $HOME/.claude/hooks/check-gh-token-drift.sh || exit 0"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -x $HOME/.claude/hooks/gh-auth-switch.sh ] && $HOME/.claude/hooks/gh-auth-switch.sh || exit 0"
+          },
+          {
+            "type": "command",
+            "command": "[ -x $HOME/.claude/hooks/safety-check.sh ] && exec $HOME/.claude/hooks/safety-check.sh || exit 0"
+          }
+        ]
+      },
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -x $HOME/.claude/hooks/simplify-gate.sh ] && exec $HOME/.claude/hooks/simplify-gate.sh || exit 0"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -x $HOME/.claude/hooks/post-tool-check.sh ] && $HOME/.claude/hooks/post-tool-check.sh || exit 0"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -x $HOME/.claude/hooks/worklog-reminder.sh ] && $HOME/.claude/hooks/worklog-reminder.sh || exit 0"
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(gh *)",
+      "Bash(git *)",
+      "Bash(docker *)",
+      "Bash(docker compose *)",
+      "Bash(make *)",
+      "Bash(pnpm *)",
+      "Bash(npm *)",
+      "Bash(uv *)",
+      "Bash(uvx *)",
+      "Bash(pytest *)",
+      "Bash(alembic *)",
+      "Bash(curl *)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:docs.anthropic.com)"
+    ]
+  }
+}
