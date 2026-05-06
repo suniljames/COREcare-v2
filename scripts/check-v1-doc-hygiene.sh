@@ -87,6 +87,7 @@ scan_file() {
     /^```/ { in_fence = !in_fence; next }
     in_fence { next }
     /^>/ { next }
+    /^#+[ ]/ { next }
     {
       gsub(/`[^`]*`/, "")
       gsub(/\[[^]]*\]/, "")

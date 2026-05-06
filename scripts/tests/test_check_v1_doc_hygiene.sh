@@ -124,6 +124,34 @@ A Family Member views recent visit notes.
 EOF
 assert_exit "persona names alone do not trip name heuristic" 0 "$HYGIENE" "$FIXTURES/persona_only.md"
 
+# Headings can have title-case noun phrases like "Reference Commit" without tripping.
+cat > "$FIXTURES/title_case_headings.md" <<'EOF'
+# V1 Reference Documentation Set
+
+## V1 Reference Commit
+
+### PHI Placeholder Convention
+
+Some prose follows.
+EOF
+assert_exit "title-case multi-word headings do not trip name heuristic" 0 "$HYGIENE" "$FIXTURES/title_case_headings.md"
+
+# But PHI patterns inside a heading still block (defense in depth).
+cat > "$FIXTURES/phi_in_heading.md" <<'EOF'
+# Patient SSN: 123-45-6789
+
+Some prose.
+EOF
+assert_exit "PHI pattern in heading still blocks" 1 "$HYGIENE" "$FIXTURES/phi_in_heading.md"
+
+# Code-spanned fake names (used as illustrative examples in docs) do not trip.
+cat > "$FIXTURES/code_spanned_examples.md" <<'EOF'
+# Doc teaching the placeholder convention
+
+Never use plausible-looking fake names like `Jane Doe` or `Sarah Johnson` — use the placeholder set instead.
+EOF
+assert_exit "code-spanned fake-name examples do not trip name heuristic" 0 "$HYGIENE" "$FIXTURES/code_spanned_examples.md"
+
 # --- Multiple files at once ---
 cat > "$FIXTURES/clean2.md" <<'EOF'
 # Another clean doc
