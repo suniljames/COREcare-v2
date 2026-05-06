@@ -161,6 +161,55 @@ _last reconciled: 2026-05-06 against v1 commit `9738412`_
 
 Update on each refresh.
 
+### Row prose conventions
+
+These conventions apply inside every persona section in `v1-pages-inventory.md`. Locked in #81 to keep the five subsequent persona-section PRs from drifting.
+
+**H3 sub-headings group rows by Django app.** Within a persona section, group rows under one H3 per Django app the persona reaches. Heading text is lowercase, matching v1's Django app directory verbatim. Each H3 carries a one-line purpose summary directly under it.
+
+```markdown
+### billing
+_invoices, payment tracking, payer reconciliation_
+
+| route | purpose | … |
+```
+
+Row order within an app group: typical workflow progression (index → list → detail → action), not alphabetical.
+
+**`purpose` cell is a sentence (80–120 chars), not a label.** Use simple present-tense, third-person verbs. `Lists open and overdue invoices, with filters by client and date range.` beats `Invoice list page`. Avoid `allows the user to`, `enables`, `manages` — substitute concrete verbs (`displays`, `lists`, `accepts`, `submits`, `triggers`).
+
+**`what_user_sees_can_do` cell follows the `Sees: <list>. Can: <list>.` pattern.**
+
+```
+Sees: open and overdue invoices, payer and date filters. Can: drill to invoice detail, void invoice, mark paid.
+```
+
+Comma-separated lists. Sentences end with a period. The pattern is structural, scannable, and agent-parseable — drift to other phrasings breaks downstream queries.
+
+**Verbatim flag-column tokens.** Cells in flag columns contain exactly the schema-locked token, lowercase, no surrounding text:
+
+- `v2_status` cell: exactly `implemented` / `scaffolded` / `missing`.
+- `severity` cell: exactly `H` / `M` / `L` / `D` or empty.
+- `multi_tenant_refactor` cell: exactly `true` or `false`.
+- `phi_displayed` cell: exactly `true` or `false`.
+- `rls_bypass_by_design` cell: exactly `true` or `false`.
+
+`yes` / `True` / `partial` / `WIP` are bugs, not synonyms.
+
+**PHI flag prominence.** When `phi_displayed=true`, prefix the row's `purpose` cell with `🔒 PHI · ` so PHI surfaces are scannable in a wide table:
+
+```
+🔒 PHI · Lists assigned clients with caregiver matching status.
+```
+
+The textual `PHI` is the screen-reader fallback.
+
+**Multi-tenant refactor justification.** `multi_tenant_refactor=false` requires an explicit justification phrase in the same row's `purpose` cell (e.g., `v2 equivalent already RLS-isolated; no further refactor needed`). Default is `true`; v1 was single-tenant per install so most v2 equivalents need new tenant-context awareness.
+
+**RLS-bypass audit notes.** Every `rls_bypass_by_design=true` row's `purpose` cell notes v1 audit-log behavior: `audit-logged in v1` (preserve in v2 design) or `v1 has no audit on this route — v2 must add` (compliance gap to fix on rebuild).
+
+**Anchor stability.** H3 sub-headings carry stable anchors (lowercase app name) so cross-references from `v1-user-journeys.md`, `v1-integrations-and-exports.md`, and the screenshot catalog (#79) resolve. Do not rename `### billing` to `### Billing` or `### Billing & Revenue` between PRs.
+
 ---
 
 ## Coverage target
@@ -215,11 +264,15 @@ When v1 receives material changes, refresh this docset against the new SHA.
 
 If you find yourself doing this more than twice manually, automate it (per the team's "if you do it twice" principle). The first automation candidate is the `urls.py` enumeration step.
 
+**Refresh order — Agency Admin first.** Agency Admin is the most-iterated persona surface in v1 (billing, payroll, scheduling, credentials, compliance). When budget for a refresh is constrained, refresh Agency Admin first; file follow-ups for other personas. The pattern Agency Admin establishes (cell prose, H3 naming, flag accuracy) is the template subsequent persona refreshes inherit.
+
 ---
 
 ## Related work
 
 - **#70 (closed)** — landed `v1-functionality-delta.md` (the feature/data-model layer this set extends).
-- **#78** — this issue, extended the docset with pages inventory, journeys, integrations, and TODO resolution.
-- **#79 (open, follow-up)** — Playwright screenshot catalog of v1 UI per persona; depends on the pages inventory for coverage check.
+- **#78** — umbrella issue for v1 reference content authoring; tracks all persona-section sub-issues.
+- **#80 (closed)** — landed conventions, scanner, structure validator, scaffold.
+- **#81** — Agency Admin pages-inventory rows; first persona-section content-authoring PR; locked the row-prose conventions above.
+- **#79 (open, follow-up)** — Playwright screenshot catalog of v1 UI per persona; depends on populated rows for coverage check.
 - **#31, #32 (closed)** — v1→v2 data migration scripts and cutover plan.
