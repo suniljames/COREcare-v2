@@ -137,6 +137,13 @@ jobs:
           node-version: 20
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+      # docker-compose.yml bind-mounts ./api over /app, which overlays the
+      # Dockerfile-installed .venv. Populate ./api/.venv on the runner so
+      # `uv run uvicorn` resolves inside the container.
+      - run: cd api && uv sync --frozen
       - run: cd web && pnpm install --frozen-lockfile
       - run: cd web && pnpm exec playwright install --with-deps chromium
       - run: docker compose up -d
