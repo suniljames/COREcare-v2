@@ -48,7 +48,8 @@ echo "== check-v1-doc-hygiene.sh tests =="
 
 [[ -x "$HYGIENE" ]] || { echo "FAIL — hygiene script not executable at $HYGIENE"; exit 1; }
 
-# Clean state
+# Clean state. Empty fixture dirs aren't tracked in git, so create on the fly.
+mkdir -p "$FIXTURES"
 rm -f "$FIXTURES"/*.md
 
 # --- Pass cases ---
