@@ -1,0 +1,26 @@
+# Pre-commit hooks for COREcare v2.
+# Install once locally: `pip install pre-commit && pre-commit install`.
+# Run manually:        `pre-commit run --all-files`.
+#
+# These hooks ARE NOT a substitute for the CI checks at
+# .github/workflows/v1-doc-hygiene.yml — they run the same scripts to give
+# fast local feedback before push.
+
+repos:
+  - repo: local
+    hooks:
+      - id: v1-doc-hygiene
+        name: V1 doc hygiene (PHI / paths / plausible names)
+        entry: bash scripts/check-v1-doc-hygiene.sh
+        language: system
+        files: '^docs/migration/v1-.+\.md$'
+        pass_filenames: true
+
+      - id: v1-doc-structure
+        name: V1 doc structure (personas / cross-ref header / "needs confirmation" residue)
+        entry: bash scripts/check-v1-doc-structure.sh
+        language: system
+        # No file pattern: this hook validates the docset as a whole, so it
+        # only needs to run when a v1 doc in the migration set changes.
+        files: '^docs/migration/v1-.+\.md$'
+        pass_filenames: false

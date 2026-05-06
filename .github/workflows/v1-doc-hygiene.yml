@@ -1,0 +1,73 @@
+name: V1 Doc Hygiene
+
+on:
+  pull_request:
+    paths:
+      - 'docs/migration/v1-*.md'
+      - 'scripts/check-v1-doc-hygiene.sh'
+      - 'scripts/check-v1-doc-structure.sh'
+      - 'scripts/tests/test_check_v1_doc_*.sh'
+      - '.github/workflows/v1-doc-hygiene.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/migration/v1-*.md'
+      - 'scripts/check-v1-doc-hygiene.sh'
+      - 'scripts/check-v1-doc-structure.sh'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scripts-self-test:
+    name: Hygiene + structure scripts self-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run hygiene script tests
+        run: bash scripts/tests/test_check_v1_doc_hygiene.sh
+      - name: Run structure script tests
+        run: bash scripts/tests/test_check_v1_doc_structure.sh
+
+  scan-v1-docs:
+    name: Scan v1 reference docs in repo
+    runs-on: ubuntu-latest
+    needs: scripts-self-test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Hygiene scan over docs/migration/v1-*.md
+        run: |
+          shopt -s nullglob
+          files=(docs/migration/v1-*.md)
+          if [[ ${#files[@]} -eq 0 ]]; then
+            echo "No v1 reference docs present yet — skipping hygiene scan."
+            exit 0
+          fi
+          bash scripts/check-v1-doc-hygiene.sh "${files[@]}"
+      - name: Structure validation
+        run: |
+          if [[ -f docs/migration/v1-pages-inventory.md && -f docs/migration/v1-functionality-delta.md ]]; then
+            bash scripts/check-v1-doc-structure.sh
+          else
+            echo "Pages inventory or delta doc not yet present — structure check skipped."
+          fi
+
+  gitleaks:
+    name: Secret scan (gitleaks) on v1 docs
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Run gitleaks scoped to docs/migration/v1-*.md
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITLEAKS_CONFIG: ""
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # Full-repo scan; the workflow itself is path-filtered to only
+          # trigger when v1 docs (or the scripts) change, so the scan window
+          # is naturally scoped.
+          config-path: ""
