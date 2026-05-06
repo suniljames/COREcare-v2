@@ -102,6 +102,13 @@ jobs:
     defaults:
       run:
         working-directory: web
+    # Build-time-only dummy Clerk publishable key. ClerkProvider lives in the
+    # root layout, so every prerendered route validates the key at build time.
+    # The key below is a publicly-known dummy in Clerk's own examples — it
+    # passes Clerk's format check but cannot authenticate. Real production keys
+    # live in deployment env (Vercel etc.), not CI.
+    env:
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_Y2xlcmsuaW5jbHVkZWQua2F0eWRpZC05Mi5sY2wuZGV2JA
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
