@@ -93,11 +93,15 @@ EOF
 write_good_delta "$TEST_DIR/missing-persona/v1-functionality-delta.md"
 assert_exit "inventory missing one persona fails" 1 "$STRUCTURE" --dir "$TEST_DIR/missing-persona"
 
-# --- "needs confirmation" residue ---
+# --- "needs confirmation" residue past intro separator ---
 mkdir -p "$TEST_DIR/needs-confirmation"
 write_good_inventory "$TEST_DIR/needs-confirmation/v1-pages-inventory.md"
 cat > "$TEST_DIR/needs-confirmation/v1-functionality-delta.md" <<'EOF'
 # v1 Functionality Delta
+
+Intro mentioning the **needs confirmation** marker convention.
+
+---
 
 ## For collaborators without v1 access
 
@@ -107,7 +111,27 @@ See `v1-pages-inventory.md`.
 
 The dual-rate model needs confirmation against v1 source.
 EOF
-assert_exit "delta with 'needs confirmation' residue fails" 1 "$STRUCTURE" --dir "$TEST_DIR/needs-confirmation"
+assert_exit "delta with 'needs confirmation' residue past intro fails" 1 "$STRUCTURE" --dir "$TEST_DIR/needs-confirmation"
+
+# --- "needs confirmation" mentioned ONLY in legend (before first separator) is allowed ---
+mkdir -p "$TEST_DIR/legend-only"
+write_good_inventory "$TEST_DIR/legend-only/v1-pages-inventory.md"
+cat > "$TEST_DIR/legend-only/v1-functionality-delta.md" <<'EOF'
+# v1 Functionality Delta
+
+Intro that defines the **needs confirmation** marker convention.
+
+---
+
+## For collaborators without v1 access
+
+See `v1-pages-inventory.md`.
+
+## Body
+
+Real content with no flagged items.
+EOF
+assert_exit "delta with 'needs confirmation' only in pre-separator legend passes" 0 "$STRUCTURE" --dir "$TEST_DIR/legend-only"
 
 # --- Wrong top header in delta ---
 mkdir -p "$TEST_DIR/wrong-header"

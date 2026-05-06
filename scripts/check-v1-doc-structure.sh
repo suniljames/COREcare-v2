@@ -71,11 +71,19 @@ if [[ -f "$DELTA" ]]; then
   fi
 fi
 
-# --- Delta: no "needs confirmation" residue ---
+# --- Delta: no "needs confirmation" residue, scoped to content body ---
+# The intro / legend before the first `---` separator is allowed to mention
+# the marker as a convention. Any occurrence after the first separator is
+# unresolved residue.
 if [[ -f "$DELTA" ]]; then
-  if grep -niE 'needs confirmation' "$DELTA" >/dev/null; then
-    fail "$DELTA still contains 'needs confirmation' residue"
-    grep -niE 'needs confirmation' "$DELTA" | head -3 | sed 's/^/  /'
+  body_after_first_separator=$(awk '
+    BEGIN { past_separator = 0 }
+    /^---[[:space:]]*$/ && !past_separator { past_separator = 1; next }
+    past_separator { print }
+  ' "$DELTA")
+  if echo "$body_after_first_separator" | grep -niE 'needs confirmation' >/dev/null; then
+    fail "$DELTA still contains 'needs confirmation' residue (in body, past intro)"
+    echo "$body_after_first_separator" | grep -niE 'needs confirmation' | head -3 | sed 's/^/  /'
   fi
 fi
 

@@ -14,6 +14,22 @@ The v2 docs are *customer-facing*, so absence here doesn't always mean "not buil
 
 ---
 
+## For collaborators without v1 access
+
+If you do not have access to `suniljames/COREcare-access` (the v1 Django repo), this document on its own is **not enough** to rebuild v1's customer-facing surface in v2. It catalogues feature and data-model gaps, but it does not describe v1's pages, user journeys, or integrations.
+
+Read these companion documents in `docs/migration/`:
+
+- **[`README.md`](README.md)** — locked conventions for the docset (personas, severity rubric, status enum, PHI placeholder set, voice, refresh runbook, v1 reference commit pin).
+- **[`v1-pages-inventory.md`](v1-pages-inventory.md)** — persona × page matrix for all six personas, with v2 status, severity, multi-tenant refactor flags, and PHI flags. Authoritative route catalogue; other docs cite into it.
+- **[`v1-user-journeys.md`](v1-user-journeys.md)** — narrated end-to-end flows per persona, with route trace and qualitative side effects.
+- **[`v1-integrations-and-exports.md`](v1-integrations-and-exports.md)** — external integrations, internal notification/email backend, and customer-facing exports.
+- **[`v1-glossary.md`](v1-glossary.md)** — v1-specific terms cited across the set.
+
+The four documents above are scaffolded but their content is being authored issue-by-issue. The most current state of each lives in this repo.
+
+---
+
 ## 1. Billing & Revenue Operations
 
 ### 1.1 Invoice revisions / corrected invoices — **H**
@@ -280,4 +296,4 @@ Briefly, things v2 docs commit to that are not in v1:
 
 ---
 
-*Generated 2026-05-06 from press release `[07]-Press-Release.md` + external FAQ `[08]-FAQ-(External).md` against v1 codebase at `/Users/suniljames/Code/COREcare-access/`. The v2 docs are customer-facing; some items below may already be implemented or planned in internal artifacts not surveyed here.*
+*Generated 2026-05-06 from press release `[07]-Press-Release.md` + external FAQ `[08]-FAQ-(External).md` against v1 codebase `suniljames/COREcare-access` (commit pinned in [`README.md`](README.md#v1-reference-commit)). The v2 docs are customer-facing; some items below may already be implemented or planned in internal artifacts not surveyed here.*
