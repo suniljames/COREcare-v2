@@ -11,8 +11,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.db import get_session
-from app.models.user import User
-from app.tenant import clear_tenant_context, set_tenant_context
+from app.models.client import Client
+from app.models.user import User, UserRole
+from app.tenant import clear_tenant_context, set_client_context, set_tenant_context
 
 logger = structlog.get_logger()
 
@@ -60,7 +61,10 @@ async def _get_clerk_user_id(request: Request) -> str:
     if not settings.clerk_secret_key:
         try:
             claims = jwt.decode(
-                token, "", algorithms=["HS256", "RS256"], options={"verify_signature": False}
+                token,
+                "",
+                algorithms=["HS256", "RS256"],
+                options={"verify_signature": False},
             )
             sub: str = claims.get("sub", "")
             return sub
@@ -137,10 +141,19 @@ async def get_current_user(
             detail="Account is deactivated",
         )
 
-    # Set tenant context for RLS
+    # Set tenant context for RLS — order matters: tenant first, then client.
     if user.agency_id:
         await set_tenant_context(session, user.agency_id)
     else:
         await clear_tenant_context(session)
+
+    # Client persona: layer the client-axis context for dual-axis RLS.
+    if user.role == UserRole.CLIENT:
+        result = await session.execute(
+            select(Client).where(Client.client_user_id == user.id)  # type: ignore[arg-type]
+        )
+        linked_client = result.scalar_one_or_none()
+        if linked_client is not None:
+            await set_client_context(session, linked_client.id)
 
     return user

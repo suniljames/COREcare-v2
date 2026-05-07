@@ -35,6 +35,9 @@ class Client(TenantScopedModel, table=True):
     emergency_contacts: list[dict[str, Any]] | None = Field(
         default=None, sa_column=Column(JSON, nullable=True)
     )
+    client_user_id: uuid.UUID | None = Field(
+        default=None, foreign_key="users.id", unique=True, index=True
+    )
 
 
 class FamilyLink(TenantScopedModel, table=True):

@@ -1,0 +1,130 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="375" height="812" viewBox="0 0 375 812" font-family="Inter, system-ui, -apple-system, sans-serif">
+  <title>Client persona — Care plan view (mobile)</title>
+  <desc>Mobile mockup showing the Client persona's plain-language care plan: care team, weekly support summary, allergies, and a CTA to message the agency.</desc>
+
+  <!-- Page background -->
+  <rect width="375" height="812" fill="#FFFFFF"/>
+
+  <!-- Status bar (visual only) -->
+  <rect width="375" height="44" fill="#FFFFFF"/>
+  <text x="24" y="28" font-size="14" font-weight="600" fill="#1C232C">9:41</text>
+  <g transform="translate(320,18)" fill="#1C232C">
+    <rect x="0" y="2" width="18" height="10" rx="2" fill="none" stroke="#1C232C" stroke-width="1"/>
+    <rect x="2" y="4" width="13" height="6" rx="1"/>
+  </g>
+
+  <!-- App header -->
+  <g transform="translate(0,44)">
+    <rect width="375" height="76" fill="#FFFFFF"/>
+    <circle cx="44" cy="38" r="22" fill="#D4EFDF" stroke="#B3E2C5" stroke-width="1"/>
+    <text x="44" y="44" text-anchor="middle" font-size="16" font-weight="600" fill="#1F6B45">EM</text>
+    <text x="80" y="34" font-size="12" fill="#6A7281">Hi,</text>
+    <text x="80" y="54" font-size="18" font-weight="600" fill="#1C232C">Eleanor</text>
+    <g transform="translate(248,22)">
+      <rect width="111" height="32" rx="16" fill="#EDF8F1"/>
+      <circle cx="16" cy="16" r="6" fill="#399468"/>
+      <text x="28" y="20" font-size="12" font-weight="500" fill="#1F6B45">Sunrise Home Care</text>
+    </g>
+    <line x1="0" y1="76" x2="375" y2="76" stroke="#E4E7EB" stroke-width="1"/>
+  </g>
+
+  <!-- Page title -->
+  <g transform="translate(24,140)">
+    <text x="0" y="0" font-size="24" font-weight="600" fill="#1C232C">Your care plan</text>
+    <text x="0" y="22" font-size="13" fill="#6A7281">Last updated by Janet, RN · 3 days ago</text>
+  </g>
+
+  <!-- Tabs -->
+  <g transform="translate(0,196)">
+    <rect width="375" height="44" fill="#FFFFFF"/>
+    <line x1="0" y1="44" x2="375" y2="44" stroke="#E4E7EB" stroke-width="1"/>
+    <g>
+      <text x="24" y="28" font-size="14" font-weight="600" fill="#1F6B45">Overview</text>
+      <rect x="20" y="42" width="68" height="2" fill="#399468"/>
+    </g>
+    <text x="116" y="28" font-size="14" fill="#6A7281">Care team</text>
+    <text x="200" y="28" font-size="14" fill="#6A7281">Daily care</text>
+    <text x="288" y="28" font-size="14" fill="#6A7281">Medications</text>
+  </g>
+
+  <!-- Card: Your care team -->
+  <g transform="translate(16,256)">
+    <rect width="343" height="148" rx="12" fill="#FFFFFF" stroke="#E4E7EB" stroke-width="1"/>
+    <text x="16" y="28" font-size="13" font-weight="600" fill="#6A7281" letter-spacing="0.5">YOUR CARE TEAM</text>
+    <!-- Nurse -->
+    <g transform="translate(16,44)">
+      <circle cx="20" cy="20" r="20" fill="#E5DBF6"/>
+      <text x="20" y="26" text-anchor="middle" font-size="14" font-weight="600" fill="#7755C2">JT</text>
+      <text x="52" y="18" font-size="14" font-weight="600" fill="#1C232C">Janet Torres, RN</text>
+      <text x="52" y="34" font-size="13" fill="#6A7281">Your nurse · Visits weekly</text>
+    </g>
+    <!-- Caregiver -->
+    <g transform="translate(16,96)">
+      <circle cx="20" cy="20" r="20" fill="#DBE9F4"/>
+      <text x="20" y="26" text-anchor="middle" font-size="14" font-weight="600" fill="#4495C0">RP</text>
+      <text x="52" y="18" font-size="14" font-weight="600" fill="#1C232C">Rosa Park</text>
+      <text x="52" y="34" font-size="13" fill="#6A7281">Your caregiver · Mon, Wed, Fri</text>
+    </g>
+  </g>
+
+  <!-- Card: What we'll help with this week -->
+  <g transform="translate(16,420)">
+    <rect width="343" height="172" rx="12" fill="#EDF8F1" stroke="#D4EFDF" stroke-width="1"/>
+    <text x="16" y="28" font-size="13" font-weight="600" fill="#1F6B45" letter-spacing="0.5">THIS WEEK WE'LL HELP WITH</text>
+    <g transform="translate(16,48)" font-size="14" fill="#1C232C">
+      <g>
+        <circle cx="6" cy="6" r="4" fill="#399468"/>
+        <text x="20" y="10" font-weight="500">Morning routine</text>
+        <text x="20" y="28" font-size="12" fill="#6A7281">Getting ready, light breakfast</text>
+      </g>
+      <g transform="translate(0,46)">
+        <circle cx="6" cy="6" r="4" fill="#399468"/>
+        <text x="20" y="10" font-weight="500">Gentle stretches</text>
+        <text x="20" y="28" font-size="12" fill="#6A7281">As recommended by Janet</text>
+      </g>
+      <g transform="translate(0,92)">
+        <circle cx="6" cy="6" r="4" fill="#399468"/>
+        <text x="20" y="10" font-weight="500">Short walk outside if the weather is good</text>
+      </g>
+    </g>
+  </g>
+
+  <!-- Card: Things to know -->
+  <g transform="translate(16,608)">
+    <rect width="343" height="84" rx="12" fill="#FCF1ED" stroke="#F2D8C6" stroke-width="1"/>
+    <text x="16" y="28" font-size="13" font-weight="600" fill="#A04A24" letter-spacing="0.5">THINGS YOUR TEAM KNOWS</text>
+    <text x="16" y="50" font-size="13" fill="#1C232C">Allergic to penicillin · Emergency contact: Margaret (daughter)</text>
+    <text x="16" y="70" font-size="12" fill="#6A7281">Tap to review or update</text>
+  </g>
+
+  <!-- CTA: message agency -->
+  <g transform="translate(16,708)">
+    <rect width="343" height="48" rx="24" fill="#FFFFFF" stroke="#399468" stroke-width="1.5"/>
+    <text x="171.5" y="30" text-anchor="middle" font-size="14" font-weight="600" fill="#1F6B45">Have a question? Message your agency</text>
+  </g>
+
+  <!-- Bottom tab bar -->
+  <g transform="translate(0,760)">
+    <rect width="375" height="52" fill="#FFFFFF"/>
+    <line x1="0" y1="0" x2="375" y2="0" stroke="#E4E7EB" stroke-width="1"/>
+    <!-- Care plan (selected) -->
+    <g transform="translate(40,8)">
+      <rect x="-12" y="-2" width="68" height="36" rx="18" fill="#EDF8F1"/>
+      <path d="M22 6 L22 22 M14 14 L30 14" stroke="#1F6B45" stroke-width="2" stroke-linecap="round"/>
+      <text x="22" y="40" text-anchor="middle" font-size="11" font-weight="600" fill="#1F6B45">Care plan</text>
+    </g>
+    <!-- Schedule -->
+    <g transform="translate(160,8)" fill="none" stroke="#6A7281" stroke-width="2" stroke-linecap="round">
+      <rect x="14" y="6" width="16" height="16" rx="2"/>
+      <line x1="14" y1="11" x2="30" y2="11"/>
+      <line x1="18" y1="3" x2="18" y2="9"/>
+      <line x1="26" y1="3" x2="26" y2="9"/>
+      <text x="22" y="40" text-anchor="middle" font-size="11" font-weight="500" fill="#6A7281" stroke="none">Schedule</text>
+    </g>
+    <!-- Messages -->
+    <g transform="translate(280,8)" fill="none" stroke="#6A7281" stroke-width="2" stroke-linecap="round">
+      <path d="M14 8 H30 a2 2 0 0 1 2 2 V20 a2 2 0 0 1 -2 2 H22 L18 26 V22 H14 a2 2 0 0 1 -2 -2 V10 a2 2 0 0 1 2 -2 Z"/>
+      <text x="22" y="40" text-anchor="middle" font-size="11" font-weight="500" fill="#6A7281" stroke="none">Messages</text>
+    </g>
+  </g>
+</svg>

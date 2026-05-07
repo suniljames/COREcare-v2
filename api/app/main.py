@@ -13,10 +13,17 @@ from app.routers.ai import router as ai_router
 from app.routers.billing import router as billing_router
 from app.routers.caregivers import router as caregivers_router
 from app.routers.charts import router as charts_router
+from app.routers.client_invites import (
+    issue_router as client_invites_issue_router,
+)
+from app.routers.client_invites import (
+    redeem_router as client_invites_redeem_router,
+)
 from app.routers.clients import router as clients_router
 from app.routers.compliance import router as compliance_router
 from app.routers.credentials import router as credentials_router
 from app.routers.dashboard import router as dashboard_router
+from app.routers.me import router as me_router
 from app.routers.notifications import router as notifications_router
 from app.routers.payroll import router as payroll_router
 from app.routers.shifts import router as shifts_router
@@ -32,9 +39,11 @@ def setup_logging() -> None:
             structlog.contextvars.merge_contextvars,
             structlog.processors.add_log_level,
             structlog.processors.TimeStamper(fmt="iso"),
-            structlog.dev.ConsoleRenderer()
-            if settings.debug
-            else structlog.processors.JSONRenderer(),
+            (
+                structlog.dev.ConsoleRenderer()
+                if settings.debug
+                else structlog.processors.JSONRenderer()
+            ),
         ],
         logger_factory=structlog.PrintLoggerFactory(),
     )
@@ -84,6 +93,9 @@ def create_app() -> FastAPI:
     app.include_router(dashboard_router)
     app.include_router(compliance_router)
     app.include_router(ai_router)
+    app.include_router(me_router)
+    app.include_router(client_invites_issue_router)
+    app.include_router(client_invites_redeem_router)
 
     @app.get("/healthz")
     async def healthz() -> dict[str, str]:

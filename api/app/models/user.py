@@ -9,13 +9,19 @@ from app.models.base import BaseModel
 
 
 class UserRole(enum.StrEnum):
-    """Role hierarchy: super_admin > agency_admin > care_manager > caregiver > family."""
+    """Role hierarchy: super_admin > agency_admin > care_manager > caregiver > family.
+
+    `client` is a sibling axis, not a privilege level — Clients authenticate
+    against their own row only and never traverse the staff role ladder.
+    See `app.rbac.ROLE_HIERARCHY` (which intentionally excludes CLIENT).
+    """
 
     SUPER_ADMIN = "super_admin"
     AGENCY_ADMIN = "agency_admin"
     CARE_MANAGER = "care_manager"
     CAREGIVER = "caregiver"
     FAMILY = "family"
+    CLIENT = "client"
 
 
 class User(BaseModel, table=True):
