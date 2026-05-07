@@ -37,16 +37,22 @@ _Enumeration in progress (#81). Per-Django-app denominators below._
 | charting | 22 / 48 raw | 22 | clinical surface; many routes shared with Care Manager and Caregiver, plus 22 JSON-only API endpoints excluded per [README §Coverage target](README.md#coverage-target); complete for Agency Admin |
 | clients | 11 | 11 | per-client calendar, events with attachments, schedule PDF/preview; mounted at `schedule/` and `clients/`; complete |
 | compliance | 3 | 3 | mounted at `legal/` + `compliance/files/`; 1 public accessibility page + 2 authenticated PHI file streams; complete |
-| dashboard | 25 | 0 | agency dashboard, payroll, expenses; pending |
+| dashboard | 10 | 10 | timecard summaries + invoice list + billing exports; complete (Agency-Admin-reachable subset of 25 raw routes) |
 | employees | 3 | 3 | caregiver invitation acceptance + profile-completion onboarding; complete |
 | quickbooks_integration | 8 | 8 | QuickBooks OAuth + invoice send + customer linking; complete |
 | auth_service | 5 | 5 | mounted at root prefix; password-reset flow (4) + magic-link login (1); routes shared across all personas; complete |
 | _(dual-role / portal switching routes in elitecare/urls.py)_ | 5 | 0 | switch-role, portal-chooser, set-default-portal, clear-default-portal, family-signup; treat as Shared routes |
-| **total (Agency Admin, current estimate)** | **~130** | **81 (≈62%)** | denominator finalized after each app's rows land |
+| **total (Agency Admin)** | **96** | **91 (≈95%)** | per-app sum; only the 5 dual-role/shared routes remain (#89) |
 
-**Skipped (the 5% headroom):** none yet enumerated; will populate as remaining apps are authored.
+**Skipped (the 5% headroom from authored apps):**
+- `dashboard.portal_home` — redirect-only view (excluded per coverage rule).
+- `dashboard.admin_visit_edit` — JSON-only AJAX endpoint (excluded; surfaces in `admin_caregiver_timecard` parent UI).
+- `dashboard.admin_billing_email_history` — JSON-only AJAX endpoint (excluded; surfaces in `admin_email_billing_pdf` parent UI).
+- `dashboard.api_caregiver_info` — JSON-only API (excluded).
+- `dashboard.login`, `dashboard.logout`, `dashboard.offline` — shared with all personas; will be authored under `## Shared routes` (#89).
+- `dashboard.family_*` (6 routes) — Family Member persona; out of Agency Admin scope.
 
-**Status note (2026-05-07).** Issue #81 covers Agency Admin row authoring. As of this commit, the top-level admin routes, `billing`, `billing_catalogs`, `charting` (per #85), `clients` (per #84), `employees` (per #87), `quickbooks_integration` (per #86), `compliance`, and `auth_service` apps are complete; remaining apps (dashboard) and the dual-role/shared routes are pending. Per the committee's halfway-point rule (below 30% coverage triggers a per-app split), follow-up sub-issues author each remaining app independently. See #81 halfway-point check-in for the split plan; #88 lands the bundled `compliance` + `auth_service` apps.
+**Status note (2026-05-07).** Issue #81 covers Agency Admin row authoring; sub-issues #83–#89 split the work per Django app. All ten Django-app sub-sections are now complete: top-level admin routes, `billing`, `billing_catalogs`, `charting` (per #85), `clients` (per #84), `compliance` (per #88), `dashboard` (per this PR #83), `employees` (per #87), `quickbooks_integration` (per #86), and `auth_service` (per #88). Only the dual-role / shared routes remain (#89) — those land in the file's `## Shared routes` section, not under `## Agency Admin`. Coverage at this commit is **91 / 96 ≈ 95%**, meeting the section's ≥95% target; the remaining 5 dual-role routes are the headroom.
 
 ---
 
@@ -182,6 +188,22 @@ _per-client unified calendar (Issue #40); custom non-shift events with attachmen
 | `/clients/<int:client_id>/events/<int:event_id>/attachments/<int:attachment_id>/delete/` | 🔒 PHI · Removes a single attachment record and its underlying stored file from a custom calendar event. | Sees: AJAX success JSON or redirect back to the event edit form. Can: delete one attachment and free its storage. | missing | M | true | false | true | not_screenshotted: pending #79 |  |
 | `/clients/<int:client_id>/schedule/pdf/` | 🔒 PHI · Generates a monthly schedule PDF (calendar-grid or agenda layout) for a client; HIPAA-access-logged in v1. | Sees: downloadable PDF with client name, caregiver names, shift times, optional weekend column. Can: pick format, orientation, font size, color mode, weekend visibility. | missing | L | true | false | true | not_screenshotted: pending #79 |  |
 | `/clients/<int:client_id>/schedule/preview/` | 🔒 PHI · HTML preview partial for the print-config panel; mirrors the schedule PDF generator's options without producing a PDF. | Sees: HTML preview rendered with the chosen format and options. Can: re-render with different format, orientation, font size, color, or weekend toggle. | missing | L | true | false | true | not_screenshotted: pending #79 |  |
+
+### dashboard
+_admin timecard summaries, caregiver timecard detail, client invoice list, billing PDF + CSV + Excel exports, billing email_
+
+| route | purpose | what_user_sees_can_do | v2_status | severity | multi_tenant_refactor | rls_bypass_by_design | phi_displayed | screenshot_ref | v2_link |
+|-------|---------|-----------------------|-----------|----------|-----------------------|----------------------|---------------|----------------|---------|
+| `/dashboard/admin/timecards/` | 🔒 PHI · Lists payroll-period timecard summary across all caregivers, with weekly/monthly/yearly period selection. | Sees: caregivers with hours, pay totals, period boundaries, status. Can: switch period, drill to caregiver detail, navigate to exports. | scaffolded |  | true | false | true | not_screenshotted: pending #79 | api/app/routers/payroll.py |
+| `/dashboard/admin/timecards/<int:caregiver_id>/` | 🔒 PHI · Shows individual caregiver's timecard detail for the selected period — visits, clock times, hours, pay. | Sees: caregiver's visits with client, clock in/out, hours, pay. Can: edit a visit's clock times via inline AJAX, switch period. | scaffolded |  | true | false | true | not_screenshotted: pending #79 | api/app/routers/payroll.py |
+| `/dashboard/admin/timecards/<int:caregiver_id>/pdf/` | 🔒 PHI · PDF export of a single caregiver's timecard; renders via reportlab; filename is timestamped. | Sees: PDF download containing the caregiver's period timecard. Can: save or print. | missing | M | true | false | true | not_screenshotted: pending #79 |  |
+| `/dashboard/admin/timecards/export/pdf/` | 🔒 PHI · PDF export of all-staff timecard summary for a period; bulk download. | Sees: PDF with all caregivers' timecard summary. Can: save or print. | missing | M | true | false | true | not_screenshotted: pending #79 |  |
+| `/dashboard/admin/timecards/export/csv/` | 🔒 PHI · CSV export of all-staff timecard data for a period; bulk download for accounting workflows. | Sees: CSV with caregivers, hours, pay. Can: download. | missing | M | true | false | true | not_screenshotted: pending #79 |  |
+| `/dashboard/admin/timecards/export/excel/` | 🔒 PHI · Excel (.xlsx) export of all-staff timecard data for a period; same data as the CSV export with Excel formatting. | Sees: XLSX download. Can: open in Excel. | missing | L | true | false | true | not_screenshotted: pending #79 |  |
+| `/dashboard/admin/invoices/` | 🔒 PHI · Lists all client invoices, allows uploading new invoice PDFs, and shows the automated weekly billing summary; supports adding standalone reimbursements. | Sees: client invoices with date, amount, attached PDF, plus weekly billing summary, plus reimbursement entries. Can: upload invoice, add reimbursement, navigate to per-invoice actions. | missing | H | true | false | true | not_screenshotted: pending #79 |  |
+| `/dashboard/admin/invoices/<int:invoice_id>/delete/` | 🔒 PHI · Deletes a client invoice and its attached PDF; POST-only; destructive. | Sees: confirmation feedback after delete. Can: confirm deletion via the parent invoice list. | missing | M | true | false | true | not_screenshotted: pending #79 |  |
+| `/dashboard/admin/invoices/<int:client_id>/billing-pdf/` | 🔒 PHI · Generates and downloads a billing PDF for a single client across the selected period; renders via reportlab. | Sees: PDF download containing the client's billing summary with line items. Can: save or print. | missing | H | true | false | true | not_screenshotted: pending #79 |  |
+| `/dashboard/admin/invoices/<int:client_id>/email/` | 🔒 PHI · Form to email the client billing PDF to the client's family members with delivery tracking; logs each send to BillingEmailLog. | Sees: form to compose email, recipient list from linked family members. Can: send email and observe send confirmation. | missing | H | true | false | true | not_screenshotted: pending #79 |  |
 
 ### employees
 _caregiver invitation acceptance and profile-completion onboarding (mounted at `/employees/`); Agency Admin initiates upstream via the invitation send flow_
