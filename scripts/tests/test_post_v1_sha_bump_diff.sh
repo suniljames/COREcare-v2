@@ -292,6 +292,71 @@ assert_not_contains \
   "$no_fp_body" \
   "Baseline fingerprint match"
 
+# --- Assertion 12: slice_pr_diff_to_readme isolates the README section ---
+# Caught a real CI failure: `gh pr diff` does not accept `-- <path>` filtering,
+# so we slice the full PR diff in the script. Regression-protect that.
+
+readonly MULTI_FILE_PR_DIFF=$'diff --git a/Makefile b/Makefile
+index 1111111..2222222 100644
+--- a/Makefile
++++ b/Makefile
+@@ -52,4 +52,5 @@ test-v1-docs:
+ \tbash scripts/tests/test_check_v1_doc_hygiene.sh
++\tbash scripts/tests/test_post_v1_sha_bump_diff.sh
+diff --git a/docs/migration/README.md b/docs/migration/README.md
+index abcdef..fedcba 100644
+--- a/docs/migration/README.md
++++ b/docs/migration/README.md
+@@ -16,7 +16,7 @@
+ - **Repo:** `suniljames/COREcare-access`
+-- **Commit SHA:** `9738412a6e41064203fc253d9dd2a5c6a9c2e231`
++- **Commit SHA:** `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`
+diff --git a/scripts/post-v1-sha-bump-diff.sh b/scripts/post-v1-sha-bump-diff.sh
+new file mode 100755
+index 0000000..3333333
+--- /dev/null
++++ b/scripts/post-v1-sha-bump-diff.sh
+@@ -0,0 +1,3 @@
++#!/usr/bin/env bash
++set -uo pipefail'
+
+readme_only=$(printf '%s\n' "$MULTI_FILE_PR_DIFF" | slice_pr_diff_to_readme)
+
+assert_contains \
+  "12a. slice extracts the README diff header" \
+  "$readme_only" \
+  "diff --git a/docs/migration/README.md b/docs/migration/README.md"
+assert_contains \
+  "12b. slice preserves the SHA-bump line" \
+  "$readme_only" \
+  "+- **Commit SHA:** \`aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\`"
+assert_not_contains \
+  "12c. slice excludes the Makefile diff header" \
+  "$readme_only" \
+  "diff --git a/Makefile b/Makefile"
+assert_not_contains \
+  "12d. slice excludes the post-v1-sha-bump-diff.sh diff header" \
+  "$readme_only" \
+  "diff --git a/scripts/post-v1-sha-bump-diff.sh"
+
+# Round-trip: the sliced output should still drive extract_sha_bump correctly.
+result=$(printf '%s\n' "$readme_only" | extract_sha_bump)
+assert \
+  "12e. sliced README section feeds extract_sha_bump correctly" \
+  "[[ '$result' == '9738412a6e41064203fc253d9dd2a5c6a9c2e231 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' ]]"
+
+# README absent from the PR → slice returns empty → main() short-circuits.
+no_readme_pr_diff=$'diff --git a/Makefile b/Makefile
+index 1111111..2222222 100644
+--- a/Makefile
++++ b/Makefile
+@@ -52,4 +52,5 @@ test-v1-docs:
++\tbash scripts/tests/test_new.sh'
+empty_slice=$(printf '%s\n' "$no_readme_pr_diff" | slice_pr_diff_to_readme)
+assert \
+  "12f. PR diff without README → slice returns empty (script no-ops)" \
+  "[[ -z '$empty_slice' ]]"
+
 # --- Cross-cutting assertion: 'silent drift' phrase present (Writer requirement) ---
 
 assert_contains \

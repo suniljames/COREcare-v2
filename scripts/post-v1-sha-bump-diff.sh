@@ -29,6 +29,20 @@ DIFF_CAP_BYTES=${DIFF_CAP_BYTES:-12288}
 # Marker used to find an existing comment for in-place sticky update.
 COMMENT_MARKER='<!-- v1-sha-bump-diff-report -->'
 
+# slice_pr_diff_to_readme
+# Reads a full PR diff from stdin (as `gh pr diff` emits, with one
+# `diff --git` header per file) and emits only the section for
+# docs/migration/README.md. Emits nothing when the README is not in
+# the diff. Sliced separately because `gh pr diff` does not accept a
+# `-- <path>` filter the way `git diff` does.
+slice_pr_diff_to_readme() {
+  awk '
+    /^diff --git a\/docs\/migration\/README\.md / { in_section=1; print; next }
+    /^diff --git / { in_section=0 }
+    in_section { print }
+  '
+}
+
 # extract_sha_bump
 # Reads a unified diff of docs/migration/README.md from stdin.
 # Emits "OLD_SHA NEW_SHA" if the `Commit SHA` line was bumped to a different
@@ -242,10 +256,15 @@ main() {
     fail_loud "PR number not provided (arg or PR_NUMBER env var)."
   fi
 
-  echo "Reading PR README diff for PR #${pr_num}…"
+  echo "Reading PR diff for PR #${pr_num}…"
+  local pr_diff_file
+  pr_diff_file=$(mktemp)
+  gh pr diff "$pr_num" >"$pr_diff_file" \
+    || { rm -f "$pr_diff_file"; fail_loud "Failed to read PR diff via gh."; }
+
   local readme_diff
-  readme_diff=$(gh pr diff "$pr_num" -- docs/migration/README.md) \
-    || fail_loud "Failed to read PR diff via gh."
+  readme_diff=$(slice_pr_diff_to_readme <"$pr_diff_file")
+  rm -f "$pr_diff_file"
 
   if [[ -z "$readme_diff" ]]; then
     echo "docs/migration/README.md unchanged in this PR — nothing to report."
