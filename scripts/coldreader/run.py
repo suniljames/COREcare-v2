@@ -168,5 +168,31 @@ def main(argv: list[str] | None = None) -> int:
     return EXIT_DRIFT if any(not r.passed for r in results) else EXIT_PASS
 
 
+def _main_safe() -> int:
+    """Catch unexpected exceptions and surface them as EXIT_SETUP_ERROR (2).
+
+    Without this wrapper, an uncaught exception (network error, API 4xx, bug
+    in the runner) exits Python with code 1 — indistinguishable from
+    EXIT_DRIFT, which causes the workflow's tracking-issue step to open a
+    false drift report. Returning 2 instead routes those failures through
+    the setup-error branch where the workflow surfaces a different message.
+    """
+    try:
+        return main()
+    except SystemExit:
+        raise
+    except BaseException as e:  # noqa: BLE001 — top-level safety net
+        import traceback
+
+        traceback.print_exc()
+        print(
+            f"\nrun.py: unhandled {type(e).__name__} — exiting "
+            f"with EXIT_SETUP_ERROR ({EXIT_SETUP_ERROR}) so the workflow does "
+            "not misclassify this as drift.",
+            file=sys.stderr,
+        )
+        return EXIT_SETUP_ERROR
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(_main_safe())
