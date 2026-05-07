@@ -31,7 +31,7 @@ _Enumeration in progress (#81). Per-Django-app denominators below._
 
 | app | denominator | numerator | notes |
 |-----|-------------|-----------|-------|
-| _(top-level admin routes in elitecare/urls.py)_ | 22 | 22 | Agency Admin admin-prefixed routes outside `include()`; complete |
+| _(top-level admin routes in elitecare/urls.py)_ | 21 | 21 | Agency Admin admin-prefixed routes outside `include()`; `/admin/view-as/kill-all/` recategorized to [Super-Admin](#super-admin) per #99 (`@user_passes_test(lambda u: u.is_superuser)`); complete |
 | billing | 3 | 3 | capability-gated admin custom views; complete |
 | billing_catalogs | 4 | 4 | Hazel-managed billable service catalog; complete |
 | charting | 22 / 48 raw | 22 | clinical surface; many routes shared with Care Manager and Caregiver, plus 22 JSON-only API endpoints excluded per [README §Coverage target](README.md#coverage-target); complete for Agency Admin |
@@ -42,7 +42,7 @@ _Enumeration in progress (#81). Per-Django-app denominators below._
 | quickbooks_integration | 8 | 8 | QuickBooks OAuth + invoice send + customer linking; complete |
 | auth_service | 5 | 5 | mounted at root prefix; password-reset flow (4) + magic-link login (1); routes shared across all personas; complete |
 | _(dual-role / portal switching routes in elitecare/urls.py)_ | 5 | 0 | switch-role, portal-chooser, set-default-portal, clear-default-portal, family-signup; not Agency-Admin-reachable — authored in [Shared routes](#shared-routes) (#89). |
-| **total (Agency Admin)** | **96** | **91 (≈95%)** | per-app sum; the 5 dual-role/shared routes are not Agency-Admin-reachable — authored in [Shared routes](#shared-routes) (#89). |
+| **total (Agency Admin)** | **95** | **90 (≈95%)** | per-app sum; the 5 dual-role/shared routes are not Agency-Admin-reachable — authored in [Shared routes](#shared-routes) (#89). |
 
 **Skipped (the 5% headroom from authored apps):**
 - `dashboard.portal_home` — redirect-only view (excluded per coverage rule).
@@ -52,7 +52,22 @@ _Enumeration in progress (#81). Per-Django-app denominators below._
 - `dashboard.login`, `dashboard.logout`, `dashboard.offline` — shared with all personas; will be authored under `## Shared routes` (#89).
 - `dashboard.family_*` (6 routes) — Family Member persona; out of Agency Admin scope.
 
-**Status note (2026-05-07).** Issue #81 covers Agency Admin row authoring; sub-issues #83–#89 split the work per Django app. All ten Django-app sub-sections are now complete: top-level admin routes, `billing`, `billing_catalogs`, `charting` (per #85), `clients` (per #84), `compliance` (per #88), `dashboard` (per this PR #83), `employees` (per #87), `quickbooks_integration` (per #86), and `auth_service` (per #88). Only the dual-role / shared routes remain (#89) — those land in the file's `## Shared routes` section, not under `## Agency Admin`. Coverage at this commit is **91 / 96 ≈ 95%**, meeting the section's ≥95% target; the remaining 5 dual-role routes are the headroom.
+**Status note (2026-05-07).** Issue #81 covers Agency Admin row authoring; sub-issues #83–#89 split the work per Django app. All ten Django-app sub-sections are now complete: top-level admin routes, `billing`, `billing_catalogs`, `charting` (per #85), `clients` (per #84), `compliance` (per #88), `dashboard` (per #83), `employees` (per #87), `quickbooks_integration` (per #86), and `auth_service` (per #88). Issue #99 then recategorized the `/admin/view-as/kill-all/` row to the Super-Admin section (one route, programmatically gated to Django superusers) and added the Super-Admin sub-table below. Only the dual-role / shared routes remain (#89) — those land in the file's `## Shared routes` section, not under `## Agency Admin`. Coverage at this commit is **90 / 95 ≈ 95%**, meeting the section's ≥95% target; the remaining 5 dual-role routes are the headroom.
+
+### Super-Admin
+
+_Per-Django-app denominators below._
+
+| app | denominator | numerator | notes |
+|-----|-------------|-----------|-------|
+| _(top-level admin routes in elitecare/urls.py)_ | 1 | 1 | only `view_as_kill_all` is `@user_passes_test(lambda u: u.is_superuser)` in v1; recategorized from Agency Admin in #99 |
+| **total (Super-Admin)** | **1** | **1 (100%)** | per-app sum |
+
+**Skipped (excluded by coverage rule, documented in [Super-Admin → Platform ops endpoints](#platform-ops-endpoints-not-in-row-count-denominator)):**
+- `/healthz` — JSON-only.
+- `/ops/disk-check/` — JSON-only.
+- `/status/` — redirect-only.
+- `/admin/api/ops-stats/` — JSON-only.
 
 ### Caregiver
 
@@ -138,13 +153,52 @@ Each persona section below uses this row schema. Authors: do not add or remove c
 
 ## Super-Admin
 
-_last reconciled: 2026-05-06 against v1 commit `9738412`_
+_last reconciled: 2026-05-07 against v1 commit `9738412`_
 
-Super-Admin pages are platform-operator surfaces that bypass tenant isolation by design. v1 was single-tenant per install, so v1's "super-admin" features sit at the elitecare project level (cross-agency Django admin views, support tooling, View-As impersonation). v2 must preserve every audit-log behavior on these routes — RLS bypass is a load-bearing control, not a convenience.
+v1 runs single-tenant per install: each agency has its own dedicated Django/Postgres deployment, and "Super-Admin" is effectively any Django superuser inside that single-agency install. The only HTML route v1 programmatically gates to superusers alone is the View-As emergency kill switch — a backstop the agency's own staff cannot reach by design. v2 is multi-tenant from day one; Super-Admin is the platform-operator persona crossing tenant boundaries by design and the authority on every audit-logged RLS-bypass surface. This section catalogs the one v1 route exclusively reachable by superusers, plus a cross-reference index of every Agency-Admin route a v1 Super-Admin also reaches, plus a non-row subsection documenting the platform ops endpoints excluded from the page-row denominator. Together those three subsections form the spine for v2's operator-portal design.
+
+<a id="super-admin-top-level"></a>
+### top-level (elitecare/urls.py)
+_admin-prefixed routes registered directly in the project root, outside any include()_
 
 | route | purpose | what_user_sees_can_do | v2_status | severity | multi_tenant_refactor | rls_bypass_by_design | phi_displayed | screenshot_ref | v2_link |
 |-------|---------|-----------------------|-----------|----------|-----------------------|----------------------|---------------|----------------|---------|
-| _(rows pending content authoring)_ | | | | | | | | | |
+| `/admin/view-as/kill-all/` | Emergency kill switch for all active View As sessions; audit-logged in v1. | Sees: confirmation prompt with active-session count. Can: terminate all sessions immediately. | missing | H | true | true | false | not_screenshotted: pending #79 |  |
+
+### Cross-reference index
+_Routes reachable by both Super-Admin and Agency Admin; canonical row in the linked persona section._
+
+**Curation criteria:** Super-Admin's `is_superuser=True` implies `is_staff=True`, so a Super-Admin reaches every `@staff_member_required` route — i.e., every row currently in `## Agency Admin`. This index is the curated subset where v2's operator portal will need to consider Super-Admin chrome treatment distinct from Agency Admin's: the View-As suite (RLS-bypass surfaces), expense review (financial controls), and role-permissions (capability administration). Routes with `phi_displayed=true` (the four expense-review entries) are the highest cross-tenant HIPAA-minimum-necessary considerations.
+
+| route | also reachable by | content branches by role | phi_displayed | row location |
+|-------|-------------------|---------------------------|---------------|--------------|
+| `/admin/view-as/hub/` | Agency Admin | no | false | [Agency Admin → top-level](#agency-admin-top-level) |
+| `/admin/view-as/family/select/` | Agency Admin | no | false | [Agency Admin → top-level](#agency-admin-top-level) |
+| `/admin/view-as/<int:user_id>/` | Agency Admin | no | false | [Agency Admin → top-level](#agency-admin-top-level) |
+| `/admin/view-as/caregiver/select/` | Agency Admin | no | false | [Agency Admin → top-level](#agency-admin-top-level) |
+| `/admin/view-as/caregiver/<int:user_id>/` | Agency Admin | no | false | [Agency Admin → top-level](#agency-admin-top-level) |
+| `/admin/view-as/end/` | Agency Admin | no | false | [Agency Admin → top-level](#agency-admin-top-level) |
+| `/admin/view-as/status/` | Agency Admin | no | false | [Agency Admin → top-level](#agency-admin-top-level) |
+| `/admin/view-as/search/` | Agency Admin | no | false | [Agency Admin → top-level](#agency-admin-top-level) |
+| `/admin/view-as/stats/` | Agency Admin | no | false | [Agency Admin → top-level](#agency-admin-top-level) |
+| `/admin/view-as/audit-log/` | Agency Admin | yes — Super-Admin sees all sessions, Agency Admin sees own | false | [Agency Admin → top-level](#agency-admin-top-level) |
+| `/admin/expenses/review/` | Agency Admin | no | true | [Agency Admin → top-level](#agency-admin-top-level) |
+| `/admin/expenses/review/<int:expense_id>/approve/` | Agency Admin | no | true | [Agency Admin → top-level](#agency-admin-top-level) |
+| `/admin/expenses/review/<int:expense_id>/reject/` | Agency Admin | no | true | [Agency Admin → top-level](#agency-admin-top-level) |
+| `/admin/expenses/review/<int:expense_id>/reimburse/` | Agency Admin | no | true | [Agency Admin → top-level](#agency-admin-top-level) |
+| `/admin/role-permissions/` | Agency Admin | no | false | [Agency Admin → top-level](#agency-admin-top-level) |
+| `/admin/role-permissions/toggle/` | Agency Admin | no | false | [Agency Admin → top-level](#agency-admin-top-level) |
+
+### Platform ops endpoints (not in row-count denominator)
+
+These v1 surfaces are excluded from the Super-Admin row-count denominator (JSON or redirect-only per the [README coverage rule](README.md#coverage-target)) but documented here for v2 ops-surface design parity. Reachability: any authenticated `is_staff` user; the platform-operator persona is the primary consumer during oncall response.
+
+| endpoint | response | purpose | v2 design implication |
+|----------|----------|---------|------------------------|
+| `/healthz` | JSON | Render uptime probe — short-circuit middleware before session/auth so it works during DB outages. | Vercel will need an equivalent at the v2 web app. FastAPI exposes its own; coordinate the topology. |
+| `/ops/disk-check/` | JSON, bearer-token | Render cron call into the web container reporting `/var/data/media/` disk utilization. | v2 storage topology differs (Supabase storage). `severity=D` (deliberate divergence) — not a 1:1 port. |
+| `/status/` | redirect | Short-circuits to a GitHub-Pages-hosted dashboard so it remains reachable during full Render outages. | Keep the v2 status page out-of-band for the same reason. v2 design owes a host decision. |
+| `/admin/api/ops-stats/` | JSON | Staff-only ops counters consumed by the admin index dashboard widgets. | Ties into v2's dashboard widget set; not an independent operator endpoint. |
 
 ---
 
@@ -154,6 +208,7 @@ _last reconciled: 2026-05-07 against v1 commit `9738412`_
 
 Agency Admin pages cover scheduling, billing, payroll, credentialing, compliance, and team oversight. This is v1's largest surface and v2's highest-volume rebuild target. Rows are grouped by Django app under H3 sub-headings.
 
+<a id="agency-admin-top-level"></a>
 ### top-level (elitecare/urls.py)
 _admin-prefixed routes registered directly in the project root, outside any include()_
 
@@ -171,7 +226,6 @@ _admin-prefixed routes registered directly in the project root, outside any incl
 | `/admin/view-as/status/` | Reports active View As session state — used by the impersonation banner and middleware. | Sees: active-session indicator and elapsed time. Can: end the session inline. | missing | H | true | true | false | not_screenshotted: pending #79 |  |
 | `/admin/view-as/search/` | User search for selecting a View As target by name or email. | Sees: live search results matching staff-permitted target users. Can: select to advance to step-up. | missing | H | true | true | false | not_screenshotted: pending #79 |  |
 | `/admin/view-as/stats/` | View As session statistics — initiated counts, terminations, failed attempts. | Sees: session counts by status, time-window filters. Can: drill to session detail or audit log. | missing | H | true | true | false | not_screenshotted: pending #79 |  |
-| `/admin/view-as/kill-all/` | Emergency kill switch for all active View As sessions; audit-logged in v1; superuser-only in v1. | Sees: confirmation prompt with active-session count. Can: terminate all sessions immediately. | missing | H | true | true | false | not_screenshotted: pending #79 |  |
 | `/admin/view-as/audit-log/` | View As audit log — IP, action, target, timestamp for every session and forbidden-action attempt. | Sees: chronological audit entries with filters by initiator, target, date. Can: drill into a single session's full action trail. | missing | H | true | true | false | not_screenshotted: pending #79 |  |
 | `/admin/expenses/review/` | 🔒 PHI · Lists pending caregiver expense submissions awaiting Agency Admin approval. | Sees: pending expenses with submitter, amount, category, attached receipts. Can: filter, drill to detail, batch select. | missing | H | true | false | true | not_screenshotted: pending #79 |  |
 | `/admin/expenses/review/<int:expense_id>/approve/` | Approves a single pending expense submission and routes it to reimbursement. | Sees: confirmation dialog with expense summary. Can: approve and add an optional note. | missing | H | true | false | true | not_screenshotted: pending #79 |  |
