@@ -212,9 +212,7 @@ def test_extract_index_missing_raises_index_not_found(tmp_path: Path) -> None:
 def test_extract_index_handles_index_at_eof(tmp_path: Path) -> None:
     md = _write_inventory(
         tmp_path,
-        "## Shared routes\n"
-        "### Cross-reference index\n"
-        "trailing index, no following ### or ##\n",
+        "## Shared routes\n### Cross-reference index\ntrailing index, no following ### or ##\n",
     )
     index = extract_index(md)
     assert "trailing index" in index

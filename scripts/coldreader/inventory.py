@@ -82,9 +82,7 @@ def extract_section(path: Path, persona: str, *, min_bytes: int) -> str:
         body.append(line)
 
     if not in_section:
-        raise SectionNotFound(
-            f"persona {persona!r} heading {heading!r} not found in {path}"
-        )
+        raise SectionNotFound(f"persona {persona!r} heading {heading!r} not found in {path}")
 
     body_text = "\n".join(body)
     if len(body_text.encode("utf-8")) < min_bytes:

@@ -85,16 +85,12 @@ def test_load_fixture_with_two_questions_fails(tmp_path: Path) -> None:
     path = _write_fixture(tmp_path, "family-member", body)
     with pytest.raises(FixtureSchemaError) as exc:
         load_fixture(path)
-    assert (
-        "exactly 3" in str(exc.value).lower() or "3 questions" in str(exc.value).lower()
-    )
+    assert "exactly 3" in str(exc.value).lower() or "3 questions" in str(exc.value).lower()
 
 
 def test_load_fixture_with_four_questions_fails(tmp_path: Path) -> None:
     body = _well_formed_body()
-    body["questions"].append(
-        {"id": "q4", "text": "extra?", "expected_fact_summary": "x"}
-    )
+    body["questions"].append({"id": "q4", "text": "extra?", "expected_fact_summary": "x"})
     path = _write_fixture(tmp_path, "family-member", body)
     with pytest.raises(FixtureSchemaError):
         load_fixture(path)
@@ -169,9 +165,9 @@ def test_load_fixture_with_dob_phi_fails(tmp_path: Path) -> None:
 def test_phi_placeholder_tokens_are_not_phi(tmp_path: Path) -> None:
     """`[CLIENT_NAME]`, `<FAMILY_MEMBER>` etc. are placeholders, not real PHI."""
     body = _well_formed_body()
-    body["questions"][0][
-        "expected_fact_summary"
-    ] = "Family Member sees [CLIENT_NAME] and <FAMILY_MEMBER> placeholders."
+    body["questions"][0]["expected_fact_summary"] = (
+        "Family Member sees [CLIENT_NAME] and <FAMILY_MEMBER> placeholders."
+    )
     path = _write_fixture(tmp_path, "family-member", body)
     fx = load_fixture(path)
     assert fx.persona == "family-member"

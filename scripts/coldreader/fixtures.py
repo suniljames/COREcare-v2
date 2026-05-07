@@ -143,9 +143,7 @@ def load_fixture(path: Path) -> Fixture:
             f"{path}: question[{i}].expected_fact_summary must be a non-empty "
             "string — it grounds the soft-compare check during scoring",
         )
-        assert (
-            isinstance(qid, str) and isinstance(text, str) and isinstance(summary, str)
-        )
+        assert isinstance(qid, str) and isinstance(text, str) and isinstance(summary, str)
         _require(
             qid not in seen_ids,
             f"{path}: duplicate question id {qid!r}; ids must be unique within a fixture",

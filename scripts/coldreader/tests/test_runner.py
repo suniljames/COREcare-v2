@@ -1,0 +1,551 @@
+"""L3 — Runner + verifier tests using `FakeAnthropicClient`.
+
+No ANTHROPIC_API_KEY needed. Drives the verbatim-evidence verifier and the
+two-pass retry path on synthetic responses.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+import yaml
+
+from fixtures import Fixture, Question
+from runner import (
+    RotationFailure,
+    RotationResult,
+    run_rotation,
+)
+from tests.conftest import CannedResponse, FakeAnthropicClient
+
+
+def _fixture(
+    persona: str = "family-member",
+    questions: tuple[Question, ...] | None = None,
+    min_bytes: int = 100,
+) -> Fixture:
+    return Fixture(
+        persona=persona,
+        min_section_bytes=min_bytes,
+        questions=questions
+        or (
+            Question(
+                id="q1",
+                text="What does X see?",
+                expected_fact_summary="They see Y on the dashboard.",
+            ),
+            Question(
+                id="q2",
+                text="Can X access Z?",
+                expected_fact_summary="No — gated by linked-client only.",
+            ),
+            Question(
+                id="q3",
+                text="Why must v2 handle revoke?",
+                expected_fact_summary="No active-flag in v1; soft-revoke needed.",
+            ),
+        ),
+        source_path=Path("/tmp/fake.yaml"),
+    )
+
+
+def _section() -> str:
+    return (
+        "X sees Y on the dashboard, summarized per linked client.\n"
+        "Visibility is gated linked-client only via ClientFamilyMember.\n"
+        "v1 has no active-flag on the link; soft-revoke is a v2 design need.\n"
+    )
+
+
+def _index() -> str:
+    return "Cross-reference index body — pretend this lists shared routes.\n"
+
+
+# --- happy path: all 3 questions pass, no retry ---
+
+
+def test_rotation_passes_when_evidence_grounded(tmp_path: Path) -> None:
+    fx = _fixture()
+    section = _section()
+    index = _index()
+    client = FakeAnthropicClient()
+    client.add_response(
+        "family-member",
+        "q1",
+        CannedResponse(
+            answer="They see Y on the dashboard, per linked client.",
+            verbatim_evidence=("X sees Y on the dashboard",),
+        ),
+    )
+    client.add_response(
+        "family-member",
+        "q2",
+        CannedResponse(
+            answer="No, gated linked-client only.",
+            verbatim_evidence=("linked-client only via ClientFamilyMember",),
+        ),
+    )
+    client.add_response(
+        "family-member",
+        "q3",
+        CannedResponse(
+            answer="v1 has no active-flag; v2 must add soft-revoke.",
+            verbatim_evidence=("no active-flag on the link",),
+        ),
+    )
+
+    result = run_rotation(fx, section=section, index=index, client=client, allow_retry=True)
+    assert isinstance(result, RotationResult)
+    assert result.passed
+    assert len(result.failures) == 0
+    assert len(client.calls) == 3
+    # No call used extended thinking on a happy path.
+    assert all(not c.use_extended_thinking for c in client.calls)
+
+
+# --- evidence verification ---
+
+
+def test_rotation_fails_when_verbatim_evidence_not_in_section(tmp_path: Path) -> None:
+    fx = _fixture(
+        questions=(
+            Question(id="q1", text="?", expected_fact_summary="X sees Y."),
+            Question(id="q2", text="?", expected_fact_summary="Y sees Z."),
+            Question(id="q3", text="?", expected_fact_summary="A sees B."),
+        )
+    )
+    client = FakeAnthropicClient()
+    client.add_response(
+        "family-member",
+        "q1",
+        CannedResponse(
+            answer="They see Y on the dashboard.",
+            verbatim_evidence=("X sees Y on the dashboard",),
+        ),
+    )
+    client.add_response(
+        "family-member",
+        "q2",
+        CannedResponse(
+            answer="They see Z.",
+            verbatim_evidence=("THIS PHRASE IS NOT IN THE SECTION OR INDEX",),
+        ),
+    )
+    # Pass-B retry on q2 also fails.
+    client.add_response(
+        "family-member",
+        "q2",
+        CannedResponse(
+            answer="They see Z.",
+            verbatim_evidence=("STILL NOT THERE",),
+            used_extended_thinking=True,
+        ),
+    )
+    client.add_response(
+        "family-member",
+        "q3",
+        CannedResponse(
+            answer="They see B.",
+            verbatim_evidence=("v1 has no active-flag",),
+        ),
+    )
+
+    result = run_rotation(fx, section=_section(), index=_index(), client=client, allow_retry=True)
+    assert not result.passed
+    assert len(result.failures) == 1
+    f = result.failures[0]
+    assert isinstance(f, RotationFailure)
+    assert f.question_id == "q2"
+    assert "STILL NOT THERE" in f.message or "NOT IN THE SECTION" in f.message
+
+
+def test_rotation_evidence_can_match_in_either_section_or_index(tmp_path: Path) -> None:
+    fx = _fixture()
+    client = FakeAnthropicClient()
+    client.add_response(
+        "family-member",
+        "q1",
+        CannedResponse(
+            answer="They see Y on the dashboard.",
+            verbatim_evidence=("X sees Y on the dashboard",),
+        ),
+    )
+    client.add_response(
+        "family-member",
+        "q2",
+        # Evidence string lives ONLY in the index, not the section.
+        CannedResponse(
+            answer="Yes, linked-client only via cross-reference index.",
+            verbatim_evidence=("Cross-reference index body",),
+        ),
+    )
+    client.add_response(
+        "family-member",
+        "q3",
+        CannedResponse(
+            answer="v1 has no active-flag; v2 needs soft-revoke.",
+            verbatim_evidence=("no active-flag on the link",),
+        ),
+    )
+    result = run_rotation(fx, section=_section(), index=_index(), client=client, allow_retry=False)
+    assert result.passed
+
+
+def test_rotation_fails_when_answer_is_null(tmp_path: Path) -> None:
+    fx = _fixture()
+    client = FakeAnthropicClient()
+    client.add_response(
+        "family-member",
+        "q1",
+        CannedResponse(
+            answer="",  # null answer signals "I cannot answer from the section"
+            verbatim_evidence=(),
+        ),
+    )
+    # Retry is also empty.
+    client.add_response(
+        "family-member",
+        "q1",
+        CannedResponse(
+            answer="",
+            verbatim_evidence=(),
+            used_extended_thinking=True,
+        ),
+    )
+    client.add_response(
+        "family-member",
+        "q2",
+        CannedResponse(
+            answer="No, linked-client only.",
+            verbatim_evidence=("linked-client only via ClientFamilyMember",),
+        ),
+    )
+    client.add_response(
+        "family-member",
+        "q3",
+        CannedResponse(
+            answer="v1 has no active-flag; v2 needs soft-revoke.",
+            verbatim_evidence=("no active-flag on the link",),
+        ),
+    )
+    result = run_rotation(fx, section=_section(), index=_index(), client=client, allow_retry=True)
+    assert not result.passed
+    assert any(f.question_id == "q1" for f in result.failures)
+
+
+# --- two-pass retry behavior ---
+
+
+def test_rotation_retries_failing_question_with_extended_thinking(
+    tmp_path: Path,
+) -> None:
+    fx = _fixture()
+    client = FakeAnthropicClient()
+    # q1 first attempt: bad evidence; retry succeeds.
+    client.add_response(
+        "family-member",
+        "q1",
+        CannedResponse(
+            answer="They see Y on the dashboard.",
+            verbatim_evidence=("nonsense",),
+        ),
+    )
+    client.add_response(
+        "family-member",
+        "q1",
+        CannedResponse(
+            answer="They see Y on the dashboard.",
+            verbatim_evidence=("X sees Y on the dashboard",),
+            used_extended_thinking=True,
+        ),
+    )
+    # q2/q3 happy.
+    client.add_response(
+        "family-member",
+        "q2",
+        CannedResponse(
+            answer="No, linked-client only.",
+            verbatim_evidence=("linked-client only via ClientFamilyMember",),
+        ),
+    )
+    client.add_response(
+        "family-member",
+        "q3",
+        CannedResponse(
+            answer="v1 has no active-flag; v2 needs soft-revoke.",
+            verbatim_evidence=("no active-flag on the link",),
+        ),
+    )
+
+    result = run_rotation(fx, section=_section(), index=_index(), client=client, allow_retry=True)
+    assert result.passed, "second-pass retry should rescue q1"
+    # The retry call has use_extended_thinking=True
+    retry_calls = [c for c in client.calls if c.use_extended_thinking]
+    assert len(retry_calls) == 1
+    assert retry_calls[0].question_id == "q1"
+
+
+def test_rotation_skips_retry_when_disabled(tmp_path: Path) -> None:
+    """allow_retry=False = single-pass mode (used in dry-run / fast checks)."""
+    fx = _fixture()
+    client = FakeAnthropicClient()
+    client.add_response(
+        "family-member",
+        "q1",
+        CannedResponse(
+            answer="They see Y on the dashboard.",
+            verbatim_evidence=("nonsense",),
+        ),
+    )
+    client.add_response(
+        "family-member",
+        "q2",
+        CannedResponse(
+            answer="No, linked-client only.",
+            verbatim_evidence=("linked-client only via ClientFamilyMember",),
+        ),
+    )
+    client.add_response(
+        "family-member",
+        "q3",
+        CannedResponse(
+            answer="v1 has no active-flag; v2 needs soft-revoke.",
+            verbatim_evidence=("no active-flag on the link",),
+        ),
+    )
+    result = run_rotation(fx, section=_section(), index=_index(), client=client, allow_retry=False)
+    assert not result.passed
+    # No retry call recorded
+    assert all(not c.use_extended_thinking for c in client.calls)
+
+
+# --- usage aggregation ---
+
+
+_KEYWORD_RICH_ANSWERS = {
+    "q1": (
+        "They see Y on the dashboard, per linked client.",
+        "X sees Y on the dashboard",
+    ),
+    "q2": (
+        "No, gated linked-client only.",
+        "linked-client only via ClientFamilyMember",
+    ),
+    "q3": (
+        "v1 has no active-flag; v2 needs soft-revoke.",
+        "no active-flag on the link",
+    ),
+}
+
+
+def test_rotation_aggregates_token_usage(tmp_path: Path) -> None:
+    fx = _fixture()
+    client = FakeAnthropicClient()
+    for qid in ("q1", "q2", "q3"):
+        answer, evidence = _KEYWORD_RICH_ANSWERS[qid]
+        client.add_response(
+            "family-member",
+            qid,
+            CannedResponse(
+                answer=answer,
+                verbatim_evidence=(evidence,),
+                input_tokens=100,
+                output_tokens=200,
+                cache_read_tokens=2000,
+                cache_creation_tokens=500,
+            ),
+        )
+    result = run_rotation(fx, section=_section(), index=_index(), client=client, allow_retry=False)
+    assert result.usage.input_tokens == 300
+    assert result.usage.output_tokens == 600
+    assert result.usage.cache_read_input_tokens == 6000
+    assert result.usage.cache_creation_input_tokens == 1500
+
+
+def test_rotation_cache_hit_ratio_helper() -> None:
+    fx = _fixture()
+    client = FakeAnthropicClient()
+    for qid in ("q1", "q2", "q3"):
+        answer, evidence = _KEYWORD_RICH_ANSWERS[qid]
+        client.add_response(
+            "family-member",
+            qid,
+            CannedResponse(
+                answer=answer,
+                verbatim_evidence=(evidence,),
+                input_tokens=100,
+                cache_read_tokens=900,
+            ),
+        )
+    result = run_rotation(fx, section=_section(), index=_index(), client=client, allow_retry=False)
+    # 900 cached vs 100 uncached input per call → ratio 0.9
+    assert abs(result.usage.cache_hit_ratio - 0.9) < 1e-6
+
+
+# --- min_section_bytes still enforced before any model call ---
+
+
+def test_rotation_aborts_before_api_when_section_below_floor(tmp_path: Path) -> None:
+    fx = _fixture(min_bytes=10_000)
+    short_section = "way too short to be a real section"
+    client = FakeAnthropicClient()
+    with pytest.raises(ValueError) as exc:
+        run_rotation(
+            fx,
+            section=short_section,
+            index=_index(),
+            client=client,
+            allow_retry=True,
+        )
+    assert "min_section_bytes" in str(exc.value) or "10000" in str(exc.value)
+    # No API call should have been made.
+    assert client.calls == []
+
+
+# --- structured failure rendering for tracking-issue body ---
+
+
+def test_failure_message_includes_persona_question_text_and_missing_evidence(
+    tmp_path: Path,
+) -> None:
+    fx = _fixture()
+    client = FakeAnthropicClient()
+    client.add_response(
+        "family-member",
+        "q1",
+        CannedResponse(
+            answer="something",
+            verbatim_evidence=("UNFINDABLE_PHRASE_XYZ",),
+        ),
+    )
+    client.add_response(
+        "family-member",
+        "q1",
+        CannedResponse(
+            answer="something",
+            verbatim_evidence=("STILL_UNFINDABLE",),
+            used_extended_thinking=True,
+        ),
+    )
+    client.add_response(
+        "family-member",
+        "q2",
+        CannedResponse(
+            answer="No, gated linked-client only.",
+            verbatim_evidence=("linked-client only via ClientFamilyMember",),
+        ),
+    )
+    client.add_response(
+        "family-member",
+        "q3",
+        CannedResponse(
+            answer="v1 has no active-flag; v2 needs soft-revoke.",
+            verbatim_evidence=("no active-flag on the link",),
+        ),
+    )
+    result = run_rotation(fx, section=_section(), index=_index(), client=client, allow_retry=True)
+    assert not result.passed
+    f = result.failures[0]
+    msg = result.format_failure(f)
+    assert "family-member" in msg
+    assert "q1" in msg or "What does X see?" in msg
+    assert "STILL_UNFINDABLE" in msg
+
+
+# --- fixture loading from real repo: dry-run smoke (no API call) ---
+
+
+def test_dry_run_smoke_loads_every_fixture_against_live_inventory(
+    tmp_path: Path,
+) -> None:
+    """Reuses the real repo fixtures + inventory; verifies parser+fixture pair end-to-end."""
+    from runner import dry_run_smoke
+
+    # No client passed; dry_run_smoke must not require one.
+    summary = dry_run_smoke()
+    assert summary.fixtures_loaded == 7
+    assert summary.section_bytes_above_floor == 7
+    assert summary.errors == []
+
+
+# --- YAML round-trip sanity ---
+
+
+def test_fake_client_records_calls_in_order(tmp_path: Path) -> None:
+    """Sanity check on the fake — order matters for usage aggregation tests."""
+    fx = _fixture()
+    client = FakeAnthropicClient()
+    for qid in ("q1", "q2", "q3"):
+        answer, evidence = _KEYWORD_RICH_ANSWERS[qid]
+        client.add_response(
+            "family-member",
+            qid,
+            CannedResponse(answer=answer, verbatim_evidence=(evidence,)),
+        )
+    run_rotation(fx, section=_section(), index=_index(), client=client, allow_retry=False)
+    assert [c.question_id for c in client.calls] == ["q1", "q2", "q3"]
+
+
+# --- tracking-issue body builder ---
+
+
+def test_render_tracking_issue_body_for_failures(tmp_path: Path) -> None:
+    """The runner exposes a helper that renders a markdown-friendly summary."""
+    from runner import render_summary_markdown
+
+    fx = _fixture()
+    client = FakeAnthropicClient()
+    client.add_response(
+        "family-member",
+        "q1",
+        CannedResponse(
+            answer="They see Y on the dashboard.",
+            verbatim_evidence=("X sees Y on the dashboard",),
+        ),
+    )
+    client.add_response(
+        "family-member",
+        "q2",
+        CannedResponse(answer="No, gated linked-client only.", verbatim_evidence=("not there",)),
+    )
+    client.add_response(
+        "family-member",
+        "q2",
+        CannedResponse(
+            answer="No, gated linked-client only.",
+            verbatim_evidence=("still not there",),
+            used_extended_thinking=True,
+        ),
+    )
+    client.add_response(
+        "family-member",
+        "q3",
+        CannedResponse(
+            answer="v1 has no active-flag; v2 needs soft-revoke.",
+            verbatim_evidence=("v1 has no active-flag",),
+        ),
+    )
+    result = run_rotation(fx, section=_section(), index=_index(), client=client, allow_retry=True)
+    md = render_summary_markdown([result], model="claude-haiku-4-5-20251001")
+    assert "claude-haiku-4-5-20251001" in md
+    assert "FAIL" in md or "fail" in md
+    assert "family-member" in md
+    assert "q2" in md or "Can X access Z?" in md
+
+
+# --- prevent stale yaml from confusing tests ---
+
+
+def test_yaml_round_trip_smoke(tmp_path: Path) -> None:
+    body = {
+        "persona": "family-member",
+        "min_section_bytes": 1500,
+        "questions": [
+            {"id": f"q{i}", "text": f"q{i}?", "expected_fact_summary": f"fact{i}"}
+            for i in range(1, 4)
+        ],
+    }
+    p = tmp_path / "family-member.yaml"
+    p.write_text(yaml.safe_dump(body), encoding="utf-8")
+    assert yaml.safe_load(p.read_text(encoding="utf-8"))["persona"] == "family-member"
