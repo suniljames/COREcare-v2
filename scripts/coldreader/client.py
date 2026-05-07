@@ -173,10 +173,26 @@ class AnthropicRotationClient:
         ]
 
     def query_rotation(self, call: RotationCall) -> RotationResponse:
+        # Anthropic API rejects `thinking: enabled` combined with a forced
+        # `tool_choice: {"type": "tool", ...}` (HTTP 400). On Pass B (extended
+        # thinking), drop to `tool_choice: "auto"` and rely on the system
+        # prompt's explicit instruction to call the tool. If the model
+        # declines, the response has no tool_use block and `answer` stays
+        # empty — which the verifier correctly treats as a failure.
+        tool_choice: dict[str, Any] = (
+            {"type": "auto"} if call.use_extended_thinking else {"type": "tool", "name": _TOOL_NAME}
+        )
+        # When extended thinking is enabled, max_tokens must be > budget_tokens
+        # per the Anthropic API contract; budget tokens are *additional* output.
+        max_tokens = (
+            MAX_TOKENS + EXTENDED_THINKING_BUDGET if call.use_extended_thinking else MAX_TOKENS
+        )
+        # Anthropic API forbids temperature != 1 when extended thinking is on.
+        temperature = 1 if call.use_extended_thinking else 0
         kwargs: dict[str, Any] = {
             "model": MODEL,
-            "max_tokens": MAX_TOKENS,
-            "temperature": 0,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
             "system": self._build_system(),
             "messages": self._build_messages(call),
             "tools": [
@@ -186,7 +202,7 @@ class AnthropicRotationClient:
                     "input_schema": _TOOL_SCHEMA,
                 }
             ],
-            "tool_choice": {"type": "tool", "name": _TOOL_NAME},
+            "tool_choice": tool_choice,
         }
         if call.use_extended_thinking:
             kwargs["thinking"] = {
