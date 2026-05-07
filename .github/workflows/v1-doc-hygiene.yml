@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'docs/migration/v1-*.md'
+      - 'docs/migration/README.md'
       - 'tools/v1-screenshot-catalog/*.md'
       - 'scripts/check-v1-doc-hygiene.sh'
       - 'scripts/check-v1-doc-structure.sh'
@@ -15,6 +16,7 @@ on:
     branches: [main]
     paths:
       - 'docs/migration/v1-*.md'
+      - 'docs/migration/README.md'
       - 'tools/v1-screenshot-catalog/*.md'
       - 'scripts/check-v1-doc-hygiene.sh'
       - 'scripts/check-v1-doc-structure.sh'

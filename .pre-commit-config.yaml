@@ -17,10 +17,11 @@ repos:
         pass_filenames: true
 
       - id: v1-doc-structure
-        name: V1 doc structure (personas / cross-ref header / "needs confirmation" residue)
+        name: V1 doc structure (personas / cross-ref header / "needs confirmation" residue / refresh runbook)
         entry: bash scripts/check-v1-doc-structure.sh
         language: system
-        # No file pattern: this hook validates the docset as a whole, so it
-        # only needs to run when a v1 doc in the migration set changes.
-        files: '^docs/migration/v1-.+\.md$'
+        # The hook validates the docset as a whole; it fires when any file
+        # in the structure script's scope changes — including the migration
+        # README (RR-N rule group, #132).
+        files: '^docs/migration/(v1-.+|README)\.md$'
         pass_filenames: false
