@@ -4,7 +4,7 @@
 
 This document is the **authoritative route catalogue** for v1's customer-facing surface. Every other doc in this set cites into it; do not redefine routes elsewhere. One row per (route, persona) tuple — a route accessible to multiple personas appears in multiple rows.
 
-**Status:** SCAFFOLDED. Persona sections are in place; rows are pending content authoring against `suniljames/COREcare-access` at the [pinned commit](README.md#v1-reference-commit). Until rows are filled, the [`v1-functionality-delta.md`](v1-functionality-delta.md) is the most complete view of v1's feature surface.
+**Status:** SCAFFOLDED. Persona sections are in place; rows are pending content authoring against `hcunanan79/COREcare-access` at the [pinned commit](README.md#v1-reference-commit). Until rows are filled, the [`v1-functionality-delta.md`](v1-functionality-delta.md) is the most complete view of v1's feature surface.
 
 > **Drift detection.** A weekly CI job ([`v1-inventory-coldreader.yml`](../../.github/workflows/v1-inventory-coldreader.yml)) runs the per-persona cold-reader rotation against the live section content. If a row edit breaks the rotation, an auto-managed tracking issue opens. Rotation fixtures live in [`scripts/coldreader/fixtures/`](../../scripts/coldreader/fixtures/); operational details are in [`scripts/coldreader/README.md`](../../scripts/coldreader/README.md).
 
@@ -17,7 +17,7 @@ Coverage is measured per persona section, not globally. Each persona's denominat
 ### Enumeration method (deterministic, reproducible)
 
 ```
-For each Django app in v1 (suniljames/COREcare-access):
+For each Django app in v1 (hcunanan79/COREcare-access):
   1. Read app/urls.py — collect every path()/re_path() entry.
   2. Filter to those rendering HTML (skip JsonResponse, redirect-only, static).
   3. For each URL, read the view (FBV or CBV) — confirm the persona can reach
