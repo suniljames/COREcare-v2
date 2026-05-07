@@ -241,14 +241,16 @@ main() {
   if [[ -z "$pr_num" ]]; then
     fail_loud "PR number not provided (arg or PR_NUMBER env var)."
   fi
-  if [[ -z "${V1_REPO_READ_TOKEN:-}" ]]; then
-    fail_loud "V1_REPO_READ_TOKEN secret not configured. See workflow file header for setup instructions."
-  fi
 
   echo "Reading PR README diff for PR #${pr_num}…"
   local readme_diff
   readme_diff=$(gh pr diff "$pr_num" -- docs/migration/README.md) \
     || fail_loud "Failed to read PR diff via gh."
+
+  if [[ -z "$readme_diff" ]]; then
+    echo "docs/migration/README.md unchanged in this PR — nothing to report."
+    return 0
+  fi
 
   local commit_sha_lines
   commit_sha_lines=$(printf '%s\n' "$readme_diff" \
@@ -265,17 +267,19 @@ main() {
   read -r OLD_SHA NEW_SHA <<<"$bump"
   echo "SHA bump: ${OLD_SHA:0:7}..${NEW_SHA:0:7}"
 
+  if [[ -z "${V1_REPO_READ_TOKEN:-}" ]]; then
+    fail_loud "V1_REPO_READ_TOKEN secret not configured. See workflow file header for setup instructions."
+  fi
+
   local v1_dir
   v1_dir=$(mktemp -d)
   trap 'rm -rf "$v1_dir"' EXIT
 
   echo "Cloning v1 (filter=blob:none, no-checkout) → $v1_dir"
+  echo "  git clone --filter=blob:none --no-checkout https://x-access-token:***@github.com/suniljames/COREcare-access.git"
   git clone --filter=blob:none --no-checkout --quiet \
-    "https://x-access-token:***@github.com/suniljames/COREcare-access.git" \
-    "$v1_dir" 2>/dev/null \
-    || git clone --filter=blob:none --no-checkout --quiet \
-      "https://x-access-token:${V1_REPO_READ_TOKEN}@github.com/suniljames/COREcare-access.git" \
-      "$v1_dir" \
+    "https://x-access-token:${V1_REPO_READ_TOKEN}@github.com/suniljames/COREcare-access.git" \
+    "$v1_dir" \
     || fail_loud "Failed to clone v1 repo. Check V1_REPO_READ_TOKEN scope and validity."
 
   echo "Fetching old SHA $OLD_SHA"

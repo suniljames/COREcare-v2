@@ -1,0 +1,79 @@
+# Auto-post the Family Member section diff report when a PR bumps the
+# `V1 Reference Commit` SHA in docs/migration/README.md.
+#
+# Implements the per-section refresh runbook entry added in #121 — fetches
+# the three runbook diffs (`*/urls.py`, `clients/`, `clients/models.py`)
+# from the private v1 repo across the SHA bump and posts (or updates) a
+# sticky PR comment summarizing them. See #131.
+#
+# === Setup (maintainer prerequisite, one-time) ===
+#
+# Requires a fine-grained PAT scoped to `suniljames/COREcare-access` only,
+# `Contents: Read`, 1-year expiry. Steps:
+#
+#   1. https://github.com/settings/personal-access-tokens/new
+#   2. Repository access: Only select repositories → suniljames/COREcare-access
+#   3. Repository permissions: Contents — Read-only (everything else: No access)
+#   4. Expiration: 1 year (calendar a rotation reminder)
+#   5. Generate, copy the token
+#   6. https://github.com/suniljames/COREcare-v2/settings/secrets/actions/new
+#      Name: V1_REPO_READ_TOKEN
+#      Secret: <paste>
+#
+# === Rotation ===
+#
+# Re-issue the PAT before expiration, update the V1_REPO_READ_TOKEN secret,
+# and bump the rotation date in docs/migration/README.md → "Workflow secrets".
+#
+# === Break-glass ===
+#
+# If the gate is broken (PAT expired, v1 unreachable, comment-API failure)
+# the engineer manually runs the three diffs locally per the runbook entry,
+# ack's in the PR description, and a maintainer uses branch-protection
+# bypass to merge. Do NOT silence the gate; fix it.
+
+name: V1 SHA Bump Diff Report
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'docs/migration/README.md'
+      - 'scripts/post-v1-sha-bump-diff.sh'
+      - 'scripts/tests/test_post_v1_sha_bump_diff.sh'
+      - '.github/workflows/v1-sha-bump-diff-report.yml'
+
+concurrency:
+  group: v1-sha-bump-diff-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  scripts-self-test:
+    name: Diff-report script self-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run diff-report script tests
+        run: bash scripts/tests/test_post_v1_sha_bump_diff.sh
+
+  diff-report:
+    name: Post family-section diff report
+    runs-on: ubuntu-latest
+    needs: scripts-self-test
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run diff-report script
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          V1_REPO_READ_TOKEN: ${{ secrets.V1_REPO_READ_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+        run: bash scripts/post-v1-sha-bump-diff.sh

@@ -282,6 +282,27 @@ If any diff is non-empty: re-author affected rows in `v1-pages-inventory.md`. If
 
 ---
 
+## Workflow secrets
+
+CI workflows that touch the private v1 repo (`suniljames/COREcare-access`) authenticate via repo-level secrets. Maintainer-managed; engineers do not need to action these unless adding a new workflow or rotating an existing token.
+
+### `V1_REPO_READ_TOKEN`
+
+Used by `.github/workflows/v1-sha-bump-diff-report.yml` (#131) to clone v1 and run the three Family Member runbook diffs (per the runbook entry above) when a PR bumps the V1 Reference Commit SHA.
+
+- **Type:** GitHub fine-grained personal access token.
+- **Repository access:** `suniljames/COREcare-access` only — never wildcard.
+- **Repository permissions:** `Contents: Read`. Nothing else.
+- **Expiration:** 1 year. Calendar a rotation reminder when issuing.
+- **Last rotated:** 2026-05-07 (initial issuance).
+- **Stored at:** repo Actions secrets, name `V1_REPO_READ_TOKEN`.
+
+**Rotation procedure.** Re-issue the PAT with the same scope and expiry, update the `V1_REPO_READ_TOKEN` secret in the v2 repo settings, then bump the **Last rotated** date above in the PR that records the rotation.
+
+**Break-glass.** If the diff-report gate is broken (PAT expired, v1 unreachable, comment-API failure) and a refresh PR is in flight: the engineer runs the three diffs locally per the [Family Member section runbook entry](#family-member-section--extra-diff-checks-before-re-authoring) above, documents the result in the PR description, and a maintainer uses branch-protection bypass to merge. Then file a new issue to fix the gate. Do not silence the gate; fix it.
+
+---
+
 ## Related work
 
 - **#70 (closed)** — landed `v1-functionality-delta.md` (the feature/data-model layer this set extends).
