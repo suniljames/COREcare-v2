@@ -134,7 +134,14 @@ async function main(): Promise<void> {
   const bHash = readManifestField(cli.baseline, "Fixture sha256");
   const rHash = readManifestField(cli.rerun, "Fixture sha256");
   let fixtureHashOk = true;
-  if (bHash === null || rHash === null) {
+  // The literal `<unset>` placeholder means the crawler ran without
+  // V1_FIXTURE_SHA256 set. Treat it as missing (NOT as a value to compare);
+  // otherwise two runs both placeholdered would produce a false-positive
+  // "fixture hashes match" verdict.
+  const sentinelPattern = /^<unset>$/;
+  const bMissing = bHash === null || sentinelPattern.test(bHash);
+  const rMissing = rHash === null || sentinelPattern.test(rHash);
+  if (bMissing || rMissing) {
     console.warn(
       `warning: fixture-hash gate skipped — RUN-MANIFEST.md missing or no Fixture sha256 field (baseline=${bHash ?? "missing"}, rerun=${rHash ?? "missing"})`,
     );

@@ -16,6 +16,7 @@ import { execFileSync } from "node:child_process";
 import {
   mkdirSync,
   writeFileSync,
+  readFileSync,
   existsSync,
   accessSync,
   constants as fsConstants,
@@ -167,6 +168,18 @@ export function leadViewportFor(personaSlug: string): "desktop" | "mobile" {
 }
 
 // ---------------------------------------------------------------------------
+// Route → slug derivation. Shared by captureRoute (which uses it to compose
+// the canonical_id) and applyRouteFilter (which uses it to match operator-
+// supplied canonical_ids against inventory rows).
+// ---------------------------------------------------------------------------
+
+export function deriveRouteSlug(route: string): string {
+  const cleaned = route.replace(/^\/|\/$/g, "");
+  const lastSeg = cleaned.split("/").filter((s) => !s.startsWith("<")).pop() || "root";
+  return lastSeg.replace(/[^a-z0-9-]/gi, "-").toLowerCase();
+}
+
+// ---------------------------------------------------------------------------
 // Retry-with-backoff. Used to wrap page.goto + screenshot calls in
 // captureRoute. Only TimeoutError is retried; other errors propagate
 // immediately. Schedule: 1s, 3s, 9s (each = baseMs × 3^attempt).
@@ -207,6 +220,7 @@ interface PreflightArgs {
   v1BaseUrl: string;
   outputDir: string;
   repoRoot: string;
+  fixtureHash: string;
 }
 
 async function preflight(args: PreflightArgs): Promise<void> {
@@ -263,6 +277,16 @@ async function preflight(args: PreflightArgs): Promise<void> {
     }
   } catch (e) {
     fail(`Gate 5 failed: inventory parse failed (${(e as Error).message}).`);
+  }
+
+  // Gate 6: fixture sha256 present. The reproducibility-hash equality gate
+  // (scripts/check-catalog-reproducibility.sh) is a security control — without
+  // a real value, two runs both record `<unset>` and the gate produces a
+  // false-positive match. The audit trail in RUN-MANIFEST.md also requires it.
+  if (!args.fixtureHash || args.fixtureHash === "<unset>") {
+    fail(
+      "Gate 6 failed: V1_FIXTURE_SHA256 is not set. Compute `shasum -a 256 ~/Code/COREcare-access/fixtures/v2_catalog_snapshot.json` and export V1_FIXTURE_SHA256=<hash> before re-running.",
+    );
   }
 }
 
@@ -353,10 +377,14 @@ async function setupNetworkInterception(
       v1BaseUrl,
     });
     if (!decision.allow) {
+      // Distinguishing navigation from page-script lets the runbook's
+      // "STOP if any has origin: navigation" check have teeth — a captured
+      // page that triggers a non-GET navigation is an inventory or
+      // allowlist bug, not a beacon.
       intercepted.push({
         method: req.method(),
         url: req.url(),
-        origin: "page-script",
+        origin: req.isNavigationRequest() ? "navigation" : "page-script",
         reason: decision.reason ?? "unknown",
       });
       route.abort();
@@ -482,11 +510,11 @@ export function renderManifest(a: ManifestArgs): string {
 
 interface Logger {
   emit: (event: Record<string, unknown>) => void;
-  close: () => void;
+  close: () => Promise<void>;
 }
 
-function makeLogger(filepath: string): Logger {
-  const stream: WriteStream = createWriteStream(filepath, { flags: "w" });
+function makeLogger(filepath: string, append: boolean): Logger {
+  const stream: WriteStream = createWriteStream(filepath, { flags: append ? "a" : "w" });
   return {
     emit(event) {
       const line = JSON.stringify(event);
@@ -494,7 +522,12 @@ function makeLogger(filepath: string): Logger {
       stream.write(line + "\n");
     },
     close() {
-      stream.end();
+      // Resolve only after the WriteStream's "finish" event — guarantees the
+      // file is flushed before main() may call process.exit(1).
+      return new Promise<void>((resolve, reject) => {
+        stream.end(() => resolve());
+        stream.on("error", reject);
+      });
     },
   };
 }
@@ -531,9 +564,7 @@ async function captureRoute(args: CaptureArgs): Promise<CaptureResult> {
     return { status: "skipped", reason, durationMs: Date.now() - start };
   }
 
-  const cleaned = args.row.route.replace(/^\/|\/$/g, "");
-  const lastSeg = cleaned.split("/").filter((s) => !s.startsWith("<")).pop() || "root";
-  const routeSlug = lastSeg.replace(/[^a-z0-9-]/gi, "-").toLowerCase();
+  const routeSlug = deriveRouteSlug(args.row.route);
   const seq = String(args.index).padStart(3, "0");
   const fileBase = `${seq}-${routeSlug}`;
   const canonicalId = `${args.persona.slug}/${fileBase}`;
@@ -590,11 +621,13 @@ async function captureRoute(args: CaptureArgs): Promise<CaptureResult> {
 }
 
 // ---------------------------------------------------------------------------
-// Resume / filter logic for the per-persona loop. Pure functions so we can
-// test them in isolation if regressions appear.
+// Resume / filter logic for the per-persona loop. Pure exported functions —
+// covered by __tests__/filters.test.ts. Indices are reassigned per-filtered-
+// row in the main loop, so the operator's <persona>/NNN-slug input matches
+// only by the slug part (the NNN- prefix is stripped before comparison).
 // ---------------------------------------------------------------------------
 
-function applyPersonaFilters(
+export function applyPersonaFilters(
   personas: readonly Persona[],
   cli: CliArgs,
 ): Persona[] {
@@ -610,27 +643,22 @@ function applyPersonaFilters(
   return result;
 }
 
-function applyRouteFilter(
+export function applyRouteFilter(
   rows: readonly InventoryRow[],
   personaSlug: string,
   cli: CliArgs,
 ): InventoryRow[] {
   if (!cli.onlyRoutes) return [...rows];
-  const allowedTails = new Set(
+  // For each canonical_id targeted at this persona, extract the slug part
+  // (strip the optional NNN- prefix). The set of allowed slugs is what we
+  // match against each row's deriveRouteSlug(route).
+  const allowedSlugs = new Set(
     cli.onlyRoutes
       .filter((id) => id.startsWith(`${personaSlug}/`))
-      .map((id) => id.substring(personaSlug.length + 1)),
+      .map((id) => id.substring(personaSlug.length + 1).replace(/^\d+-/, "")),
   );
-  if (allowedTails.size === 0) return [];
-  // Match against canonical_id tail derived from row index. Since indices
-  // depend on filter order, we approximate by route-slug match: take the
-  // last non-placeholder segment of each row's route and check against tail.
-  return rows.filter((r) => {
-    const cleaned = r.route.replace(/^\/|\/$/g, "");
-    const lastSeg = cleaned.split("/").filter((s) => !s.startsWith("<")).pop() || "root";
-    const slug = lastSeg.replace(/[^a-z0-9-]/gi, "-").toLowerCase();
-    return [...allowedTails].some((tail) => tail.endsWith(slug));
-  });
+  if (allowedSlugs.size === 0) return [];
+  return rows.filter((r) => allowedSlugs.has(deriveRouteSlug(r.route)));
 }
 
 // ---------------------------------------------------------------------------
@@ -647,11 +675,13 @@ async function main(): Promise<void> {
   const repoRoot = resolve(dirname(import.meta.url.replace("file://", "")), "../..");
   const outputDir = resolve(cli.outputDir);
 
-  await preflight({ v1BaseUrl, outputDir, repoRoot });
+  await preflight({ v1BaseUrl, outputDir, repoRoot, fixtureHash });
 
   const inventory = loadInventory(repoRoot);
   const intercepted: InterceptedRecord[] = [];
-  const log = makeLogger(`${outputDir}/crawl.log`);
+  // Append to crawl.log when resuming so we don't clobber the prior run's
+  // events; truncate on a fresh run.
+  const log = makeLogger(`${outputDir}/crawl.log`, !!cli.resumeFrom);
 
   const personasToRun = applyPersonaFilters(ACTIVE_PERSONAS, cli);
 
@@ -744,13 +774,14 @@ async function main(): Promise<void> {
 
   const endTs = new Date().toISOString();
 
-  // Resolve playwright version for the manifest from package.json's installed
-  // dep tree; if anything goes wrong, record "unknown" rather than fail.
+  // Resolve playwright version for the manifest by reading its installed
+  // package.json. readFileSync works on every Node version (no import-attribute
+  // syntax dependency); fallbacks to "unknown" only when the file is missing.
   let playwrightVersion = "unknown";
   try {
-    const pwPkg = await import("playwright/package.json", { with: { type: "json" } });
-    playwrightVersion = (pwPkg as { default?: { version?: string }; version?: string })
-      .default?.version ?? (pwPkg as { version?: string }).version ?? "unknown";
+    const pwPkgPath = `${repoRoot}/tools/v1-screenshot-catalog/node_modules/playwright/package.json`;
+    const pwPkg = JSON.parse(readFileSync(pwPkgPath, "utf-8")) as { version?: string };
+    playwrightVersion = pwPkg.version ?? "unknown";
   } catch {
     /* keep "unknown" */
   }
@@ -773,10 +804,10 @@ async function main(): Promise<void> {
   });
   writeFileSync(`${outputDir}/RUN-MANIFEST.md`, manifest);
 
-  writeFileSync(
-    `${outputDir}/intercepted-non-GET.log`,
-    intercepted.map((r) => JSON.stringify(r)).join("\n") + "\n",
-  );
+  const interceptedBody = intercepted.length > 0
+    ? intercepted.map((r) => JSON.stringify(r)).join("\n") + "\n"
+    : "";
+  writeFileSync(`${outputDir}/intercepted-non-GET.log`, interceptedBody);
 
   log.emit({
     event: "run.complete",
@@ -787,7 +818,10 @@ async function main(): Promise<void> {
     fixture_hash: fixtureHash,
     playwright_version: playwrightVersion,
   });
-  log.close();
+  // Await flush so the run.complete event is durably on disk before any
+  // exit. Without this, process.exit(1) below could race the WriteStream's
+  // "finish" event and lose the most-grep'd line of crawl.log.
+  await log.close();
 
   if (errored > 0) {
     console.error(`crawl finished with ${errored} errored routes`);
