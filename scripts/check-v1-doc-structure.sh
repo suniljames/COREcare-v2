@@ -22,6 +22,13 @@
 #      v2_status / severity / direction_and_sync cell carries a valid token
 #      (SL-2, SL-3, SL-4), and every surfaces_at_routes inventory link
 #      resolves against an existing inventory anchor (EL-1, EL-2). Issue #98.
+#   7. v1-user-journeys.md, if present, has the **Status:** header form, the
+#      six persona H2s, and (when AUTHORED) the per-persona journey-count
+#      minimums, the Route trace + Side effects sub-blocks under each H3, and
+#      no placeholder / filler residue (JL-1..JL-6). Every anchor citation to
+#      v1-pages-inventory.md — whether written as a relative path, an absolute
+#      GitHub URL, or a `../blob/<branch>/...` form — resolves to a real
+#      heading or <a id> in the inventory (JL-7). Issues #104, #134.
 #
 # Usage:
 #   scripts/check-v1-doc-structure.sh [--dir <docs-dir>]
@@ -507,11 +514,23 @@ if [[ -f "$JOURNEYS" ]]; then
         next
       }
       {
+        # `[^()]*` permits any non-paren prefix between the opening `(` and the
+        # literal `v1-pages-inventory.md#`, covering all three target forms:
+        #   - relative:                (v1-pages-inventory.md#anchor)
+        #   - absolute GitHub URL:     (https://github.com/<o>/<r>/blob/<b>/docs/migration/v1-pages-inventory.md#anchor)
+        #   - sibling-blob form:       (../blob/<branch>/docs/migration/v1-pages-inventory.md#anchor)
+        # Note: `[^()]*v1-pages-inventory.md` would also match a hypothetical
+        # `*-v1-pages-inventory.md` sibling file. No such file exists in the
+        # docset today; this is a known collateral-match shape.
         line = $0
-        while (match(line, /\(v1-pages-inventory\.md#[^)]+\)/)) {
+        while (match(line, /\([^()]*v1-pages-inventory\.md#[^)]+\)/)) {
           link = substr(line, RSTART, RLENGTH)
-          # Strip "(v1-pages-inventory.md#" (length 23) and trailing ")".
-          anchor = substr(link, 24, length(link) - 24)
+          # Find the literal marker inside the captured link and slice the
+          # anchor from immediately after it to immediately before the closing ")".
+          # `index()` does not mutate RSTART/RLENGTH (only `match()` does).
+          marker_pos = index(link, "v1-pages-inventory.md#")
+          anchor_start = marker_pos + 22   # length of "v1-pages-inventory.md#"
+          anchor = substr(link, anchor_start, length(link) - anchor_start)
           if (!(anchor in ANCHORS)) {
             print FILENAME ":" FNR ": JL-7: anchor \"" anchor "\" not found in v1-pages-inventory.md"
           }
