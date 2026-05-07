@@ -98,13 +98,6 @@ assert_exit "script file exists" 0 test -f "$SCRIPT"
 assert_exit "script is executable" 0 test -x "$SCRIPT"
 
 echo ""
-echo "Test: usage on missing args"
-assert_exit "no args, defaults work against empty inventory" 0 \
-  bash "$SCRIPT" --inventory /tmp/nonexistent-$$.md --catalog /tmp/nonexistent-$$ --threshold 95
-# Expect graceful behavior: missing inventory → exit nonzero with clear message.
-# (Adjusted in next test.)
-
-echo ""
 echo "Test: missing inventory file fails clearly"
 NONEXISTENT="$TEST_DIR/no-such-inventory.md"
 assert_exit "missing inventory exits 2" 2 \
