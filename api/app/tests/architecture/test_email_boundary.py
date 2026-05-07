@@ -29,21 +29,25 @@ ALLOWED_PUBLIC_API = {
     "IdempotencyConflict",
     "SendRequest",
     "SendResult",
+    "make_email_sender",
+    "render_subjects",
 }
 
-API_ROOT = Path(__file__).resolve().parents[3]  # api/app
-SOURCE_ROOT = API_ROOT  # we walk app/**/*.py
+APP_ROOT = Path(__file__).resolve().parents[2]  # api/app
 
 
 def _iter_python_files() -> list[Path]:
     paths: list[Path] = []
-    for p in SOURCE_ROOT.rglob("*.py"):
-        # Skip tests and the email package itself.
-        rel = p.relative_to(API_ROOT)
+    for p in APP_ROOT.rglob("*.py"):
+        rel = p.relative_to(APP_ROOT)
         parts = rel.parts
-        if parts[:1] == ("tests",):
+        # Skip tests — they are allowed to import the email package internals
+        # to verify behavior.
+        if parts and parts[0] == "tests":
             continue
-        if parts[:3] == ("services", "email") or parts[:2] == ("services", "email"):
+        # Skip the email package itself — sender.py imports transports.py,
+        # and that is the legitimate inside-the-boundary case.
+        if parts[:2] == ("services", "email"):
             continue
         paths.append(p)
     return paths

@@ -22,6 +22,11 @@ class Settings(BaseSettings):
     debug: bool = True
     secret_key: str = "dev-secret-change-in-production"
 
+    # Email — see ADR-011 / issue #120.
+    email_transport: str = "console"  # "console" | "sendgrid"
+    email_from_address: str = "noreply@corecare.local"
+    sendgrid_api_key: str = ""
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 

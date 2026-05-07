@@ -71,3 +71,26 @@ class InvoiceListResponse(BaseModel):
     total: int
     page: int
     size: int
+
+
+class InvoiceEmailRequest(BaseModel):
+    """Request body for POST /api/invoices/{invoice_id}/email."""
+
+    recipients: list[str]
+
+
+class InvoiceEmailEvent(BaseModel):
+    """Per-recipient send result returned by the email endpoint."""
+
+    id: uuid.UUID
+    recipient: str
+    status: str
+    sent_at: datetime | None
+    provider_message_id: str | None
+
+    model_config = {"from_attributes": True}
+
+
+class InvoiceEmailResponse(BaseModel):
+    invoice_id: uuid.UUID
+    events: list[InvoiceEmailEvent]

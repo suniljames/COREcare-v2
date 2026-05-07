@@ -22,3 +22,24 @@ async def set_tenant_context(session: AsyncSession, tenant_id: uuid.UUID) -> Non
 async def clear_tenant_context(session: AsyncSession) -> None:
     """Clear tenant context (super-admin mode — RLS allows all rows)."""
     await session.execute(text("SET LOCAL app.current_tenant_id = ''"))
+
+
+async def get_tenant_context(session: AsyncSession) -> uuid.UUID | None:
+    """Return the current tenant_id, or None if unset (super-admin) / unavailable.
+
+    On PostgreSQL this reads the SET LOCAL'd app.current_tenant_id. On SQLite
+    or other backends without current_setting(), returns None.
+    """
+    try:
+        result = await session.execute(
+            text("SELECT current_setting('app.current_tenant_id', true)")
+        )
+        raw = result.scalar()
+    except Exception:
+        return None
+    if not raw:
+        return None
+    try:
+        return uuid.UUID(raw)
+    except (ValueError, AttributeError):
+        return None

@@ -302,18 +302,27 @@ async def test_sender_idempotency_conflict_on_in_flight_duplicate(
 
 
 @pytest.mark.asyncio
-async def test_sender_rejects_mismatched_tenant_context(session: AsyncSession) -> None:
+async def test_sender_rejects_mismatched_tenant_context(
+    session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """If a tenant context is set on the session and disagrees with request.agency_id,
-    sender raises EmailValidationError before writing or sending."""
-    from app.tenant import set_tenant_context
+    sender raises EmailValidationError before writing or sending.
 
-    await set_tenant_context(session, OTHER_AGENCY_ID)
+    SQLite has no RLS, so we patch get_tenant_context to simulate a context set
+    to a different agency. On real PostgreSQL the same property holds via RLS.
+    """
+    from app.services.email import sender as sender_mod
+
+    async def _fake_get_tenant_context(_sess: AsyncSession) -> uuid.UUID | None:
+        return OTHER_AGENCY_ID
+
+    monkeypatch.setattr(sender_mod, "get_tenant_context", _fake_get_tenant_context)
 
     transport = RecordingTransport()
-    sender = EmailSender(session, transport=transport)
+    s = EmailSender(session, transport=transport)
 
     with pytest.raises(EmailValidationError):
-        await sender.send(_make_request(agency_id=AGENCY_ID))
+        await s.send(_make_request(agency_id=AGENCY_ID))
 
     assert transport.calls == []
 

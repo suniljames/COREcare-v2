@@ -12,12 +12,16 @@ from app.models.user import User, UserRole
 from app.rbac import require_role
 from app.schemas.billing import (
     InvoiceCreate,
+    InvoiceEmailEvent,
+    InvoiceEmailRequest,
+    InvoiceEmailResponse,
     InvoiceLineItemResponse,
     InvoiceListResponse,
     InvoiceResponse,
     InvoiceUpdate,
 )
 from app.services.billing import BillingService
+from app.services.email import make_email_sender
 
 router = APIRouter(prefix="/api/invoices", tags=["billing"])
 
@@ -100,6 +104,38 @@ async def mark_invoice_paid(
     if invoice is None:
         raise HTTPException(status_code=404, detail="Invoice not found")
     return InvoiceResponse.model_validate(invoice)
+
+
+@router.post("/{invoice_id}/email", response_model=InvoiceEmailResponse)
+async def email_invoice(
+    invoice_id: uuid.UUID,
+    payload: InvoiceEmailRequest,
+    admin: User = Depends(require_role(UserRole.AGENCY_ADMIN)),  # noqa: B008
+    session: AsyncSession = Depends(get_session),  # noqa: B008
+) -> InvoiceEmailResponse:
+    """Email an invoice PDF to one or more recipients (issue #120 / ADR-011).
+
+    Idempotent on (invoice_id, recipient): a second call with the same
+    recipient returns the original send event without re-delivering.
+    Cross-tenant requests get a 404.
+    """
+    if admin.agency_id is None:
+        raise HTTPException(status_code=400, detail="Super-admin must specify agency")
+
+    sender = make_email_sender(session)
+    service = BillingService(session, sender=sender)
+    events = await service.email_invoice(
+        invoice_id,
+        agency_id=admin.agency_id,
+        recipients=payload.recipients,
+    )
+    if not events:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    return InvoiceEmailResponse(
+        invoice_id=invoice_id,
+        events=[InvoiceEmailEvent.model_validate(e) for e in events],
+    )
 
 
 @router.get(

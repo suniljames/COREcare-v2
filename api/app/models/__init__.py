@@ -10,7 +10,13 @@ from app.models.chart import Chart, ChartStatus, ChartTemplate
 from app.models.client import Client, ClientStatus, FamilyLink
 from app.models.compliance import BAARecord, ComplianceRule
 from app.models.credential import Credential, CredentialStatus, CredentialType
-from app.models.notification import Message, Notification, NotificationType, PushSubscription
+from app.models.email import EmailCategory, EmailEvent, EmailStatus
+from app.models.notification import (
+    Message,
+    Notification,
+    NotificationType,
+    PushSubscription,
+)
 from app.models.payroll import PayrollEntry, PayrollPeriod, PayrollPeriodStatus
 from app.models.shift import Shift, ShiftStatus
 from app.models.user import User, UserRole
@@ -35,6 +41,9 @@ __all__ = [
     "Credential",
     "CredentialStatus",
     "CredentialType",
+    "EmailCategory",
+    "EmailEvent",
+    "EmailStatus",
     "FamilyLink",
     "Invoice",
     "InvoiceLineItem",
