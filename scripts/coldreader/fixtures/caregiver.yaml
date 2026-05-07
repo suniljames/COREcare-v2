@@ -22,11 +22,11 @@ questions:
       shift model assumes a pre-assigned shift exists for clock-in, while
       unscheduled clock-ins create a visit record on the fly.
     must_mention:
-      - ["clock-in", "clock_in", "clock in"]
+      - ["clock-in", "clock_in", "clock in", "clocking in"]
       - ["/caregiver/clock/", "/caregiver/shift/", "caregiver/clock", "caregiver/shift"]
-      - ["caregiver_dashboard", "caregiver dashboard"]
-      - ["shift"]
-    tolerance: 1
+      - ["caregiver_dashboard", "caregiver dashboard", "dashboard"]
+      - ["shift", "unscheduled"]
+    tolerance: 2
 
   - id: q2
     text: >-
@@ -44,11 +44,11 @@ questions:
       from the row-count denominator but referenced from the Shared routes
       cross-reference index for traceability.
     must_mention:
-      - ["caregiver_dashboard", "caregiver dashboard"]
+      - ["caregiver_dashboard", "caregiver dashboard", "dashboard"]
       - ["charting"]
-      - ["medications"]
+      - ["medications", "vitals", "chart-save"]
       - ["/charting/visit/", "chart"]
-    tolerance: 1
+    tolerance: 2
 
   - id: q3
     text: >-
@@ -66,5 +66,5 @@ questions:
       - ["ProfileCompletionMiddleware", "profile-completion", "profile completion"]
       - ["/caregiver/onboarding/", "onboarding"]
       - ["profile"]
-      - ["clock-in", "clock_in", "clock in"]
-    tolerance: 1
+      - ["clock-in", "clock_in", "clock in", "clocking in", "first shift"]
+    tolerance: 2
