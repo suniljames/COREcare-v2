@@ -32,7 +32,7 @@ The four documents above are scaffolded but their content is being authored issu
 
 v1 has no Client-as-actor surface — `clients.models.Client` is a Django model
 with no `User` linkage; only `ClientFamilyMember` binds a `User` to a `Client`.
-Family Members log in *about* a Client, not *as* a Client.
+Family-Member users log in *about* a Client, not *as* a Client.
 
 v2 adds the Client persona as a first-class authenticated user (issue
 [#125](https://github.com/suniljames/COREcare-v2/issues/125)). A Client with
