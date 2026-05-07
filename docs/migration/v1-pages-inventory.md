@@ -36,17 +36,17 @@ _Enumeration in progress (#81). Per-Django-app denominators below._
 | billing_catalogs | 4 | 4 | Hazel-managed billable service catalog; complete |
 | charting | 22 / 48 raw | 22 | clinical surface; many routes shared with Care Manager and Caregiver, plus 22 JSON-only API endpoints excluded per [README §Coverage target](README.md#coverage-target); complete for Agency Admin |
 | clients | 11 | 11 | per-client calendar, events with attachments, schedule PDF/preview; mounted at `schedule/` and `clients/`; complete |
-| compliance | 1 | 0 | mounted at `legal/`; mostly customer-facing; pending |
+| compliance | 3 | 3 | mounted at `legal/` + `compliance/files/`; 1 public accessibility page + 2 authenticated PHI file streams; complete |
 | dashboard | 25 | 0 | agency dashboard, payroll, expenses; pending |
 | employees | 3 | 3 | caregiver invitation acceptance + profile-completion onboarding; complete |
 | quickbooks_integration | 8 | 8 | QuickBooks OAuth + invoice send + customer linking; complete |
-| auth_service | TBD | 0 | shared with all personas; pending |
+| auth_service | 5 | 5 | mounted at root prefix; password-reset flow (4) + magic-link login (1); routes shared across all personas; complete |
 | _(dual-role / portal switching routes in elitecare/urls.py)_ | 5 | 0 | switch-role, portal-chooser, set-default-portal, clear-default-portal, family-signup; treat as Shared routes |
-| **total (Agency Admin, current estimate)** | **~130** | **73 (≈56%)** | denominator finalized after each app's rows land |
+| **total (Agency Admin, current estimate)** | **~130** | **81 (≈62%)** | denominator finalized after each app's rows land |
 
 **Skipped (the 5% headroom):** none yet enumerated; will populate as remaining apps are authored.
 
-**Status note (2026-05-07).** Issue #81 covers Agency Admin row authoring. As of this commit, the top-level admin routes, `billing`, `billing_catalogs`, `charting` (per #85), `clients` (per #84), `employees` (per #87), and `quickbooks_integration` (per #86) apps are complete; remaining apps (dashboard, compliance, auth_service) and the dual-role/shared routes are pending. Per the committee's halfway-point rule (below 30% coverage triggers a per-app split), follow-up sub-issues author each remaining app independently. See #81 halfway-point check-in for the split plan.
+**Status note (2026-05-07).** Issue #81 covers Agency Admin row authoring. As of this commit, the top-level admin routes, `billing`, `billing_catalogs`, `charting` (per #85), `clients` (per #84), `employees` (per #87), `quickbooks_integration` (per #86), `compliance`, and `auth_service` apps are complete; remaining apps (dashboard) and the dual-role/shared routes are pending. Per the committee's halfway-point rule (below 30% coverage triggers a per-app split), follow-up sub-issues author each remaining app independently. See #81 halfway-point check-in for the split plan; #88 lands the bundled `compliance` + `auth_service` apps.
 
 ---
 
@@ -206,6 +206,26 @@ _QuickBooks Online OAuth + invoice send + COREcare-client-to-QB-customer linking
 | `/quickbooks/clients/<int:client_id>/link/` | 🔒 PHI · Links a COREcare client to a QuickBooks customer ID for reliable invoice creation (Issue #329). | Sees: JSON success or duplicate-link error naming the conflicting client. Can: submit a QB customer ID to bind to this client. | missing | H | true | false | true | not_screenshotted: pending #79 |  |
 | `/quickbooks/clients/<int:client_id>/unlink/` | Removes the QuickBooks customer link from a COREcare client; clears all link metadata fields. | Sees: JSON success or not-linked error. Can: confirm the unlink via POST. | missing | H | true | false | false | not_screenshotted: pending #79 |  |
 
+### compliance
+_public accessibility statement + authenticated PHI file downloads (physician-order proofs, service signatures); mounted at `legal/` and `compliance/files/`; routes shared with Care Manager and Caregiver via visit access_
+
+| route | purpose | what_user_sees_can_do | v2_status | severity | multi_tenant_refactor | rls_bypass_by_design | phi_displayed | screenshot_ref | v2_link |
+|-------|---------|-----------------------|-----------|----------|-----------------------|----------------------|---------------|----------------|---------|
+| `/legal/accessibility/` | Renders the public accessibility statement page with the agency's accessibility contact email and phone; required for state-law accessibility compliance per v1 Issue #274. | Sees: WCAG 2.1 AA / state-law accessibility statement, accessibility contact email and phone. Can: read the statement and reach the published contact. | missing | M | true | false | false | not_screenshotted: pending #79 |  |
+| `/compliance/files/visits/<int:visit_id>/physician-order/<int:proof_id>/` | 🔒 PHI · Streams a physician-order proof attachment with forced-attachment + nosniff headers; cross-visit IDOR guarded; audit-logged in v1 with visit, proof, and client identifiers. | Sees: file download initiated by browser. Can: open or save the proof blob. | missing | H | true | false | true | not_screenshotted: pending #79 |  |
+| `/compliance/files/visits/<int:visit_id>/signature/<int:signature_id>/` | 🔒 PHI · Streams a service-signature image attachment with forced-attachment + nosniff headers; cross-visit IDOR guarded; audit-logged in v1 with visit, signature, and client identifiers. | Sees: file download initiated by browser. Can: open or save the signature image. | missing | H | true | false | true | not_screenshotted: pending #79 |  |
+
+### auth_service
+_password-reset flow (4 routes) + magic-link login (1 route); mounted at root prefix with no path component; magic-link blocks `is_staff`/`is_superuser` users at the view layer; routes shared across all personas_
+
+| route | purpose | what_user_sees_can_do | v2_status | severity | multi_tenant_refactor | rls_bypass_by_design | phi_displayed | screenshot_ref | v2_link |
+|-------|---------|-----------------------|-----------|----------|-----------------------|----------------------|---------------|----------------|---------|
+| `/password-reset/` | Renders the password-reset request form; rate-limited at 3/hour/IP and timing-safe to defeat email enumeration; audit-logged in v1 with email and user-found flag. | Sees: email input form. Can: submit email to receive a reset link. | missing | D | true | false | false | not_screenshotted: pending #79 |  |
+| `/password-reset/sent/` | Renders the post-submit confirmation page after a reset request; intentionally generic copy to avoid revealing whether the email exists. | Sees: generic 'check your email' confirmation. Can: navigate back to sign-in. | missing | D | true | false | false | not_screenshotted: pending #79 |  |
+| `/password-reset/<uuid:token>/` | Validates a single-use UUID reset token and renders the new-password form; rate-limited at 5/min/IP on POST; audit-logged on consume; admin password changes notify other admins. | Sees: masked email and new-password fields. Can: submit a new password meeting v1's NIST-aligned validators. | missing | D | true | false | false | not_screenshotted: pending #79 |  |
+| `/password-reset/complete/` | Renders the success page after a completed password reset; admin password changes also trigger an admin-notification email in v1. | Sees: confirmation that password was reset. Can: navigate to sign-in. | missing | D | true | false | false | not_screenshotted: pending #79 |  |
+| `/magic-login/<uuid:token>/` | Consumes a single-use 30-minute magic-link token and signs the user in; explicitly blocked for `is_staff`/`is_superuser` users by the view; audit-logged on use; redirects to caregiver, family-portal, or default dashboard based on profile. | Sees: redirect to caregiver/family/main dashboard, or invalid-token page. Can: complete one-click login (non-admin users only). | missing | D | true | false | false | not_screenshotted: pending #79 |  |
+
 ---
 
 ## Care Manager
@@ -271,3 +291,11 @@ Routes accessible by more than one persona are authored as a row once, in their 
 | `/charting/api/chart/save-glucose/` | Caregiver, Agency Admin, Care Manager | (gated to `is_staff or is_care_manager`) | excluded — JSON API endpoint |
 | `/charting/api/chart/save-intake-output/` | Caregiver, Agency Admin, Care Manager | (gated to `is_staff or is_care_manager`) | excluded — JSON API endpoint |
 | `/charting/api/chart/save-bowel-movement/` | Caregiver, Agency Admin, Care Manager | (gated to `is_staff or is_care_manager`) | excluded — JSON API endpoint |
+| `/legal/accessibility/` | Agency Admin | all other personas + unauthenticated visitors (public page) | [Agency Admin → compliance](#compliance) |
+| `/compliance/files/visits/<int:visit_id>/physician-order/<int:proof_id>/` | Agency Admin | Care Manager, Caregiver (gated by `@require_visit_access`) | [Agency Admin → compliance](#compliance) |
+| `/compliance/files/visits/<int:visit_id>/signature/<int:signature_id>/` | Agency Admin | Care Manager, Caregiver (gated by `@require_visit_access`) | [Agency Admin → compliance](#compliance) |
+| `/password-reset/` | Agency Admin | all other personas (auth flow open to every persona with a password) | [Agency Admin → auth_service](#auth_service) |
+| `/password-reset/sent/` | Agency Admin | all other personas | [Agency Admin → auth_service](#auth_service) |
+| `/password-reset/<uuid:token>/` | Agency Admin | all other personas | [Agency Admin → auth_service](#auth_service) |
+| `/password-reset/complete/` | Agency Admin | all other personas | [Agency Admin → auth_service](#auth_service) |
+| `/magic-login/<uuid:token>/` | Caregiver | Client, Family Member (admin users `is_staff`/`is_superuser` blocked at the view layer; URL reachable but bounces to invalid-token) | (pending Caregiver section; Agency Admin row in `### auth_service` documents the v1 block-for-admins behavior) |
