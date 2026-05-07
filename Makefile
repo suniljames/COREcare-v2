@@ -54,6 +54,15 @@ test-v1-docs: ## Run v1 doc hygiene + structure + catalog-coverage script self-t
 	bash scripts/tests/test_check_v1_doc_structure.sh
 	bash scripts/tests/test_check_v1_catalog_coverage.sh
 
+coldreader-test: ## Run coldreader pytest (L1+L2+L3, no API key needed)
+	cd scripts/coldreader && uv sync --frozen && uv run --frozen pytest -q
+
+coldreader-local-dry: ## Validate coldreader fixtures + parser against live inventory; no API call
+	cd scripts/coldreader && uv sync --frozen && uv run --frozen python run.py --dry-run
+
+coldreader-local: ## Run coldreader rotation (live API call); requires ANTHROPIC_API_KEY. Set PERSONA=<slug> to scope.
+	cd scripts/coldreader && uv sync --frozen && uv run --frozen python run.py $(if $(PERSONA),--persona $(PERSONA))
+
 scan-v1-docs: ## Run hygiene + structure + catalog-coverage scripts over committed docs
 	@if compgen -G "docs/migration/v1-*.md" > /dev/null; then \
 		bash scripts/check-v1-doc-hygiene.sh docs/migration/v1-*.md; \
