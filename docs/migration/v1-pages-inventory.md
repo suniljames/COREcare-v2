@@ -34,19 +34,19 @@ _Enumeration in progress (#81). Per-Django-app denominators below._
 | _(top-level admin routes in elitecare/urls.py)_ | 22 | 22 | Agency Admin admin-prefixed routes outside `include()`; complete |
 | billing | 3 | 3 | capability-gated admin custom views; complete |
 | billing_catalogs | 4 | 4 | Hazel-managed billable service catalog; complete |
+| charting | 22 / 48 raw | 22 | clinical surface; many routes shared with Care Manager and Caregiver, plus 22 JSON-only API endpoints excluded per [README §Coverage target](README.md#coverage-target); complete for Agency Admin |
 | clients | 11 | 11 | per-client calendar, events with attachments, schedule PDF/preview; mounted at `schedule/` and `clients/`; complete |
 | compliance | 1 | 0 | mounted at `legal/`; mostly customer-facing; pending |
 | dashboard | 25 | 0 | agency dashboard, payroll, expenses; pending |
 | employees | 3 | 3 | caregiver invitation acceptance + profile-completion onboarding; complete |
-| charting | 48 | 0 | shared with Care Manager / Caregiver — Agency Admin reachability TBD; pending |
 | quickbooks_integration | 8 | 8 | QuickBooks OAuth + invoice send + customer linking; complete |
 | auth_service | TBD | 0 | shared with all personas; pending |
 | _(dual-role / portal switching routes in elitecare/urls.py)_ | 5 | 0 | switch-role, portal-chooser, set-default-portal, clear-default-portal, family-signup; treat as Shared routes |
-| **total (Agency Admin, current estimate)** | **~130** | **51 (≈39%)** | denominator finalized after each app's rows land |
+| **total (Agency Admin, current estimate)** | **~130** | **73 (≈56%)** | denominator finalized after each app's rows land |
 
 **Skipped (the 5% headroom):** none yet enumerated; will populate as remaining apps are authored.
 
-**Status note (2026-05-07).** Issue #81 covers Agency Admin row authoring. As of this commit, the top-level admin routes, `billing`, `billing_catalogs`, `clients` (per #84), `employees` (per #87), and `quickbooks_integration` (per #86) apps are complete; remaining apps (dashboard, charting, compliance, auth_service) and the dual-role/shared routes are pending. Per the committee's halfway-point rule (below 30% coverage triggers a per-app split), follow-up sub-issues author each remaining app independently. See #81 halfway-point check-in for the split plan.
+**Status note (2026-05-07).** Issue #81 covers Agency Admin row authoring. As of this commit, the top-level admin routes, `billing`, `billing_catalogs`, `charting` (per #85), `clients` (per #84), `employees` (per #87), and `quickbooks_integration` (per #86) apps are complete; remaining apps (dashboard, compliance, auth_service) and the dual-role/shared routes are pending. Per the committee's halfway-point rule (below 30% coverage triggers a per-app split), follow-up sub-issues author each remaining app independently. See #81 halfway-point check-in for the split plan.
 
 ---
 
@@ -135,6 +135,36 @@ _Hazel-managed billable service catalog (#1333 PR 3); delta H-severity gap_
 | `/admin/settings/service-catalog/new/` | Add a new billable service catalog entry. | Sees: catalog form with internal name, family label, base price, est. hours, hourly overage rate, MD-order required toggle. Can: submit to create. | missing | H | true | false | false | not_screenshotted: pending #79 |  |
 | `/admin/settings/service-catalog/<int:entry_id>/edit/` | Edit an existing billable service catalog entry (re-uses the catalog_form_view). | Sees: same catalog form pre-filled with current values. Can: edit and save. | missing | H | true | false | false | not_screenshotted: pending #79 |  |
 | `/admin/settings/service-catalog/<int:entry_id>/retire/` | Soft-retires a catalog entry (per Issue #1214 retire-not-delete pattern); preserves invoice history. | Sees: confirmation prompt with usage count for the entry. Can: confirm soft-retire. | missing | H | true | false | false | not_screenshotted: pending #79 |  |
+
+### charting
+_clinical charting overview, per-client trend views, medication orders, chart-comment review, health-report generation and approval, and proxy charting on behalf of caregivers_
+
+Largest single Django app surface (48 raw `path()` entries). Of the 48, 22 JSON-only API endpoints back the HTML pages and are excluded from the inventory denominator per the `README` rule; 4 HTML routes are Caregiver-primary (visit-keyed medications, caregiver chart view) and are authored under the future `## Caregiver` section. The 22 rows below are the routes Agency Admin reaches as their primary use, verified by `@staff_member_required` decorators in `charting/views.py` (or, for `proxy/<visit_id>/`, an explicit `is_staff or is_care_manager` body check). Permission-decorator and view-source citations live in the source repo; the row prose stays implementation-free.
+
+| route | purpose | what_user_sees_can_do | v2_status | severity | multi_tenant_refactor | rls_bypass_by_design | phi_displayed | screenshot_ref | v2_link |
+|-------|---------|-----------------------|-----------|----------|-----------------------|----------------------|---------------|----------------|---------|
+| `/charting/overview/` | 🔒 PHI · Lists clients sorted by charting attention priority — overdue, missing today, in progress, complete. | Sees: clients ranked by attention priority with chart-status badges and per-client counts. Can: drill to a client's charting tab. | missing | H | true | false | true | not_screenshotted: pending #79 |  |
+| `/charting/client/<int:client_id>/` | 🔒 PHI · Per-client charting tab with active template summary, recent charts, today's stats, and trend links. | Sees: active template name and section list, recent chart history, today's chart counts, medication count. Can: navigate to template wizard, recent charts, trend views, medication orders. | scaffolded |  | true | false | true | not_screenshotted: pending #79 | api/app/routers/charts.py |
+| `/charting/client/<int:client_id>/create-template/` | 🔒 PHI · Wizard for adding or editing the client's chart-template sections, items, and inclusion settings. | Sees: section list with included/required/excluded toggles, default item set, exclusion-reason picker. Can: configure sections and items, save the template. | scaffolded |  | true | false | true | not_screenshotted: pending #79 | api/app/routers/charts.py |
+| `/charting/vital-signs/<int:client_id>/trend/` | 🔒 PHI · Renders the client's blood pressure, pulse, and temperature trend across a configurable day window. | Sees: time-series chart of systolic/diastolic blood pressure, pulse, temperature; range filters. Can: change the day window. | missing | H | true | false | true | not_screenshotted: pending #79 |  |
+| `/charting/glucose/<int:client_id>/trend/` | 🔒 PHI · Renders the client's blood glucose readings as a trend chart with pre/post-meal context flags. | Sees: time-series glucose chart with pre/post-meal markers and target-range bands. Can: change the day window. | missing | H | true | false | true | not_screenshotted: pending #79 |  |
+| `/charting/nursing-notes/<int:client_id>/summary/` | 🔒 PHI · Lists the client's nursing notes in chronological order with author, timestamp, and section context. | Sees: chronological nursing-note entries with author and timestamp. Can: drill back to the source chart. | missing | H | true | false | true | not_screenshotted: pending #79 |  |
+| `/charting/intake-output/<int:client_id>/trend/` | 🔒 PHI · Renders the client's daily fluid intake and urinary output trend with running balance totals. | Sees: stacked daily intake-and-output chart, balance indicator, range filters. Can: change the day window. | missing | H | true | false | true | not_screenshotted: pending #79 |  |
+| `/charting/bowel-movement/<int:client_id>/summary/` | 🔒 PHI · Lists the client's bowel-movement events with consistency, color, and notes grouped by day. | Sees: bowel-movement events per day with consistency, color, notes. Can: drill back to the source chart. | missing | H | true | false | true | not_screenshotted: pending #79 |  |
+| `/charting/medications/<int:client_id>/orders/` | 🔒 PHI · Lists the client's active medication orders with dose, route, frequency, start date, and prescriber. | Sees: active medication orders with dose, route, frequency, start date, prescriber. Can: drill into a single order. | missing | M | true | false | true | not_screenshotted: pending #79 |  |
+| `/charting/comments/<int:daily_chart_id>/` | 🔒 PHI · Lists chart comments for a daily chart as an HTML partial; consumed by chart pages and the review queue. | Sees: comment list with author, timestamp, content, and family-visibility flag. Can: trigger inline add, soft-delete, or submit-for-review (via JSON endpoints). | missing | M | true | false | true | not_screenshotted: pending #79 |  |
+| `/charting/comments/review-queue/` | 🔒 PHI · Staff queue of chart comments awaiting family-visibility approval, filterable by client. | Sees: pending comments with chart context, submitter, content, and family-visibility flag; client filter. Can: approve, reject, annotate, drill to the chart. | missing | H | true | false | true | not_screenshotted: pending #79 |  |
+| `/charting/reports/generate/` | 🔒 PHI · Generates a health-report PDF on demand with client picker, date window, sections, and formatting options. | Sees: client picker, report type (clinical or family), day window, section toggles, orientation, font size, detail-level controls. Can: generate and download the PDF. | missing | H | true | false | true | not_screenshotted: pending #79 |  |
+| `/charting/reports/<int:client_id>/clinical/` | 🔒 PHI · Direct clinical-report PDF download endpoint with a configurable day-window query parameter. | Sees: PDF response with no HTML page. Can: trigger the download via direct URL with `?days=7|14|30|90`. | missing | H | true | false | true | not_screenshotted: pending #79 |  |
+| `/charting/reports/preview/` | 🔒 PHI · Renders an HTML preview of the health report (clinical or family variant) before PDF generation. | Sees: rendered report sections with PHI content and applied formatting options. Can: tweak inputs and re-preview. | missing | H | true | false | true | not_screenshotted: pending #79 |  |
+| `/charting/reports/email/` | 🔒 PHI · Emails a generated health-report PDF to a recipient with an optional cover message; redirects on completion. | Sees: success or error flash message after redirect. Can: submit recipient email and cover message via the generate form. | missing | H | true | false | true | not_screenshotted: pending #79 |  |
+| `/charting/reports/batch/` | 🔒 PHI · Generates a zip of health reports for multiple selected clients in a single batch run. | Sees: client multi-select, report type, day window; partial-success warning on errors. Can: submit batch and download the zip. | missing | H | true | false | true | not_screenshotted: pending #79 |  |
+| `/charting/reports/templates/` | 🔒 PHI · Lists report-configuration templates and per-client/caregiver overrides for health-report sections. | Sees: templates with section assignments, formatting defaults, security flags; overrides showing caregiver and client targets. Can: navigate to edit a template or add an override. | missing | H | true | false | true | not_screenshotted: pending #79 |  |
+| `/charting/reports/templates/<int:template_id>/edit/` | Edits a report template — section toggles, ordering, formatting defaults, and PDF security settings. | Sees: template form with section list, formatting controls, PDF password and watermark settings. Can: save changes. | missing | H | true | false | false | not_screenshotted: pending #79 |  |
+| `/charting/reports/approval-queue/` | 🔒 PHI · Staff queue of caregiver-initiated health-report requests awaiting approval before family delivery. | Sees: pending report requests with submitter, client, and sections requested. Can: drill to the approval action. | missing | H | true | false | true | not_screenshotted: pending #79 |  |
+| `/charting/reports/approval/<int:request_id>/` | 🔒 PHI · Approve-or-reject endpoint for a single caregiver-initiated health-report request (POST-only). | Sees: success or error flash after redirect to the queue. Can: approve, reject, or annotate the request. | missing | H | true | false | true | not_screenshotted: pending #79 |  |
+| `/charting/reports/overrides/add/` | Creates a new ReportAccessOverride mapping a caregiver and/or client to a custom set of report sections. | Sees: success or error flash after redirect. Can: submit caregiver, client, and section selections from the parent template page. | missing | H | true | false | false | not_screenshotted: pending #79 |  |
+| `/charting/proxy/<int:visit_id>/` | 🔒 PHI · Proxy charting page — a Care Manager or Agency Admin enters chart data on behalf of a caregiver. | Sees: visit details, full chart sections with proxy-mode badge, audit-required provenance prompts. Can: enter, edit, delete entries, finalize the chart on behalf of the caregiver. | missing | H | true | false | true | not_screenshotted: pending #79 |  |
 
 ### clients
 _per-client unified calendar (Issue #40); custom non-shift events with attachments; monthly schedule PDF and HTML preview (Issues #455, #1106); the underlying app is dual-mounted at /schedule/ and /clients/_
@@ -228,6 +258,16 @@ Family Member pages cover the limited-visibility view granted to a client's auth
 
 ## Shared routes
 
-Routes accessible by more than one persona appear once per persona above with a cross-reference note. This section will list them once row authoring is complete.
+Routes accessible by more than one persona are authored as a row once, in their primary-persona section, and indexed here for cross-reference. This section is the canonical pointer; persona sections do not duplicate rows for shared routes.
 
-_(pending content authoring)_
+| route | primary persona | also reachable by | row location |
+|-------|-----------------|-------------------|--------------|
+| `/charting/proxy/<int:visit_id>/` | Agency Admin | Care Manager | [Agency Admin → charting](#charting) |
+| `/charting/comments/<int:daily_chart_id>/` | Agency Admin | Care Manager, Caregiver | [Agency Admin → charting](#charting) |
+| `/charting/visit/<int:visit_id>/chart/` | Caregiver | Agency Admin (oversight, read-only via `is_staff`), Care Manager | (pending Caregiver section) |
+| `/charting/medications/<int:visit_id>/` | Caregiver | Agency Admin (visit-context oversight via `is_staff`) | (pending Caregiver section) |
+| `/charting/medications/<int:visit_id>/history/` | Caregiver | Agency Admin (visit-context oversight via `is_staff`) | (pending Caregiver section) |
+| `/charting/api/chart/save-vitals/` | Caregiver, Agency Admin, Care Manager | (clinical-section save; gated to `is_staff or is_care_manager`) | excluded — JSON API endpoint |
+| `/charting/api/chart/save-glucose/` | Caregiver, Agency Admin, Care Manager | (gated to `is_staff or is_care_manager`) | excluded — JSON API endpoint |
+| `/charting/api/chart/save-intake-output/` | Caregiver, Agency Admin, Care Manager | (gated to `is_staff or is_care_manager`) | excluded — JSON API endpoint |
+| `/charting/api/chart/save-bowel-movement/` | Caregiver, Agency Admin, Care Manager | (gated to `is_staff or is_care_manager`) | excluded — JSON API endpoint |
