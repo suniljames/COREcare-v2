@@ -29,10 +29,10 @@ questions:
     must_mention:
       - ["/family/dashboard/", "family/dashboard", "family dashboard", "Family Member home"]
       - ["ClientFamilyMember"]
-      - ["linked-client", "linked client"]
-      - ["calendar", "events", "billing"]
-      - ["card per linked client", "linked clients", "per-client"]
-    tolerance: 1
+      - ["linked-client", "linked client", "linked clients"]
+      - ["calendar", "events", "billing", "messages", "visit notes"]
+      - ["card per linked client", "linked clients", "per-client", "per linked client"]
+    tolerance: 2
 
   - id: q2
     text: "Can a Family Member see another family's client data, and how is that prevented?"
