@@ -576,11 +576,11 @@ $INTEGRATIONS_SEP
 EOF
 assert_exit "SL-2: invalid v2_status token fails" 1 "$STRUCTURE" --dir "$TEST_DIR/integrations-sl2"
 
-# --- SL-3: severity set but v2_status is not "missing" ---
-mkdir -p "$TEST_DIR/integrations-sl3"
-write_integrations_inventory "$TEST_DIR/integrations-sl3/v1-pages-inventory.md"
-write_good_delta "$TEST_DIR/integrations-sl3/v1-functionality-delta.md"
-cat > "$TEST_DIR/integrations-sl3/v1-integrations-and-exports.md" <<EOF
+# --- SL-3 (set): severity set but v2_status is not "missing" ---
+mkdir -p "$TEST_DIR/integrations-sl3-set"
+write_integrations_inventory "$TEST_DIR/integrations-sl3-set/v1-pages-inventory.md"
+write_good_delta "$TEST_DIR/integrations-sl3-set/v1-functionality-delta.md"
+cat > "$TEST_DIR/integrations-sl3-set/v1-integrations-and-exports.md" <<EOF
 # V1 Integrations and Exports
 
 ## Schema
@@ -607,7 +607,40 @@ $INTEGRATIONS_SEP
 
 ## Cross-references
 EOF
-assert_exit "SL-3: severity set when v2_status != missing fails" 1 "$STRUCTURE" --dir "$TEST_DIR/integrations-sl3"
+assert_exit "SL-3: severity set when v2_status != missing fails" 1 "$STRUCTURE" --dir "$TEST_DIR/integrations-sl3-set"
+
+# --- SL-3 (empty): severity empty but v2_status is "missing" ---
+mkdir -p "$TEST_DIR/integrations-sl3-empty"
+write_integrations_inventory "$TEST_DIR/integrations-sl3-empty/v1-pages-inventory.md"
+write_good_delta "$TEST_DIR/integrations-sl3-empty/v1-functionality-delta.md"
+cat > "$TEST_DIR/integrations-sl3-empty/v1-integrations-and-exports.md" <<EOF
+# V1 Integrations and Exports
+
+## Schema
+
+table.
+
+## External integrations
+
+### Billing and payments
+
+$INTEGRATIONS_HEADER
+$INTEGRATIONS_SEP
+| Bad row | Vendor | Trigger | outbound; sync | [/quickbooks/](v1-pages-inventory.md#quickbooks_integration) | Sees: thing. | missing |  |
+
+### Payroll
+### Accounting
+### Messaging and notifications (third-party)
+### Identity, auth, and SSO (third-party)
+### Other
+
+## Internal notification and email backend
+
+## Customer-facing exports
+
+## Cross-references
+EOF
+assert_exit "SL-3: severity empty when v2_status=missing fails" 1 "$STRUCTURE" --dir "$TEST_DIR/integrations-sl3-empty"
 
 # --- SL-4: invalid direction_and_sync token ---
 mkdir -p "$TEST_DIR/integrations-sl4"
