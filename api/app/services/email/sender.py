@@ -131,11 +131,16 @@ class EmailSender:
             transport=self.transport.name,
             idempotency_key=request.idempotency_key,
         )
-        self.session.add(event)
+        # SAVEPOINT-scope the insert so a UNIQUE-constraint race rolls back ONLY
+        # the failed insert — not the surrounding request transaction. Without
+        # this, a concurrent send with the same idempotency_key would silently
+        # discard any earlier work the request had done (e.g., a future
+        # "create-invoice-and-email" flow).
         try:
-            await self.session.flush()
+            async with self.session.begin_nested():
+                self.session.add(event)
+                await self.session.flush()
         except IntegrityError as exc:
-            await self.session.rollback()
             raise IdempotencyConflictError(
                 f"idempotency_key={request.idempotency_key} already in use"
             ) from exc

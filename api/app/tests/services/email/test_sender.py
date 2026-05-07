@@ -292,6 +292,44 @@ async def test_sender_idempotency_conflict_on_in_flight_duplicate(
         await sender.send(_make_request(idempotency_key=key))
 
 
+@pytest.mark.asyncio
+async def test_sender_rejects_retry_with_same_key_after_failed_send(
+    session: AsyncSession,
+) -> None:
+    """A prior FAILED send is NOT silently retried under the same key. The
+    caller must mint a fresh idempotency_key — protects against retry storms
+    masking persistent transport failures.
+    """
+    transport = RecordingTransport()
+    sender = EmailSender(session, transport=transport)
+    key = "prior-failed-key"
+
+    failed = EmailEvent(
+        agency_id=AGENCY_ID,
+        category=EmailCategory.INVOICE,
+        ref_id=uuid.uuid4(),
+        recipient="family@example.com",
+        subject_redacted="Invoice",
+        subject_hash="abc",
+        status=EmailStatus.FAILED,
+        transport="recording",
+        idempotency_key=key,
+        error_code="RuntimeError",
+        error_message="prior transport failure",
+    )
+    session.add(failed)
+    await session.commit()
+
+    with pytest.raises(IdempotencyConflictError, match="status=failed"):
+        await sender.send(_make_request(idempotency_key=key))
+
+    # No new row, no transport call.
+    rows = (await session.execute(select(EmailEvent))).scalars().all()
+    assert len(rows) == 1
+    assert rows[0].id == failed.id
+    assert transport.calls == []
+
+
 # --------------------------------------------------------------------------- #
 # Layer 1 — tenant re-validation
 # --------------------------------------------------------------------------- #
