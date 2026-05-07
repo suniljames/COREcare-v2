@@ -260,7 +260,8 @@ When v1 receives material changes, refresh this docset against the new SHA.
 2. Diff against the previously-pinned SHA in this README. Identify changed apps.
 3. For each changed app, read `urls.py`, views, and templates. Update the pages-inventory rows for affected routes; update journeys if a flow changed end-to-end; update integrations doc if external service contracts changed.
 4. Bump `last reconciled` dates in updated persona sections. Update the SHA in this README.
-5. Run `make scan-v1-docs` locally. Open a PR titled `docs(migration): refresh v1 reference set against <short-sha>`.
+5. Re-resolve `v1-glossary.md` first-use anchors against the bumped docs and update the glossary's `**Status:** AUTHORED. Last reconciled: …` line. The structure script's GL-3 check fails fast if any anchor went stale; the date bump is the artifact even when no link breaks.
+6. Run `make scan-v1-docs` locally. Open a PR titled `docs(migration): refresh v1 reference set against <short-sha>`.
 
 If you find yourself doing this more than twice manually, automate it (per the team's "if you do it twice" principle). The first automation candidate is the `urls.py` enumeration step.
 
@@ -276,7 +277,7 @@ In your local v1 checkout, against the previously-pinned SHA:
 
 Baseline at the currently-pinned SHA: `ClientFamilyMember` has no `is_active`, no soft-delete, no expiry, and no role/permission column — any of those appearing in the diff is a behavioral change that propagates into the section's rows.
 
-If any diff is non-empty: re-author affected rows in `v1-pages-inventory.md`. If `_check_client_access` or any family-permission gate changed: also flag `CUTOVER_PLAN.md` owners — v2 RLS may need to mirror the v1 change. If all diffs are empty: still bump `last reconciled` on the Family Member section. An empty diff is signal; the reconciliation date is the artifact.
+If any diff is non-empty: re-author affected rows in `v1-pages-inventory.md`. If `_check_client_access` or any family-permission gate changed: also flag `CUTOVER_PLAN.md` owners — v2 RLS may need to mirror the v1 change. If `clients/models.py` shows a `ClientFamilyMember` schema shift: also re-author the `ClientFamilyMember` entry in `v1-glossary.md`, which mirrors the v1 baseline (no `is_active`, no soft-delete, no expiry, hard-delete revocation) and goes stale silently. If all diffs are empty: still bump `last reconciled` on the Family Member section. An empty diff is signal; the reconciliation date is the artifact.
 
 **Refresh order — Agency Admin first.** Agency Admin is the most-iterated persona surface in v1 (billing, payroll, scheduling, credentials, compliance). When budget for a refresh is constrained, refresh Agency Admin first; file follow-ups for other personas. The pattern Agency Admin establishes (cell prose, H3 naming, flag accuracy) is the template subsequent persona refreshes inherit.
 
