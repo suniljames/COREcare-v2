@@ -16,6 +16,12 @@
 #      `v1 has no audit on this route — v2 design must add` — and (c)
 #      begin its `purpose` cell (second cell) with the `🔒 PHI · ` prefix.
 #      Issue #103 visibility-scope discipline.
+#   6. v1-integrations-and-exports.md, if present, has the locked five-H2 set
+#      and the locked six-H3 set under "## External integrations" (CL-1, CL-2),
+#      every entry-table header matches the locked schema (SL-1), every
+#      v2_status / severity / direction_and_sync cell carries a valid token
+#      (SL-2, SL-3, SL-4), and every surfaces_at_routes inventory link
+#      resolves against an existing inventory anchor (EL-1, EL-2). Issue #98.
 #
 # Usage:
 #   scripts/check-v1-doc-structure.sh [--dir <docs-dir>]
@@ -38,6 +44,7 @@ done
 
 INVENTORY="$DIR/v1-pages-inventory.md"
 DELTA="$DIR/v1-functionality-delta.md"
+INTEGRATIONS="$DIR/v1-integrations-and-exports.md"
 
 REQUIRED_PERSONAS=(
   "Super-Admin"
@@ -164,6 +171,183 @@ if [[ -f "$INVENTORY" ]]; then
         fail "$INVENTORY '## Family Member' row '$route_slug' purpose cell must begin with '🔒 PHI · ' prefix (got: '${purpose_cell:0:40}…')"
       fi
     done < <(echo "$family_section" | grep -E '^\|[[:space:]]*`')
+  fi
+fi
+
+# --- Integrations-and-exports doc: structure + cell-token + anchor checks (#98) ---
+# CL-1 locks the H2 set; CL-2 locks the H3 set under "## External integrations".
+# SL-1..SL-4 lock entry-table column order and per-cell token validity.
+# EL-1..EL-2 confirm every surfaces_at_routes inventory link resolves to a real
+# heading anchor in v1-pages-inventory.md (or a literal "no UI surface" marker).
+INTEGRATIONS_REQUIRED_H2S=(
+  "## Schema"
+  "## External integrations"
+  "## Internal notification and email backend"
+  "## Customer-facing exports"
+  "## Cross-references"
+)
+INTEGRATIONS_EXTERNAL_H3S=(
+  "### Billing and payments"
+  "### Payroll"
+  "### Accounting"
+  "### Messaging and notifications (third-party)"
+  "### Identity, auth, and SSO (third-party)"
+  "### Other"
+)
+INTEGRATIONS_SCHEMA_HEADER='| name | vendor_or_internal | trigger | direction_and_sync | surfaces_at_routes | customer_visibility | v2_status | severity |'
+
+if [[ -f "$INTEGRATIONS" ]]; then
+  # CL-1: exact set of H2s. Sort both sides so order doesn't matter.
+  actual_h2s=$(grep -E '^## ' "$INTEGRATIONS" | sed -E 's/[[:space:]]+$//' | sort)
+  expected_h2s=$(printf '%s\n' "${INTEGRATIONS_REQUIRED_H2S[@]}" | sort)
+  if [[ "$actual_h2s" != "$expected_h2s" ]]; then
+    fail "$INTEGRATIONS H2 sections do not match locked set (CL-1)"
+    diff <(echo "$expected_h2s") <(echo "$actual_h2s") | sed 's/^/  /'
+  fi
+
+  # CL-2: exact set of H3s under "## External integrations".
+  external_section=$(awk '
+    /^## External integrations[[:space:]]*$/ { in_section = 1; next }
+    in_section && /^## / { in_section = 0 }
+    in_section { print }
+  ' "$INTEGRATIONS")
+  external_h3s=$(echo "$external_section" | grep -E '^### ' | sed -E 's/[[:space:]]+$//' | sort)
+  expected_h3s=$(printf '%s\n' "${INTEGRATIONS_EXTERNAL_H3S[@]}" | sort)
+  if [[ "$external_h3s" != "$expected_h3s" ]]; then
+    fail "$INTEGRATIONS '## External integrations' H3 sub-sections do not match locked set (CL-2)"
+    diff <(echo "$expected_h3s") <(echo "$external_h3s") | sed 's/^/  /'
+  fi
+
+  # SL-1, SL-2, SL-3, SL-4, EL-1, EL-2 — single awk pass that
+  # (1) builds an anchor-set from the inventory file, then
+  # (2) walks entry tables in the integrations doc and emits a violation per
+  #     bad cell, prefixed with file:line.
+  if [[ -f "$INVENTORY" ]]; then
+    awk_violations=$(awk -v EXPECTED_HEADER="$INTEGRATIONS_SCHEMA_HEADER" '
+      function trim(s) { sub(/^[ \t]+/, "", s); sub(/[ \t]+$/, "", s); return s }
+      # GFM-style anchor approximation: lowercase, spaces -> "-", drop chars
+      # outside [a-z0-9_-]. Matches GitHub auto-anchors for the heading shapes
+      # used in v1-pages-inventory.md (verified against #agency-admin,
+      # #top-level-elitecareurlspy, #auth_service, etc.).
+      function to_anchor(s,   a) {
+        a = tolower(s)
+        gsub(/[ \t]+/, "-", a)
+        gsub(/[^a-z0-9_-]/, "", a)
+        return a
+      }
+
+      # Pass 1: inventory -> anchor set.
+      NR == FNR {
+        if ($0 ~ /^## /) {
+          ANCHORS[to_anchor(substr($0, 4))] = 1
+        } else if ($0 ~ /^### /) {
+          ANCHORS[to_anchor(substr($0, 5))] = 1
+        }
+        # Explicit anchor tags: <a id="..."></a>
+        line = $0
+        while (match(line, /<a id="[^"]+"/)) {
+          a = substr(line, RSTART + 7, RLENGTH - 8)
+          ANCHORS[a] = 1
+          line = substr(line, RSTART + RLENGTH)
+        }
+        next
+      }
+
+      # Pass 2: integrations doc.
+      {
+        # Detect entry-table header (contains the v2_status column name).
+        if ($0 ~ /\| *v2_status *\|/) {
+          in_entry_table = 1
+          entry_row_seen = 0
+          if ($0 != EXPECTED_HEADER) {
+            print FILENAME ":" FNR ": SL-1: entry-table header does not match locked schema"
+            print "  expected: " EXPECTED_HEADER
+            print "  actual:   " $0
+          }
+          next
+        }
+        if (in_entry_table) {
+          # Leaving the table? (blank line or non-pipe)
+          if ($0 !~ /^\|/) {
+            in_entry_table = 0
+            next
+          }
+          # Separator row immediately after header.
+          if (entry_row_seen == 0 && $0 ~ /^\|[- :|]+\|[[:space:]]*$/) {
+            entry_row_seen = 1
+            next
+          }
+          # Data row.
+          n = split($0, cells, /\|/)
+          # cells[1] is empty (before first pipe); cells[n] is empty (after last).
+          # Real cells live in cells[2..n-1]. Locked schema has 8 columns.
+          if (n - 2 != 8) {
+            print FILENAME ":" FNR ": SL-1: data row has " (n - 2) " cells, expected 8"
+            next
+          }
+          name      = trim(cells[2])
+          vendor    = trim(cells[3])
+          trigger   = trim(cells[4])
+          direction = trim(cells[5])
+          surfaces  = trim(cells[6])
+          visibility= trim(cells[7])
+          v2_status = trim(cells[8])
+          severity  = trim(cells[9])
+
+          # SL-2: v2_status token validity.
+          if (v2_status !~ /^(implemented|scaffolded|missing)$/) {
+            print FILENAME ":" FNR ": SL-2: v2_status='\''" v2_status "'\'' not in {implemented, scaffolded, missing}"
+          }
+          # SL-3: severity token validity, conditional on v2_status.
+          if (severity != "" && severity !~ /^(H|M|L|D)$/) {
+            print FILENAME ":" FNR ": SL-3: severity='\''" severity "'\'' not in {H, M, L, D, empty}"
+          }
+          if (severity == "" && v2_status == "missing") {
+            print FILENAME ":" FNR ": SL-3: severity is empty but v2_status='\''missing'\'' (severity required)"
+          }
+          if (severity != "" && v2_status != "missing") {
+            print FILENAME ":" FNR ": SL-3: severity='\''" severity "'\'' set but v2_status='\''" v2_status "'\'' (severity allowed only when v2_status=missing)"
+          }
+          # SL-4: direction_and_sync regex.
+          if (direction !~ /^(inbound|outbound|bidirectional);[ \t]*(sync|async)$/) {
+            print FILENAME ":" FNR ": SL-4: direction_and_sync='\''" direction "'\'' does not match (inbound|outbound|bidirectional); (sync|async)"
+          }
+          # EL-2: surfaces_at_routes content rule.
+          if (surfaces == "") {
+            print FILENAME ":" FNR ": EL-2: surfaces_at_routes is empty"
+          } else if (surfaces ~ /_no UI surface/) {
+            # Operator-only / orphan marker; pass.
+          } else {
+            tmp = surfaces
+            found_link = 0
+            while (match(tmp, /\(v1-pages-inventory\.md#[^)]+\)/)) {
+              link = substr(tmp, RSTART, RLENGTH)
+              # Strip the "(v1-pages-inventory.md#" prefix and closing ")".
+              anchor = substr(link, 24, length(link) - 24)
+              found_link = 1
+              if (!(anchor in ANCHORS)) {
+                print FILENAME ":" FNR ": EL-1: anchor '\''" anchor "'\'' not found in v1-pages-inventory.md"
+              }
+              tmp = substr(tmp, RSTART + RLENGTH)
+            }
+            if (!found_link) {
+              print FILENAME ":" FNR ": EL-2: surfaces_at_routes has no inventory link and no '\''_no UI surface_'\'' marker"
+            }
+          }
+        }
+      }
+    ' "$INVENTORY" "$INTEGRATIONS")
+    if [[ -n "$awk_violations" ]]; then
+      while IFS= read -r line; do
+        # Each awk line that begins with "<file>:<line>: " is a primary
+        # violation; lines that don't match are continuation context.
+        if [[ "$line" =~ ^[^:]+:[0-9]+:[[:space:]] ]]; then
+          fail "$line"
+        else
+          echo "$line"
+        fi
+      done <<< "$awk_violations"
+    fi
   fi
 fi
 
