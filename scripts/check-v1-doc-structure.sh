@@ -4,6 +4,10 @@
 #   2. v1-functionality-delta.md has the cross-reference header
 #      "For collaborators without v1 access" as its first H2.
 #   3. v1-functionality-delta.md contains no "needs confirmation" residue.
+#   4. v1-pages-inventory.md's "## Shared routes" section, if present, is
+#      populated — no "_(pending content authoring)_" placeholder, and it
+#      contains at least one route row (markdown table row whose first cell
+#      starts with a backtick — the route slug).
 #
 # Usage:
 #   scripts/check-v1-doc-structure.sh [--dir <docs-dir>]
@@ -57,6 +61,29 @@ if [[ -f "$INVENTORY" ]]; then
       fail "$INVENTORY missing H2 section for persona: $persona"
     fi
   done
+fi
+
+# --- Inventory: Shared routes section, if present, is populated ---
+# The shared-routes section gathers dual-role / portal-switching routes that
+# multiple personas reach. While the docset is being authored, the section
+# carries a "_(pending content authoring)_" placeholder. Once authored, the
+# placeholder must be gone AND the section must contain at least one route
+# row — a markdown table row whose first non-pipe character is a backtick
+# (the route slug, e.g. `| \`/switch-role/\` |`).
+if [[ -f "$INVENTORY" ]]; then
+  shared_section=$(awk '
+    /^## Shared routes([[:space:]]|$)/ { in_section = 1; next }
+    in_section && /^## / { in_section = 0 }
+    in_section { print }
+  ' "$INVENTORY")
+  if [[ -n "$shared_section" ]]; then
+    if echo "$shared_section" | grep -qE '_\(pending content authoring\)_'; then
+      fail "$INVENTORY '## Shared routes' still has '_(pending content authoring)_' placeholder"
+    fi
+    if ! echo "$shared_section" | grep -qE '^\|[[:space:]]*`'; then
+      fail "$INVENTORY '## Shared routes' contains no route rows (no table row whose first cell is a backticked route slug)"
+    fi
+  fi
 fi
 
 # --- Delta: cross-ref header is the FIRST H2-or-deeper section ---
