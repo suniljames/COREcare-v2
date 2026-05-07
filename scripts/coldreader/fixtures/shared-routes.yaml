@@ -49,8 +49,8 @@ questions:
       - ["switch-role", "/switch-role/"]
       - ["portal-chooser", "/portal-chooser/"]
       - ["family-signup", "/family-signup/"]
-      - ["dual-role", "dual role", "dual portal"]
-      - ["RoleService", "role_service", "role service"]
+      - ["set-default-portal", "/set-default-portal/", "default portal"]
+      - ["clear-default-portal", "/clear-default-portal/", "five routes"]
     tolerance: 1
 
   - id: q3

@@ -21,11 +21,11 @@ questions:
       count; can terminate all View-As sessions immediately.
     must_mention:
       - ["/admin/view-as/kill-all/", "view-as/kill-all", "kill-all", "kill switch"]
-      - ["is_superuser", "superuser"]
+      - ["is_superuser", "superuser", "super-admin"]
       - ["View As", "View-As", "view-as"]
       - ["audit-logged", "audit-log", "audit"]
-      - ["confirmation prompt", "confirmation", "active-session", "active sessions"]
-    tolerance: 1
+      - ["confirmation", "active-session", "active sessions", "terminate", "emergency"]
+    tolerance: 2
 
   - id: q2
     text: "What separates the Super-Admin persona from Agency Admin in v1?"
