@@ -162,6 +162,71 @@ cd "$TEST_DIR/empty-cwd"
 assert_exit "default-dir invocation fails when docs/migration/ absent" 1 "$STRUCTURE"
 cd "$PREV_PWD"
 
+# --- Shared routes: section absent is allowed (no check fires) ---
+mkdir -p "$TEST_DIR/no-shared-section"
+write_good_inventory "$TEST_DIR/no-shared-section/v1-pages-inventory.md"
+write_good_delta "$TEST_DIR/no-shared-section/v1-functionality-delta.md"
+assert_exit "Shared routes absent → no failure" 0 "$STRUCTURE" --dir "$TEST_DIR/no-shared-section"
+
+# --- Shared routes: section present but pending-content placeholder fails ---
+mkdir -p "$TEST_DIR/shared-pending"
+cat > "$TEST_DIR/shared-pending/v1-pages-inventory.md" <<'EOF'
+# v1 Pages Inventory
+
+## Super-Admin
+## Agency Admin
+## Care Manager
+## Caregiver
+## Client
+## Family Member
+
+## Shared routes
+
+_(pending content authoring)_
+EOF
+write_good_delta "$TEST_DIR/shared-pending/v1-functionality-delta.md"
+assert_exit "Shared routes still pending fails" 1 "$STRUCTURE" --dir "$TEST_DIR/shared-pending"
+
+# --- Shared routes: section present with no rows fails ---
+mkdir -p "$TEST_DIR/shared-empty"
+cat > "$TEST_DIR/shared-empty/v1-pages-inventory.md" <<'EOF'
+# v1 Pages Inventory
+
+## Super-Admin
+## Agency Admin
+## Care Manager
+## Caregiver
+## Client
+## Family Member
+
+## Shared routes
+
+Routes accessible by more than one persona.
+EOF
+write_good_delta "$TEST_DIR/shared-empty/v1-functionality-delta.md"
+assert_exit "Shared routes with no rows fails" 1 "$STRUCTURE" --dir "$TEST_DIR/shared-empty"
+
+# --- Shared routes: section present with at least one route row passes ---
+mkdir -p "$TEST_DIR/shared-populated"
+cat > "$TEST_DIR/shared-populated/v1-pages-inventory.md" <<'EOF'
+# v1 Pages Inventory
+
+## Super-Admin
+## Agency Admin
+## Care Manager
+## Caregiver
+## Client
+## Family Member
+
+## Shared routes
+
+| route | persona | v2_status |
+|-------|---------|-----------|
+| `/switch-role/` | Care Manager, Caregiver | missing |
+EOF
+write_good_delta "$TEST_DIR/shared-populated/v1-functionality-delta.md"
+assert_exit "Shared routes with one row passes" 0 "$STRUCTURE" --dir "$TEST_DIR/shared-populated"
+
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
 [[ "$FAIL" == 0 ]] || exit 1
