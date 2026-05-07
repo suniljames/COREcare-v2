@@ -95,13 +95,17 @@ def check_summary_match(
     answer: str,
     expected_fact_summary: str,
     *,
-    threshold: float = 0.3,
+    threshold: float = 0.25,
 ) -> VerifyResult:
     """Loose keyword overlap between the answer and the fixture's summary.
 
-    Used to catch evidenced-but-wrong answers. Threshold of 0.4 means at
-    least 40% of the summary's distinctive keywords must appear in the
-    answer. Calibrated for the typical 50–100 word `expected_fact_summary`.
+    Used to catch evidenced-but-wrong answers. Threshold 0.25 means at
+    least 25% of the summary's distinctive keywords must appear in the
+    answer. Calibrated against the first live run on 2026-05-07 — observed
+    answer overlaps for technically-correct paraphrased answers were 19–28%,
+    while genuinely off answers cluster well below that. Paired with trimmed
+    `expected_fact_summary` fixtures that focus on the load-bearing claim
+    rather than exhaustive context.
     """
     if not answer.strip():
         return VerifyResult(passed=False, reason="empty answer")

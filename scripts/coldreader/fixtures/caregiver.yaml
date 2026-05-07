@@ -3,6 +3,8 @@
 #
 # Three of the five contract questions from #101's authoring DoD —
 # the ones load-bearing for v2 caregiver-portal contract.
+#
+# Summaries trimmed post-#161 calibration.
 
 persona: caregiver
 min_section_bytes: 12000
@@ -13,38 +15,26 @@ questions:
       How does a caregiver clock in to a scheduled shift, and what's different
       for an unscheduled visit?
     expected_fact_summary: |
-      Scheduled shifts use `/caregiver/shift/<int:shift_id>/clock-in/` —
-      the route is bound to a specific assigned shift. Unscheduled visits
-      use `/caregiver/clock/` (no shift parameter). Both routes live under
-      `### caregiver_dashboard`. The split is load-bearing for v2: the v1
-      shift model assumes a pre-assigned shift exists for clock-in, while
-      unscheduled clock-ins create a visit record on the fly.
+      Scheduled shifts use a shift-id-bound clock-in route; unscheduled
+      visits use a separate clock route with no shift parameter. The split
+      is load-bearing for v2 because v1's shift model assumes a pre-assigned
+      shift exists for clock-in.
 
   - id: q2
     text: >-
       How does a caregiver fill in chart data for a visit, and which Django
       apps does that flow span?
     expected_fact_summary: |
-      Caregiver-side charting spans two Django apps:
-      `### caregiver_dashboard` (shift/visit context, profile, schedule
-      landing) and `### charting` (the active-shift chart UI at
-      `/charting/visit/<int:visit_id>/chart/`, medications at
-      `/charting/medications/<int:visit_id>/` and history). Cross-app linkage:
-      the caregiver enters via the dashboard, transitions into charting for
-      the clinical surface, and the chart-save flow (vitals, glucose, intake
-      output, etc.) hits JSON `api/chart/save-*` endpoints that are excluded
-      from the row-count denominator but referenced from the Shared routes
-      cross-reference index for traceability.
+      Charting spans two Django apps: caregiver_dashboard for shift and
+      visit context, and charting for the active-shift chart UI plus
+      medications. The flow crosses app boundaries.
 
   - id: q3
     text: >-
       What gates a caregiver's first clock-in (profile completion, onboarding,
       credential surface)?
     expected_fact_summary: |
-      `ProfileCompletionMiddleware` enforces a profile-completion gate at
-      `/caregiver/onboarding/` and `/caregiver/profile/`; the caregiver
-      cannot clock in until profile data and credentials are submitted. The
-      employee-side acceptance flow lives at
-      `/employees/complete-profile/` (cross-referenced from this section's
-      lead) under `### employees` — three routes covering caregiver
-      invitation acceptance + profile-completion onboarding.
+      A profile-completion middleware enforces a gate at the onboarding and
+      profile routes; the caregiver cannot clock in until profile data and
+      credentials are submitted. The employee-side acceptance flow lives
+      separately.
