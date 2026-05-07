@@ -53,6 +53,7 @@ INVENTORY="$DIR/v1-pages-inventory.md"
 DELTA="$DIR/v1-functionality-delta.md"
 INTEGRATIONS="$DIR/v1-integrations-and-exports.md"
 JOURNEYS="$DIR/v1-user-journeys.md"
+GLOSSARY="$DIR/v1-glossary.md"
 
 REQUIRED_PERSONAS=(
   "Super-Admin"
@@ -541,6 +542,137 @@ if [[ -f "$JOURNEYS" ]]; then
     if [[ -n "$jl7_violations" ]]; then
       while IFS= read -r line; do fail "$line"; done <<< "$jl7_violations"
     fi
+  fi
+fi
+
+# --- v1-glossary.md (#105) ---
+# Validates the glossary doc once it has been authored. The status header
+# gates block-level checks: a SCAFFOLDED prefix skips them (so the in-flight
+# scaffold doesn't emit noisy violations during partial drafts); the
+# AUTHORED form turns them on. Anchor resolution against the inventory,
+# journeys, and integrations docs is always-on, mirroring JL-7.
+#
+# GL-1: status header is "**Status:** SCAFFOLDED..." (any trailing prose)
+#       OR "**Status:** AUTHORED. Last reconciled: YYYY-MM-DD against
+#       v1 commit `<sha>`." (exact form). Missing or malformed fails.
+# GL-2: when AUTHORED, no placeholder markers remain — `_(pending)_`,
+#       `_(definitions pending)_`, `_(definitions pending content authoring`,
+#       `_(pending content authoring)_`. Anything that announces itself
+#       as not-yet-authored.
+# GL-3: every link from the glossary to v1-pages-inventory.md#anchor,
+#       v1-user-journeys.md#anchor, or v1-integrations-and-exports.md#anchor
+#       resolves against an existing heading or explicit <a id> in the
+#       target doc. Always-on. If a target doc is absent on disk, links
+#       into it are reported as orphan (the glossary cannot point at a
+#       doc the docset omits).
+if [[ -f "$GLOSSARY" ]]; then
+  # GL-1: status header form (always enforced).
+  glossary_status_line=$(grep -E '^\*\*Status:\*\*' "$GLOSSARY" | head -1)
+  if [[ -z "$glossary_status_line" ]]; then
+    fail "$GLOSSARY missing **Status:** header line"
+    GLOSSARY_AUTHORED=0
+  elif echo "$glossary_status_line" | grep -qE '^\*\*Status:\*\* SCAFFOLDED'; then
+    GLOSSARY_AUTHORED=0
+  elif echo "$glossary_status_line" | grep -qE '^\*\*Status:\*\* AUTHORED\. Last reconciled: [0-9]{4}-[0-9]{2}-[0-9]{2} against v1 commit `[0-9a-f]{7,40}`\.[[:space:]]*$'; then
+    GLOSSARY_AUTHORED=1
+  else
+    fail "$GLOSSARY **Status:** header malformed; expected exactly 'SCAFFOLDED.' or 'AUTHORED. Last reconciled: YYYY-MM-DD against v1 commit \`<sha>\`.' (got: $glossary_status_line)"
+    GLOSSARY_AUTHORED=0
+  fi
+
+  if [[ "${GLOSSARY_AUTHORED:-0}" == "1" ]]; then
+    # GL-2: no placeholder/pending markers.
+    GL2_PATTERNS=(
+      '_(pending)_'
+      '_(definitions pending)_'
+      '_(definitions pending content authoring'
+      '_(pending content authoring)_'
+    )
+    for pat in "${GL2_PATTERNS[@]}"; do
+      if grep -qF "$pat" "$GLOSSARY"; then
+        fail "$GLOSSARY still contains placeholder marker '$pat'"
+      fi
+    done
+  fi
+
+  # GL-3: anchor resolution against inventory, journeys, integrations (always).
+  # Build per-target anchor sets, then walk the glossary and emit a violation
+  # per orphan link. Mirrors JL-7's awk pattern but keyed on three target docs.
+  # If a target doc is absent on disk, its anchor set stays empty — links
+  # into it will report as orphan, which is the desired behavior (the
+  # glossary cannot point at a doc the docset omits).
+  gl3_target_files=()
+  [[ -f "$INVENTORY" ]]    && gl3_target_files+=("$INVENTORY")
+  [[ -f "$JOURNEYS" ]]     && gl3_target_files+=("$JOURNEYS")
+  [[ -f "$INTEGRATIONS" ]] && gl3_target_files+=("$INTEGRATIONS")
+  gl3_violations=$(awk '
+    function trim(s) { sub(/^[ \t]+/, "", s); sub(/[ \t]+$/, "", s); return s }
+    function to_anchor(s,   a) {
+      a = tolower(s)
+      gsub(/[ \t]+/, "-", a)
+      gsub(/[^a-z0-9_-]/, "", a)
+      return a
+    }
+    # Pass 1..3: collect anchors per target file. FILENAME tracks which file
+    # is currently being read; we tag anchors with a target prefix.
+    FNR == 1 {
+      f = FILENAME
+      if (f ~ /v1-pages-inventory\.md$/)            { TARGET = "INV" }
+      else if (f ~ /v1-user-journeys\.md$/)         { TARGET = "JRN" }
+      else if (f ~ /v1-integrations-and-exports\.md$/) { TARGET = "ITG" }
+      else if (f ~ /v1-glossary\.md$/)              { TARGET = "GLS" }
+      else                                           { TARGET = "OTHER" }
+    }
+    # Pre-glossary passes: collect anchors.
+    TARGET != "GLS" {
+      if ($0 ~ /^#+ /) {
+        h = $0
+        sub(/^#+[[:space:]]*/, "", h)
+        ANCHORS[TARGET, to_anchor(trim(h))] = 1
+      }
+      line = $0
+      while (match(line, /<a id="[^"]+"/)) {
+        a = substr(line, RSTART + 7, RLENGTH - 8)
+        ANCHORS[TARGET, a] = 1
+        line = substr(line, RSTART + RLENGTH)
+      }
+      next
+    }
+    # Glossary pass: resolve outbound links.
+    TARGET == "GLS" {
+      line = $0
+      while (match(line, /\(v1-pages-inventory\.md#[^)]+\)/)) {
+        link = substr(line, RSTART, RLENGTH)
+        anchor = substr(link, 24, length(link) - 24)
+        if (!(("INV", anchor) in ANCHORS)) {
+          print FILENAME ":" FNR ": GL-3: anchor \"" anchor "\" not found in v1-pages-inventory.md"
+        }
+        line = substr(line, RSTART + RLENGTH)
+      }
+      line = $0
+      while (match(line, /\(v1-user-journeys\.md#[^)]+\)/)) {
+        link = substr(line, RSTART, RLENGTH)
+        # "(v1-user-journeys.md#" is 21 chars; anchor starts at char 22.
+        anchor = substr(link, 22, length(link) - 22)
+        if (!(("JRN", anchor) in ANCHORS)) {
+          print FILENAME ":" FNR ": GL-3: anchor \"" anchor "\" not found in v1-user-journeys.md"
+        }
+        line = substr(line, RSTART + RLENGTH)
+      }
+      line = $0
+      while (match(line, /\(v1-integrations-and-exports\.md#[^)]+\)/)) {
+        link = substr(line, RSTART, RLENGTH)
+        # "(v1-integrations-and-exports.md#" is 32 chars; anchor starts at char 33.
+        anchor = substr(link, 33, length(link) - 33)
+        if (!(("ITG", anchor) in ANCHORS)) {
+          print FILENAME ":" FNR ": GL-3: anchor \"" anchor "\" not found in v1-integrations-and-exports.md"
+        }
+        line = substr(line, RSTART + RLENGTH)
+      }
+    }
+  ' "${gl3_target_files[@]}" "$GLOSSARY")
+  if [[ -n "$gl3_violations" ]]; then
+    while IFS= read -r line; do fail "$line"; done <<< "$gl3_violations"
   fi
 fi
 
