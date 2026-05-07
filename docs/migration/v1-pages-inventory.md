@@ -6,6 +6,8 @@ This document is the **authoritative route catalogue** for v1's customer-facing 
 
 **Status:** SCAFFOLDED. Persona sections are in place; rows are pending content authoring against `suniljames/COREcare-access` at the [pinned commit](README.md#v1-reference-commit). Until rows are filled, the [`v1-functionality-delta.md`](v1-functionality-delta.md) is the most complete view of v1's feature surface.
 
+> **Drift detection.** A weekly CI job ([`v1-inventory-coldreader.yml`](../../.github/workflows/v1-inventory-coldreader.yml)) runs the per-persona cold-reader rotation against the live section content. If a row edit breaks the rotation, an auto-managed tracking issue opens. Rotation fixtures live in [`scripts/coldreader/fixtures/`](../../scripts/coldreader/fixtures/); operational details are in [`scripts/coldreader/README.md`](../../scripts/coldreader/README.md).
+
 ---
 
 ## Coverage

@@ -7,8 +7,10 @@ on:
       - 'tools/v1-screenshot-catalog/*.md'
       - 'scripts/check-v1-doc-hygiene.sh'
       - 'scripts/check-v1-doc-structure.sh'
+      - 'scripts/coldreader/**'
       - 'scripts/tests/test_check_v1_doc_*.sh'
       - '.github/workflows/v1-doc-hygiene.yml'
+      - '.github/workflows/v1-inventory-coldreader.yml'
   push:
     branches: [main]
     paths:
@@ -16,6 +18,7 @@ on:
       - 'tools/v1-screenshot-catalog/*.md'
       - 'scripts/check-v1-doc-hygiene.sh'
       - 'scripts/check-v1-doc-structure.sh'
+      - 'scripts/coldreader/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -63,7 +66,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Run gitleaks scoped to docs/migration/v1-*.md
+      - name: Run gitleaks scoped to v1 docs + coldreader paths
         uses: gitleaks/gitleaks-action@v2
         env:
           GITLEAKS_CONFIG: ""

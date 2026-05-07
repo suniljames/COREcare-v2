@@ -1,0 +1,55 @@
+# Cold-reader rotation for the `## Shared routes` section in
+# docs/migration/v1-pages-inventory.md.
+#
+# The Shared routes section is unique: it owns the canonical
+# `### Cross-reference index` for the whole inventory, plus five rows for
+# routes that don't fit any single persona. Questions are authored fresh.
+
+persona: shared-routes
+min_section_bytes: 6000
+
+questions:
+  - id: q1
+    text: >-
+      What kinds of routes does the `## Shared routes` section catalogue, and
+      where is the canonical row for a route reachable by both Agency Admin
+      and Family Member?
+    expected_fact_summary: |
+      Two flavors of shared routes: (1) routes whose row is authored in a
+      primary-persona section and referenced here for discoverability —
+      indexed in `### Cross-reference index` with `row location` linking to
+      the canonical persona section (e.g. per-client calendar +
+      events + schedule PDF for Agency Admin / Family Member live under
+      `## Agency Admin → ### clients`); and (2) routes that don't fit any
+      single persona section — authored in the row table at the bottom of
+      this section (5 such routes from `elitecare/urls.py`).
+
+  - id: q2
+    text: >-
+      Which routes from `elitecare/urls.py` are authored directly in the
+      Shared routes section (not cross-referenced from a persona section)?
+    expected_fact_summary: |
+      Five routes. Four dual-role portal-switching routes from v1 issue #1224
+      (gated on a user holding both `caregiver_profile` and
+      `care_manager_profile`): `/switch-role/`, `/portal-chooser/`,
+      `/set-default-portal/`, `/clear-default-portal/`. Plus one public,
+      rate-limited family self-registration shortcut from v1 issue #65:
+      `/family-signup/` (5/h per IP, redeems an invite code, creates a
+      Family Member account). The dual-role routes are gated by
+      `core/services/role_service.py:RoleService.get_available_roles`.
+
+  - id: q3
+    text: >-
+      How does v1 enforce that a Family Member only reaches their linked
+      client's calendar via the cross-referenced `/clients/<int:client_id>/`
+      routes?
+    expected_fact_summary: |
+      The `### Cross-reference index` row entries for `/clients/<int:client_id>/calendar/`,
+      `/clients/<int:client_id>/events/...`, and the schedule PDF/preview
+      routes name "Family Member" under `also reachable by` with the gate
+      annotation "via `ClientFamilyMember` link gate; staff bypass returns
+      `link=None`". The Family Member side enforces in Python via
+      `clients/views.py:_check_client_access` and equivalent service-layer
+      checks; staff (Agency Admin) bypass via `is_staff` returns no link
+      object. The canonical rows live under `## Agency Admin → ### clients`,
+      not duplicated here.

@@ -44,11 +44,13 @@ Test accounts (seeded by `make api-seed`):
 | Family 2 | family2@test.com | `TestFamily123!` |
 
 ```bash
-make check        # Lint + typecheck + test + build (must pass before PRs)
-make test         # All tests
-make api-test     # API tests only
-make web-test     # Web tests only
-make test-e2e     # E2E tests (requires Docker stack)
+make check                # Lint + typecheck + test + build (must pass before PRs)
+make test                 # All tests
+make api-test             # API tests only
+make web-test             # Web tests only
+make test-e2e             # E2E tests (requires Docker stack)
+make coldreader-test      # V1 inventory cold-reader rotation script self-test (see scripts/coldreader/README.md)
+make coldreader-local-dry # Dry-run the rotation parser + fixtures against the live inventory
 ```
 
 Tailscale for network access from other devices.
