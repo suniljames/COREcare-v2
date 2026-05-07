@@ -1169,6 +1169,78 @@ p.write_text(text)
 PY
 assert_exit "JL-7: orphan inventory anchor fails" 1 "$STRUCTURE" --dir "$TEST_DIR/jl7"
 
+# --- JL-7: orphan absolute GitHub URL anchor fails ---
+mkdir -p "$TEST_DIR/jl7-abs-orphan"
+write_journeys_inventory "$TEST_DIR/jl7-abs-orphan/v1-pages-inventory.md"
+write_good_delta "$TEST_DIR/jl7-abs-orphan/v1-functionality-delta.md"
+write_good_journeys "$TEST_DIR/jl7-abs-orphan/v1-user-journeys.md"
+python3 - "$TEST_DIR/jl7-abs-orphan/v1-user-journeys.md" <<'PY'
+import sys, pathlib
+p = pathlib.Path(sys.argv[1])
+text = p.read_text()
+text = text.replace(
+    "(v1-pages-inventory.md#super-admin-top-level)",
+    "(https://github.com/suniljames/COREcare-v2/blob/main/docs/migration/v1-pages-inventory.md#nonexistent-anchor)",
+    1,
+)
+p.write_text(text)
+PY
+assert_exit "JL-7: orphan absolute-URL anchor fails" 1 "$STRUCTURE" --dir "$TEST_DIR/jl7-abs-orphan"
+
+# --- JL-7: valid absolute GitHub URL anchor passes ---
+mkdir -p "$TEST_DIR/jl7-abs-valid"
+write_journeys_inventory "$TEST_DIR/jl7-abs-valid/v1-pages-inventory.md"
+write_good_delta "$TEST_DIR/jl7-abs-valid/v1-functionality-delta.md"
+write_good_journeys "$TEST_DIR/jl7-abs-valid/v1-user-journeys.md"
+python3 - "$TEST_DIR/jl7-abs-valid/v1-user-journeys.md" <<'PY'
+import sys, pathlib
+p = pathlib.Path(sys.argv[1])
+text = p.read_text()
+text = text.replace(
+    "(v1-pages-inventory.md#super-admin-top-level)",
+    "(https://github.com/suniljames/COREcare-v2/blob/main/docs/migration/v1-pages-inventory.md#super-admin-top-level)",
+    1,
+)
+p.write_text(text)
+PY
+assert_exit "JL-7: valid absolute-URL anchor passes" 0 "$STRUCTURE" --dir "$TEST_DIR/jl7-abs-valid"
+
+# --- JL-7: orphan ../blob/<branch> anchor fails ---
+mkdir -p "$TEST_DIR/jl7-blob-orphan"
+write_journeys_inventory "$TEST_DIR/jl7-blob-orphan/v1-pages-inventory.md"
+write_good_delta "$TEST_DIR/jl7-blob-orphan/v1-functionality-delta.md"
+write_good_journeys "$TEST_DIR/jl7-blob-orphan/v1-user-journeys.md"
+python3 - "$TEST_DIR/jl7-blob-orphan/v1-user-journeys.md" <<'PY'
+import sys, pathlib
+p = pathlib.Path(sys.argv[1])
+text = p.read_text()
+text = text.replace(
+    "(v1-pages-inventory.md#super-admin-top-level)",
+    "(../blob/main/docs/migration/v1-pages-inventory.md#nonexistent-anchor)",
+    1,
+)
+p.write_text(text)
+PY
+assert_exit "JL-7: orphan ../blob/<branch> anchor fails" 1 "$STRUCTURE" --dir "$TEST_DIR/jl7-blob-orphan"
+
+# --- JL-7: valid ../blob/<branch> anchor passes ---
+mkdir -p "$TEST_DIR/jl7-blob-valid"
+write_journeys_inventory "$TEST_DIR/jl7-blob-valid/v1-pages-inventory.md"
+write_good_delta "$TEST_DIR/jl7-blob-valid/v1-functionality-delta.md"
+write_good_journeys "$TEST_DIR/jl7-blob-valid/v1-user-journeys.md"
+python3 - "$TEST_DIR/jl7-blob-valid/v1-user-journeys.md" <<'PY'
+import sys, pathlib
+p = pathlib.Path(sys.argv[1])
+text = p.read_text()
+text = text.replace(
+    "(v1-pages-inventory.md#super-admin-top-level)",
+    "(../blob/main/docs/migration/v1-pages-inventory.md#super-admin-top-level)",
+    1,
+)
+p.write_text(text)
+PY
+assert_exit "JL-7: valid ../blob/<branch> anchor passes" 0 "$STRUCTURE" --dir "$TEST_DIR/jl7-blob-valid"
+
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
 [[ "$FAIL" == 0 ]] || exit 1
