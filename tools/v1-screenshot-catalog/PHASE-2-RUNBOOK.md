@@ -69,7 +69,7 @@ Author `~/Code/COREcare-access/fixtures/v2_catalog_snapshot.json` per the spec t
 
 1. v1 running with the fixture loaded (see Phase 2D step 1 below for the bring-up sequence).
 2. For each persona, log in via browser at `http://localhost:8000/dashboard/login/`.
-3. Pick 5 routes per persona — **must include** any client-detail, chart-note, or billing/financial view (per Data Engineer Phase 2 minimum-coverage rule).
+3. Pick 5 routes per persona — **must include** any client-detail, chart-note, or billing/financial view (per the data-engineer review's minimum-coverage rule on #107).
 4. Take a single browser screenshot of each route.
 5. For each image: walk the 11 categories in `PHI-CHECKLIST.md`; record yes/no/N/A + free-text note.
 6. Record results in `tools/v1-screenshot-catalog/PHI-AUDIT-PRECRAWL-<YYYY-MM-DD>.md`. Format: 25-row × 11-column table.
@@ -157,7 +157,7 @@ Do not proceed to Phase 2D until **every** category is yes/N/A.
    ```
    Expected: every (route, viewport) pair within 0.5% pixel diff. Fixture-hash gate passes.
 
-   **STOP-and-root-cause** if any image exceeds threshold OR fixture hashes diverge between the two runs. Common causes: stale Playwright Chromium build, fixture edited between runs (re-hash and re-load), forgotten determinism harness override.
+   **STOP-and-root-cause** if any image exceeds threshold OR fixture hashes diverge between the two runs. Common causes: stale Playwright/Chromium build, fixture edited between runs (re-hash and re-load), forgotten determinism harness override.
 
 2. **Coverage check**:
    ```bash
@@ -167,7 +167,7 @@ Do not proceed to Phase 2D until **every** category is yes/N/A.
 
 3. **Post-crawl PHI 10% sample audit**:
    ```bash
-   # Use Python's random.seed(42) to pick the sample; cap 100 images.
+   # Sample via python's random.seed(42); cap at 100 images.
    ```
    Audit each against `PHI-CHECKLIST.md`. Commit `tools/v1-screenshot-catalog/PHI-AUDIT-POSTCRAWL-<YYYY-MM-DD>.md` (table format).
 
