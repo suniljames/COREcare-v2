@@ -45,6 +45,27 @@
 #        CR-4  `phi_displayed` value outside `{true, false}` on either side.
 #      Issue #124 — drift in this column would silently mis-scope v2's
 #      operator-portal HIPAA-minimum-necessary controls.
+#   9. docs/migration/README.md `## Refresh runbook` section invariants.
+#      Locks the operational shape of the runbook so per-persona override
+#      blocks don't silently lose load-bearing instructions. Violation codes:
+#        RR-1  `## Refresh runbook` H2 missing.
+#        RR-2  `### Refresh order — Agency Admin first` H3 missing or placed
+#              outside the Refresh runbook section.
+#        RR-3  Persona-section override H3 placed outside the section, OR
+#              a near-miss H3 inside the section uses a persona name not in
+#              the locked $REQUIRED_PERSONAS set (e.g. "Family Members").
+#        RR-4a Persona-section body missing literal `V1 Reference Commit`.
+#        RR-4b Persona-section body missing literal
+#              `Baseline at the currently-pinned SHA:`.
+#        RR-4c Persona-section body missing one or both branching outcome
+#              literals (`If any diff is non-empty:` / `If all diffs are empty:`).
+#        RR-4d Persona-section body missing literal `'*/urls.py'` or has
+#              fewer than 3 distinct `git diff <old>..<new> --` invocations.
+#        RR-5  Markdown intra-file anchor link `](#<anchor>)` does not resolve
+#              to a heading or `<a id>` in the same README.
+#      Issue #132 — extends the structure check to cover the README itself,
+#      replacing the standalone `scripts/tests/test_readme_runbook_entries.sh`
+#      prototype added in PR #130.
 #
 # Usage:
 #   scripts/check-v1-doc-structure.sh [--dir <docs-dir>]
@@ -70,6 +91,7 @@ DELTA="$DIR/v1-functionality-delta.md"
 INTEGRATIONS="$DIR/v1-integrations-and-exports.md"
 JOURNEYS="$DIR/v1-user-journeys.md"
 GLOSSARY="$DIR/v1-glossary.md"
+README="$DIR/README.md"
 
 REQUIRED_PERSONAS=(
   "Super-Admin"
@@ -893,6 +915,198 @@ if [[ -f "$INVENTORY" ]]; then
         echo "$line"
       fi
     done <<< "$xref_violations"
+  fi
+fi
+
+# --- README Refresh runbook rule group (RR-1..RR-5) — Issue #132 ---
+# Locks the operational invariants of the `## Refresh runbook` section in
+# `docs/migration/README.md`. The hygiene scanner only covers `v1-*.md` files,
+# so the README's runbook section had no automated guardrail until now.
+#
+#   RR-1  `## Refresh runbook` H2 exists.
+#   RR-2  `### Refresh order — Agency Admin first` H3 exists, placed inside
+#         the Refresh runbook section (between the H2 and the next `## ` H2).
+#   RR-3  Each persona-section override H3 — `^### <Persona> section( —.*)?$`
+#         where <Persona> is in the locked $REQUIRED_PERSONAS set — is placed
+#         inside the Refresh runbook section. Typo'd persona names (e.g.
+#         "Family Members") inside the section are flagged so the override
+#         doesn't silently bypass RR-4 body validation.
+#   RR-4  Each persona-section override body must contain:
+#           a. literal `V1 Reference Commit` (cadence trigger anchor)
+#           b. literal `Baseline at the currently-pinned SHA:` (fingerprint anchor)
+#           c. BOTH `If any diff is non-empty:` AND `If all diffs are empty:`
+#              (lock both branching outcomes — empty-diff branch enforces the
+#              "still bump `last reconciled`" discipline)
+#           d. literal `'*/urls.py'` (Security: resists narrowing back to
+#              `dashboard/urls.py`) AND ≥3 distinct `git diff <old>..<new> --`
+#              invocations (count check; specific paths beyond `'*/urls.py'`
+#              may evolve when v1 reorganizes).
+#   RR-5  Every markdown intra-file anchor link `](#<anchor>)` in the README
+#         resolves to a heading or explicit `<a id>` in the same README.
+#         Protects the `## Workflow secrets / Break-glass` deep-link.
+if [[ -f "$README" ]]; then
+  # Locate the Refresh runbook section bounds. End of section = next `## ` H2
+  # or EOF; section content lives strictly between (start, end).
+  rr_runbook_start=$(grep -nE '^## Refresh runbook[[:space:]]*$' "$README" | head -1 | cut -d: -f1)
+  if [[ -z "$rr_runbook_start" ]]; then
+    fail "$README missing '## Refresh runbook' H2 (RR-1)"
+  else
+    rr_runbook_end=$(awk -v s="$rr_runbook_start" 'NR > s && /^## / { print NR; exit }' "$README")
+    if [[ -z "$rr_runbook_end" ]]; then
+      rr_runbook_end=$(($(wc -l < "$README") + 1))
+    fi
+
+    # RR-2: Agency-Admin-first H3 must exist AND sit inside the section.
+    rr_aa_lines=$(grep -nE '^### Refresh order — Agency Admin first[[:space:]]*$' "$README" | cut -d: -f1)
+    if [[ -z "$rr_aa_lines" ]]; then
+      fail "$README missing '### Refresh order — Agency Admin first' H3 (RR-2)"
+    else
+      rr_aa_in_section=0
+      while IFS= read -r aa_line; do
+        [[ -z "$aa_line" ]] && continue
+        if (( aa_line > rr_runbook_start && aa_line < rr_runbook_end )); then
+          rr_aa_in_section=1
+        else
+          fail "$README '### Refresh order — Agency Admin first' H3 at line $aa_line is outside '## Refresh runbook' section (RR-2)"
+        fi
+      done <<< "$rr_aa_lines"
+      if [[ "$rr_aa_in_section" -eq 0 ]]; then
+        fail "$README '### Refresh order — Agency Admin first' H3 not placed inside '## Refresh runbook' section (RR-2)"
+      fi
+    fi
+
+    # Build the locked persona-section regex from $REQUIRED_PERSONAS.
+    rr_persona_alt=$(IFS='|'; echo "${REQUIRED_PERSONAS[*]}")
+    rr_persona_re="^### (${rr_persona_alt}) section( —.*)?[[:space:]]*\$"
+
+    # RR-3 (placement): every locked persona-section H3 in the file must sit
+    # inside the runbook section.
+    while IFS=: read -r h3_line h3_text; do
+      [[ -z "$h3_line" ]] && continue
+      if (( h3_line < rr_runbook_start || h3_line >= rr_runbook_end )); then
+        fail "$README persona-section H3 '$h3_text' (line $h3_line) placed outside '## Refresh runbook' section (RR-3)"
+      fi
+    done < <(grep -nE "$rr_persona_re" "$README" || true)
+
+    # RR-3 (typo): any H3 inside the runbook section ending in ` section`
+    # (with optional ` — …` tail) that does NOT match the locked persona regex
+    # is flagged. Catches `### Family Members section` and similar near-misses
+    # that would otherwise silently bypass RR-4 body validation.
+    while IFS=: read -r h3_line h3_text; do
+      [[ -z "$h3_line" ]] && continue
+      # Skip H3s that DO match the locked persona regex.
+      if echo "$h3_text" | grep -qE "$rr_persona_re"; then continue; fi
+      # Flag anything else whose heading text ends in ` section` (or ` section — …`).
+      if echo "$h3_text" | grep -qE '^### .+ section( —.*)?[[:space:]]*$'; then
+        fail "$README runbook H3 '$h3_text' (line $h3_line) does not match locked persona name from \${REQUIRED_PERSONAS[*]} (RR-3)"
+      fi
+    done < <(awk -v s="$rr_runbook_start" -v e="$rr_runbook_end" 'NR > s && NR < e && /^### / { print NR ":" $0 }' "$README")
+
+    # RR-4: validate the body of each persona-section H3 inside the runbook
+    # section. Body = lines from this H3 to the next H3-or-H2 (whichever first)
+    # OR to the end of the runbook section.
+    rr4_violations=$(awk -v s="$rr_runbook_start" -v e="$rr_runbook_end" -v re="$rr_persona_re" '
+      function flush(   diff_count, body_copy, p) {
+        if (cur_h3 == "") return
+        if (!index(body, "V1 Reference Commit")) {
+          print FILENAME ":" h3_line ": RR-4a: persona-section H3 \"" cur_h3 "\" body missing literal `V1 Reference Commit` (cadence trigger)"
+        }
+        if (!index(body, "Baseline at the currently-pinned SHA:")) {
+          print FILENAME ":" h3_line ": RR-4b: persona-section H3 \"" cur_h3 "\" body missing literal `Baseline at the currently-pinned SHA:` (fingerprint anchor)"
+        }
+        if (!index(body, "If any diff is non-empty:")) {
+          print FILENAME ":" h3_line ": RR-4c: persona-section H3 \"" cur_h3 "\" body missing branch literal `If any diff is non-empty:`"
+        }
+        if (!index(body, "If all diffs are empty:")) {
+          print FILENAME ":" h3_line ": RR-4c: persona-section H3 \"" cur_h3 "\" body missing branch literal `If all diffs are empty:` (locks the still-bump-`last reconciled` discipline)"
+        }
+        if (!index(body, "\x27*/urls.py\x27")) {
+          print FILENAME ":" h3_line ": RR-4d: persona-section H3 \"" cur_h3 "\" body missing literal `\x27*/urls.py\x27` (Security: resists narrowing back to `dashboard/urls.py`)"
+        }
+        diff_count = 0
+        body_copy = body
+        while ((p = index(body_copy, "git diff <old>..<new> --")) > 0) {
+          diff_count++
+          body_copy = substr(body_copy, p + 24)
+        }
+        if (diff_count < 3) {
+          print FILENAME ":" h3_line ": RR-4d: persona-section H3 \"" cur_h3 "\" body has " diff_count " `git diff <old>..<new> --` invocations, minimum 3"
+        }
+        cur_h3 = ""
+        body = ""
+      }
+      NR > s && NR < e {
+        if ($0 ~ re) {
+          flush()
+          cur_h3 = $0
+          h3_line = NR
+          body = ""
+          next
+        }
+        if (cur_h3 != "" && ($0 ~ /^### / || $0 ~ /^## /)) {
+          flush()
+          next
+        }
+        if (cur_h3 != "") {
+          body = body "\n" $0
+        }
+      }
+      END { flush() }
+    ' "$README")
+    if [[ -n "$rr4_violations" ]]; then
+      while IFS= read -r line; do
+        if [[ "$line" =~ ^[^:]+:[0-9]+:[[:space:]] ]]; then
+          fail "$line"
+        else
+          echo "$line"
+        fi
+      done <<< "$rr4_violations"
+    fi
+  fi
+
+  # RR-5: anchor-resolution within the README itself.
+  # Build a heading anchor set (GFM-derived from headings + explicit <a id>)
+  # in pass 1, then walk markdown intra-file links `](#<anchor>)` in pass 2.
+  # Pattern `\]\(#[^)]+\)` requires the closing `]` of a markdown link text
+  # immediately before `(` so we don't false-match issue refs like ` (#131)`
+  # in plain prose (which are NOT anchor links and need not resolve).
+  rr5_violations=$(awk '
+    function trim(s) { sub(/^[ \t]+/, "", s); sub(/[ \t]+$/, "", s); return s }
+    function to_anchor(s,   a) {
+      a = tolower(s)
+      gsub(/[ \t]+/, "-", a)
+      gsub(/[^a-z0-9_-]/, "", a)
+      return a
+    }
+    NR == FNR {
+      if ($0 ~ /^#+ /) {
+        h = $0
+        sub(/^#+[[:space:]]*/, "", h)
+        ANCHORS[to_anchor(trim(h))] = 1
+      }
+      line = $0
+      while (match(line, /<a id="[^"]+"/)) {
+        a = substr(line, RSTART + 7, RLENGTH - 8)
+        ANCHORS[a] = 1
+        line = substr(line, RSTART + RLENGTH)
+      }
+      next
+    }
+    {
+      line = $0
+      while (match(line, /\]\(#[^)]+\)/)) {
+        link = substr(line, RSTART, RLENGTH)
+        # link starts with "](#" (3 chars) and ends with ")" (1 char).
+        anchor = substr(link, 4, length(link) - 4)
+        if (!(anchor in ANCHORS)) {
+          print FILENAME ":" FNR ": RR-5: anchor \"" anchor "\" not found in same README"
+        }
+        line = substr(line, RSTART + RLENGTH)
+      }
+    }
+  ' "$README" "$README")
+  if [[ -n "$rr5_violations" ]]; then
+    while IFS= read -r line; do fail "$line"; done <<< "$rr5_violations"
   fi
 fi
 

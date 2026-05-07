@@ -237,7 +237,7 @@ The current denominator and numerator are recorded in `v1-pages-inventory.md` un
 Two scripts validate this docset on every PR:
 
 - `scripts/check-v1-doc-hygiene.sh` — blocks PHI patterns, absolute paths, plausible-real-name two-word sequences. Run via pre-commit hook and CI.
-- `scripts/check-v1-doc-structure.sh` — validates structural invariants of the docset: persona-section coverage and cross-reference header (delta doc), Shared-routes section population, Family-Member visibility-scope and audit-posture discipline, the integrations-and-exports doc's locked H2/H3 set and per-cell schema (CL/SL/EL codes), the user-journeys doc's status header / per-persona minimums / sub-block discipline / anchor resolution (JL codes), the glossary doc's status header / placeholder discipline / anchor resolution (GL codes), and consistency between `### Cross-reference index` mirrored cells and the canonical persona-section row they link to (CR codes — Issue #124, today scoped to `phi_displayed`).
+- `scripts/check-v1-doc-structure.sh` — validates structural invariants of the docset: persona-section coverage and cross-reference header (delta doc), Shared-routes section population, Family-Member visibility-scope and audit-posture discipline, the integrations-and-exports doc's locked H2/H3 set and per-cell schema (CL/SL/EL codes), the user-journeys doc's status header / per-persona minimums / sub-block discipline / anchor resolution (JL codes), the glossary doc's status header / placeholder discipline / anchor resolution (GL codes), consistency between `### Cross-reference index` mirrored cells and the canonical persona-section row they link to (CR codes — Issue #124, today scoped to `phi_displayed`), and this README's `## Refresh runbook` section invariants — Agency-Admin-first H3, locked persona-section override shape, cadence-trigger / baseline-fingerprint / both-branching-outcome literals, `'*/urls.py'` narrowing-resistance, and intra-file anchor resolution (RR codes — Issue #132).
 
 Self-tests:
 
@@ -281,7 +281,9 @@ If any diff is non-empty: re-author affected rows in `v1-pages-inventory.md`. If
 
 CI posts these diffs as a sticky PR comment when a PR bumps the V1 Reference Commit SHA — see `.github/workflows/v1-sha-bump-diff-report.yml` (#131).
 
-**Refresh order — Agency Admin first.** Agency Admin is the most-iterated persona surface in v1 (billing, payroll, scheduling, credentials, compliance). When budget for a refresh is constrained, refresh Agency Admin first; file follow-ups for other personas. The pattern Agency Admin establishes (cell prose, H3 naming, flag accuracy) is the template subsequent persona refreshes inherit.
+### Refresh order — Agency Admin first
+
+Agency Admin is the most-iterated persona surface in v1 (billing, payroll, scheduling, credentials, compliance). When budget for a refresh is constrained, refresh Agency Admin first; file follow-ups for other personas. The pattern Agency Admin establishes (cell prose, H3 naming, flag accuracy) is the template subsequent persona refreshes inherit.
 
 ---
 
