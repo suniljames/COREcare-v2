@@ -41,8 +41,8 @@ _Enumeration in progress (#81). Per-Django-app denominators below._
 | employees | 3 | 3 | caregiver invitation acceptance + profile-completion onboarding; complete |
 | quickbooks_integration | 8 | 8 | QuickBooks OAuth + invoice send + customer linking; complete |
 | auth_service | 5 | 5 | mounted at root prefix; password-reset flow (4) + magic-link login (1); routes shared across all personas; complete |
-| _(dual-role / portal switching routes in elitecare/urls.py)_ | 5 | 0 | switch-role, portal-chooser, set-default-portal, clear-default-portal, family-signup; treat as Shared routes |
-| **total (Agency Admin)** | **96** | **91 (≈95%)** | per-app sum; only the 5 dual-role/shared routes remain (#89) |
+| _(dual-role / portal switching routes in elitecare/urls.py)_ | 5 | 0 | switch-role, portal-chooser, set-default-portal, clear-default-portal, family-signup; not Agency-Admin-reachable — authored in [Shared routes](#shared-routes) (#89). |
+| **total (Agency Admin)** | **96** | **91 (≈95%)** | per-app sum; the 5 dual-role/shared routes are not Agency-Admin-reachable — authored in [Shared routes](#shared-routes) (#89). |
 
 **Skipped (the 5% headroom from authored apps):**
 - `dashboard.portal_home` — redirect-only view (excluded per coverage rule).
@@ -300,7 +300,16 @@ Family Member pages cover the limited-visibility view granted to a client's auth
 
 ## Shared routes
 
-Routes accessible by more than one persona are authored as a row once, in their primary-persona section, and indexed here for cross-reference. This section is the canonical pointer; persona sections do not duplicate rows for shared routes.
+_last reconciled: 2026-05-07 against v1 commit `9738412`_
+
+Shared routes serve more than one persona, or sit outside any single persona's surface. v1 has two flavors:
+
+1. **Routes whose row is authored in a primary-persona section and referenced here for discoverability** — listed in the cross-reference index below. These do not duplicate rows; the index points at the persona section that owns the canonical row.
+2. **Routes that don't fit any single persona section** — authored in the row table at the bottom of this section. v1 currently has five such routes from `elitecare/urls.py` (project-root registrations outside any app's `include()`): four dual-role portal-switching routes from v1 issue #1224 (gated on a user holding both `caregiver_profile` and `care_manager_profile`; v1 code in `core/dual_role_views.py`, eligibility derived by `core/services/role_service.py:RoleService.get_available_roles`) and one public, rate-limited family self-registration shortcut from v1 issue #65 (`dashboard/views.py:family_signup`, `5/h` per IP).
+
+### Cross-reference index
+
+Routes whose canonical row lives in a persona section.
 
 | route | primary persona | also reachable by | row location |
 |-------|-----------------|-------------------|--------------|
@@ -321,3 +330,17 @@ Routes accessible by more than one persona are authored as a row once, in their 
 | `/password-reset/<uuid:token>/` | Agency Admin | all other personas | [Agency Admin → auth_service](#auth_service) |
 | `/password-reset/complete/` | Agency Admin | all other personas | [Agency Admin → auth_service](#auth_service) |
 | `/magic-login/<uuid:token>/` | Caregiver | Client, Family Member (admin users `is_staff`/`is_superuser` blocked at the view layer; URL reachable but bounces to invalid-token) | (pending Caregiver section; Agency Admin row in `### auth_service` documents the v1 block-for-admins behavior) |
+
+### Routes authored here (no primary-persona section)
+
+These five rows use the same schema as the persona sections plus a leading `persona` cell listing every persona that reaches the route (comma-separated, persona vocabulary verbatim from [README §Personas](README.md#personas)).
+
+| route | persona | purpose | what_user_sees_can_do | v2_status | severity | multi_tenant_refactor | rls_bypass_by_design | phi_displayed | screenshot_ref | v2_link |
+|-------|---------|---------|-----------------------|-----------|----------|-----------------------|----------------------|---------------|----------------|---------|
+| `/switch-role/` | Care Manager, Caregiver | POST-only endpoint that switches a dual-role user's active portal role; logs a `RoleSwitchEvent` for analytics. | Sees: no rendered page — redirect-only. Can: switch active role between caregiver and care_manager, landing on the target portal's dashboard. | missing | M | true | false | false | not_screenshotted: pending #79 |  |
+| `/portal-chooser/` | Care Manager, Caregiver | Full-page portal selector rendered when a dual-role user hits root with no saved default portal preference. | Sees: list of available roles with labels and descriptions. Can: select one role to enter, optionally saving it as default in the same flow. | missing | M | true | false | false | not_screenshotted: pending #79 |  |
+| `/set-default-portal/` | Care Manager, Caregiver | POST-only endpoint that saves a dual-role user's preferred default portal to `UserPreference`, skipping the chooser on next login. | Sees: no rendered page — redirect-only. Can: persist a default-portal preference and proceed to the chosen portal. | missing | M | true | false | false | not_screenshotted: pending #79 |  |
+| `/clear-default-portal/` | Care Manager, Caregiver | POST-only endpoint that removes a dual-role user's saved default-portal preference, returning them to the chooser flow. | Sees: no rendered page — redirect-only. Can: clear the saved default-portal preference. | missing | M | true | false | false | not_screenshotted: pending #79 |  |
+| `/family-signup/` | Family Member | 🔒 PHI · Public, rate-limited (5/h per IP) self-registration shortcut that redeems a family invite code and creates a Family Member account. | Sees: invite-code field, optional pre-filled greeting naming the linked client when a valid `?code=` param is present (`[CLIENT_NAME]`). Can: submit the code to create the account and join the client's circle. | missing | H | true | false | true | not_screenshotted: pending #79 |  |
+
+**Authoring conventions for this section.** When per-persona authoring sub-issues discover a route reachable by more than one persona, prefer authoring the row in the *primary*-persona section and adding an entry to the cross-reference index above. Use the row table immediately above only when no single persona section is the natural primary. The per-persona section gets a one-line cross-reference under its app group instead — e.g. `see [/switch-role/ in Shared routes](#shared-routes)`.
