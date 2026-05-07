@@ -39,6 +39,7 @@ Terms that need definition before the docset is complete:
 - **Shift offer** — a pending shift assignment surfaced to a caregiver for inline accept or decline before the shift starts. Cited in the Caregiver section of `v1-pages-inventory.md`.
 - **Post-shift summary** — the wrap-up screen rendered after clock-out, reviewing visit duration, billable services, comments, and attachments. Cited in the Caregiver section of `v1-pages-inventory.md`.
 - **Active shift** — the in-flight visit dashboard rendered while a caregiver is clocked in, surfacing chart entry, comments, mileage, and reimbursement actions. Cited in the Caregiver section of `v1-pages-inventory.md`.
+- **`ClientFamilyMember`** — v1 model linking a Django `User` to a `Client` for family-portal visibility; carries per-link permission booleans (`can_view_schedule`, `can_message_caregivers`) and `unique_together(client, user)` but no soft-delete or active flag — revocation is hard-delete in v1. Cited in [`## Family Member`](v1-pages-inventory.md#family-member) section lead and in cross-reference index entries for `clients/` calendar/event routes.
 
 _(definitions pending content authoring; each will resolve to one-line text + first-use link)_
 
