@@ -75,13 +75,69 @@ These hold for the pinned commit. If v1 advances, re-verify.
 
 ---
 
-## Open items for Phase 1 (the crawler)
+## Fixture snapshot
 
-1. **Inventory parsing** — write `scripts/extract-inventory-routes.sh` (shared with PR-A's coverage script). Emits JSON `[{persona, route, screenshot_ref}, ...]`. Crawler reads JSON.
-2. **Hand-crafted PHI-scrubbed fixture** — `~/Code/COREcare-access/fixtures/v2_catalog_snapshot.json`. Spec lives in [`#107` Proposed Solution §Seed fixture spec](https://github.com/suniljames/COREcare-v2/issues/107). Hash recorded in `RUN-MANIFEST.md` at crawl time.
-3. **PHI manual spike** — 5 routes per persona with the new fixture, single screenshot each, full audit against [`PHI-CHECKLIST.md`](PHI-CHECKLIST.md). Stop-the-line gate before authoritative crawl.
-4. **`crawl.ts` itself** — pre-flight gates, network interception, determinism harness, login flow, screenshot loop, frontmatter writer.
-5. **Reproducibility script** — `scripts/check-catalog-reproducibility.sh` using `pixelmatch`.
-6. **Crawler unit tests** — inventory parsing, hostname guard, network interception, frontmatter writer.
+The PHI-scrubbed Django fixture authored in Phase 2B lives in the v1 checkout (not committed in v1; not committed in v2 — only its hash lands in v2's `RUN-MANIFEST.md` at crawl time per the audit-trail design).
 
-These are the remaining Phase 1 deliverables. Phase 2 is the authoritative crawl + commit. Phase 3 (separate follow-up issue) is the ~25h human caption-authoring pass.
+| Field | Value |
+|-------|-------|
+| Path (local-only) | `~/Code/COREcare-access/fixtures/v2_catalog_snapshot.json` |
+| sha256 | `03b4148003d67bc8c98129f1d1a8e3bf8f5935d367d5d8b27776bf9ef3afdf92` |
+| Authored against v1 commit | `9738412a6e41064203fc253d9dd2a5c6a9c2e231` |
+| Records | 5 users + 1 client + 1 CaregiverProfile + 1 CareManagerProfile + 1 ClientFamilyMember link + 5 shifts + 3 caregiver notes + 3 client messages = 20 objects |
+| Faker used | none — all values from the locked PHI placeholder set in [`docs/migration/README.md`](../../docs/migration/README.md#phi-placeholder-convention) |
+
+### Persona credentials (for the operator's `.env`)
+
+All five personas share the password `catalog-admin-password` (stored as a `pbkdf2_sha256` hash in the fixture). Single password per persona keeps `.env` minimal; usernames identify the persona.
+
+| Persona slug | Username (matches `personas.config.ts`) |
+|--------------|------------------------------------------|
+| `super-admin` | `superadmin@catalog.local` |
+| `agency-admin` | `agencyadmin@catalog.local` |
+| `care-manager` | `caremanager@catalog.local` |
+| `caregiver` | `caregiver@catalog.local` |
+| `family-member` | `family@catalog.local` |
+
+### Validation
+
+Last-validated against v1 SHA `9738412a` on 2026-05-07:
+
+```bash
+cd ~/Code/COREcare-access
+rm -f db.sqlite3 && unset DATABASE_URL
+DJANGO_SETTINGS_MODULE=elitecare.settings.development ./venv/bin/python manage.py migrate
+DJANGO_SETTINGS_MODULE=elitecare.settings.development ./venv/bin/python manage.py loaddata fixtures/v2_catalog_snapshot.json
+# → "Installed 20 object(s) from 1 fixture(s)"
+```
+
+All 5 personas authenticate via `django.contrib.auth.authenticate(username=..., password='catalog-admin-password')`.
+
+### Notable v1 architecture quirks (relevant when refreshing the fixture)
+
+- **No Agency model.** v1 is single-tenant; the persona mapping in this document already noted that "production agency admins are typically `is_staff=True, is_superuser=True`." The fixture preserves the persona distinction via `is_staff` ± `is_superuser` flags only.
+- **`auto_now_add` does NOT fire under `loaddata`.** Every `created_at` / `updated_at` field with `auto_now_add=True` or `auto_now=True` requires an explicit value in the fixture or the row insert fails on the underlying NOT NULL constraint. Fields presently set explicitly: `auth.user.date_joined`, `shifts.shift.created_at`, `clients.clientfamilymember.created_at`, `care_manager.caremanagerprofile.created_at`/`updated_at`, `charting.caregivernote.created_at`, `clients.clientmessage.created_at`.
+- **`shifts.shift.save()` calls `full_clean()`.** Validates `end_time > start_time` and `pay_rate >= 0` / `bill_rate >= 0`; auto-computes `duration_hours`, `total_pay`, `total_bill` from the rates. Loaddata fires the override.
+- **`employees.caregiverprofile.save()` auto-generates `employee_id`** if blank. Fixture leaves the field absent; v1 generates one on insert.
+- **Loaddata triggers `post_save` signals.** v1's `shifts.signals.send_new_assignment_email` fires for newly-assigned shifts and emits an email via the configured backend. Phase 0 INVESTIGATIONS.md confirmed v1 dev defaults to `console.EmailBackend` when `EMAIL_HOST_PASSWORD` is unset, so the email contents print to stdout and never reach a real SMTP. **Confirm `EMAIL_HOST_PASSWORD` is unset before running `loaddata`.**
+
+### Refresh procedure
+
+1. Edit `~/Code/COREcare-access/fixtures/v2_catalog_snapshot.json`.
+2. Re-validate: `rm -f ~/Code/COREcare-access/db.sqlite3 && unset DATABASE_URL && DJANGO_SETTINGS_MODULE=elitecare.settings.development ./venv/bin/python ~/Code/COREcare-access/manage.py migrate && DJANGO_SETTINGS_MODULE=elitecare.settings.development ./venv/bin/python ~/Code/COREcare-access/manage.py loaddata ~/Code/COREcare-access/fixtures/v2_catalog_snapshot.json`.
+3. Re-hash: `shasum -a 256 ~/Code/COREcare-access/fixtures/v2_catalog_snapshot.json`.
+4. Update the `sha256` row in this file.
+5. Update `V1_FIXTURE_SHA256` in `tools/v1-screenshot-catalog/.env` (gitignored).
+
+---
+
+## Open items for Phase 1 (the crawler) — historical, all resolved
+
+1. **Inventory parsing** — `scripts/extract-inventory-routes.sh` shipped in Phase 1.
+2. **Hand-crafted PHI-scrubbed fixture** — authored in Phase 2B (this document's "Fixture snapshot" section).
+3. **PHI manual spike** — Phase 2C (operator-owned, follows fixture authoring).
+4. **`crawl.ts`** — shipped in Phase 1; bug-closure + new flags + retry shipped in Phase 2A.
+5. **Reproducibility script** — `scripts/check-catalog-reproducibility.sh` + `tools/v1-screenshot-catalog/check-reproducibility.ts` shipped in Phase 2A.
+6. **Crawler unit tests** — 9 test files / 70 tests shipped via Phases 1 + 2A.
+
+Phase 2 sub-phases C through G remain operator-owned per [`PHASE-2-RUNBOOK.md`](PHASE-2-RUNBOOK.md). Phase 3 (caption authoring, ~25h) is filed as a separate follow-up issue at PR-time.
