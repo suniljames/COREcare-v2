@@ -12,33 +12,24 @@ questions:
   - id: q1
     text: "Does v1 have a Client login or self-service portal?"
     expected_fact_summary: |
-      No. v1 has no Client-as-actor surface. Clients are subjects of care,
-      not authenticators. `clients/models.py:15` defines `class Client` with
-      no `User` linkage; the only `User` linkage in the `clients/` app is
-      `class ClientFamilyMember` (clients/models.py:392) binding a Family
-      Member account to a Client record. v1 carries zero
-      `@client_required`-style decorators (verified by source grep at the
-      pinned commit).
+      No. v1 has no Client-as-actor surface — Clients are subjects of care,
+      not authenticators. The only User linkage in the clients app is the
+      ClientFamilyMember model binding a Family Member to a Client. There
+      are zero client-required decorators in v1.
 
   - id: q2
     text: >-
       Where does v1 actually render a client's PHI if Clients themselves
       don't authenticate?
     expected_fact_summary: |
-      Under other persona sections — explicitly: the Family Member section
-      (linked-client dashboards, billing PDFs, health-report downloads, event
-      calendars under `ClientFamilyMember`); Agency Admin → clients (per-client
-      unified calendar, custom event creation, attachments, schedule
-      PDF/preview); and Agency Admin → charting (per-client charting tab,
-      trend views, medication orders, chart-comment review, health-report
-      generation/approval, proxy charting). The Client section is faithful
-      to v1 and is intentionally empty of rows.
+      Under other persona sections — explicitly Family Member, Agency
+      Admin clients app, and Agency Admin charting. The Client section
+      itself is intentionally empty of rows.
 
   - id: q3
     text: "Does v2 plan to add an authenticated Client portal? How is that decision tracked?"
     expected_fact_summary: |
-      Tracked separately, not decided in this inventory. Issue #109 (labeled
-      `needs-pm-input`) tracks whether v2 adds an authenticated Client portal
-      as a deliberate divergence from v1, and the implied new Clerk role plus
-      per-client RLS policy. This inventory section is faithful to v1 and
-      stays rows-empty until that PM decision lands.
+      Tracked separately, not decided in this inventory. A specific issue
+      labeled needs-pm-input tracks whether v2 adds an authenticated Client
+      portal as a deliberate divergence from v1, with implied new role and
+      RLS policy. This section stays rows-empty until that decision lands.
