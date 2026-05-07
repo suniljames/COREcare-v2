@@ -53,6 +53,7 @@ test-v1-docs: ## Run v1 doc hygiene + structure + catalog-coverage script self-t
 	bash scripts/tests/test_check_v1_doc_hygiene.sh
 	bash scripts/tests/test_check_v1_doc_structure.sh
 	bash scripts/tests/test_check_v1_catalog_coverage.sh
+	bash scripts/tests/test_readme_runbook_entries.sh
 
 scan-v1-docs: ## Run hygiene + structure + catalog-coverage scripts over committed docs
 	@if compgen -G "docs/migration/v1-*.md" > /dev/null; then \

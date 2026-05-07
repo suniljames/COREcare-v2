@@ -264,6 +264,20 @@ When v1 receives material changes, refresh this docset against the new SHA.
 
 If you find yourself doing this more than twice manually, automate it (per the team's "if you do it twice" principle). The first automation candidate is the `urls.py` enumeration step.
 
+### Family Member section — extra diff checks before re-authoring
+
+Family Member is the lowest-frequency persona for v2 development AND the lowest-frequency persona surface in v1. Small family-portal patches accumulate undetected between refreshes — silent drift the hygiene scanner cannot catch. Run these checks every time the `V1 Reference Commit` above is bumped, regardless of which persona motivated the bump.
+
+In your local v1 checkout, against the previously-pinned SHA:
+
+- `git diff <old>..<new> -- '*/urls.py'` — surfaces new family-prefixed routes anywhere in v1, including sub-URLConf refactors a top-level `dashboard/urls.py` diff would miss.
+- `git diff <old>..<new> -- clients/` — surfaces changes to permission gating, serializers, and family-facing templates. Helper names like `_check_client_access`, body checks like `is_family or …`, and template tags like `{% if is_family %}` are *examples of what to look for*, not a fixed contract — the gate may be renamed but the semantics are what matter.
+- `git diff <old>..<new> -- clients/models.py` — surfaces `ClientFamilyMember` schema shifts.
+
+Baseline at the currently-pinned SHA: `ClientFamilyMember` has no `is_active`, no soft-delete, no expiry, and no role/permission column — any of those appearing in the diff is a behavioral change that propagates into the section's rows.
+
+If any diff is non-empty: re-author affected rows in `v1-pages-inventory.md`. If `_check_client_access` or any family-permission gate changed: also flag `CUTOVER_PLAN.md` owners — v2 RLS may need to mirror the v1 change. If all diffs are empty: still bump `last reconciled` on the Family Member section. An empty diff is signal; the reconciliation date is the artifact.
+
 **Refresh order — Agency Admin first.** Agency Admin is the most-iterated persona surface in v1 (billing, payroll, scheduling, credentials, compliance). When budget for a refresh is constrained, refresh Agency Admin first; file follow-ups for other personas. The pattern Agency Admin establishes (cell prose, H3 naming, flag accuracy) is the template subsequent persona refreshes inherit.
 
 ---
