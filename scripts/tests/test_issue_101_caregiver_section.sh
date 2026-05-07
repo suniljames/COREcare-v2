@@ -73,11 +73,14 @@ caregiver_has_h3_charting() {
 }
 
 h3_caregiver_dashboard_has_summary() {
-  extract_h3_body 'caregiver_dashboard' | head -3 | grep -qE '^_.+_$'
+  # Summary line `_..._` must appear within the first 6 lines of the H3
+  # body (allowing for a blank-then-anchor-then-blank-then-summary pattern
+  # where stable anchors are needed for cross-linking).
+  extract_h3_body 'caregiver_dashboard' | head -6 | grep -qE '^_.+_$'
 }
 
 h3_charting_has_summary() {
-  extract_h3_body 'charting' | head -3 | grep -qE '^_.+_$'
+  extract_h3_body 'charting' | head -6 | grep -qE '^_.+_$'
 }
 
 h3_caregiver_dashboard_has_rows() {

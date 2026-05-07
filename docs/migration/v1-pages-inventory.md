@@ -334,6 +334,9 @@ Largest single Caregiver-side surface (40 raw `path()` entries in `caregiver_das
 | `/caregiver/reports/<int:request_id>/download/` | 🔒 PHI · Download an approved caregiver-self-service report as PDF. | Sees: PDF download with report content. Can: save or print. | missing | M | true | false | true | not_screenshotted: pending #79 |  |
 
 ### charting
+
+<a id="caregiver-charting"></a>
+
 _caregiver-side chart entry and visit-keyed medication views (the routes flagged Caregiver-primary in the charting H3 of [Agency Admin → charting](#charting))_
 
 Three Caregiver-primary HTML routes from the `charting/` app — `@login_required` without `@staff_member_required`, with view-body checks tying access to the visit's caregiver (`charting/views.py` lines 480, 503, 1150 at v1 commit `9738412`). The remaining 22 HTML routes in `charting/` are Agency Admin / Care Manager primary and are authored under [Agency Admin → charting](#charting); JSON chart-save APIs (`/charting/api/chart/save-*`) are excluded per the coverage rule but referenced from the [Shared routes cross-reference index](#cross-reference-index) for traceability.
@@ -393,9 +396,9 @@ Routes whose canonical row lives in a persona section.
 |-------|-----------------|-------------------|--------------|
 | `/charting/proxy/<int:visit_id>/` | Agency Admin | Care Manager | [Agency Admin → charting](#charting) |
 | `/charting/comments/<int:daily_chart_id>/` | Agency Admin | Care Manager, Caregiver | [Agency Admin → charting](#charting) |
-| `/charting/visit/<int:visit_id>/chart/` | Caregiver | Agency Admin (oversight, read-only via `is_staff`), Care Manager | [Caregiver → charting](#charting-1) |
-| `/charting/medications/<int:visit_id>/` | Caregiver | Agency Admin (visit-context oversight via `is_staff`) | [Caregiver → charting](#charting-1) |
-| `/charting/medications/<int:visit_id>/history/` | Caregiver | Agency Admin (visit-context oversight via `is_staff`) | [Caregiver → charting](#charting-1) |
+| `/charting/visit/<int:visit_id>/chart/` | Caregiver | Agency Admin (oversight, read-only via `is_staff`), Care Manager | [Caregiver → charting](#caregiver-charting) |
+| `/charting/medications/<int:visit_id>/` | Caregiver | Agency Admin (visit-context oversight via `is_staff`) | [Caregiver → charting](#caregiver-charting) |
+| `/charting/medications/<int:visit_id>/history/` | Caregiver | Agency Admin (visit-context oversight via `is_staff`) | [Caregiver → charting](#caregiver-charting) |
 | `/charting/api/chart/save-vitals/` | Caregiver, Agency Admin, Care Manager | (clinical-section save; gated to `is_staff or is_care_manager`) | excluded — JSON API endpoint |
 | `/charting/api/chart/save-glucose/` | Caregiver, Agency Admin, Care Manager | (gated to `is_staff or is_care_manager`) | excluded — JSON API endpoint |
 | `/charting/api/chart/save-intake-output/` | Caregiver, Agency Admin, Care Manager | (gated to `is_staff or is_care_manager`) | excluded — JSON API endpoint |
