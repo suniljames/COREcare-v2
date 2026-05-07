@@ -279,6 +279,8 @@ Baseline at the currently-pinned SHA: `ClientFamilyMember` has no `is_active`, n
 
 If any diff is non-empty: re-author affected rows in `v1-pages-inventory.md`. If `_check_client_access` or any family-permission gate changed: also flag `CUTOVER_PLAN.md` owners — v2 RLS may need to mirror the v1 change. If `clients/models.py` shows a `ClientFamilyMember` schema shift: also re-author the `ClientFamilyMember` entry in `v1-glossary.md`, which mirrors the v1 baseline (no `is_active`, no soft-delete, no expiry, hard-delete revocation) and goes stale silently. If all diffs are empty: still bump `last reconciled` on the Family Member section. An empty diff is signal; the reconciliation date is the artifact.
 
+CI posts these diffs as a sticky PR comment when a PR bumps the V1 Reference Commit SHA — see `.github/workflows/v1-sha-bump-diff-report.yml` (#131).
+
 **Refresh order — Agency Admin first.** Agency Admin is the most-iterated persona surface in v1 (billing, payroll, scheduling, credentials, compliance). When budget for a refresh is constrained, refresh Agency Admin first; file follow-ups for other personas. The pattern Agency Admin establishes (cell prose, H3 naming, flag accuracy) is the template subsequent persona refreshes inherit.
 
 ---
