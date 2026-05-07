@@ -176,9 +176,7 @@ def run_rotation(
 
     result = RotationResult(persona=fx.persona)
     for q in fx.questions:
-        response, failure = _score_question(
-            fx, q, section, index, client, allow_retry=allow_retry
-        )
+        response, failure = _score_question(fx, q, section, index, client, allow_retry=allow_retry)
         result.usage = result.usage + response.usage
         if failure is not None:
             result.failures.append(failure)
