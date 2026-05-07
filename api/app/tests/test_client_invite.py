@@ -78,7 +78,10 @@ async def test_issue_invite_creates_row(session: AsyncSession) -> None:
     assert invite.token  # non-empty
     assert invite.redeemed_at is None
     # Default TTL: 72h
-    assert invite.expires_at > datetime.now(UTC) + timedelta(hours=71)
+    expires = invite.expires_at
+    if expires.tzinfo is None:
+        expires = expires.replace(tzinfo=UTC)
+    assert expires > datetime.now(UTC) + timedelta(hours=71)
 
 
 @pytest.mark.asyncio

@@ -44,23 +44,28 @@ async def http_client() -> AsyncGenerator[AsyncClient, None]:
         yield ac
 
 
-@pytest.mark.asyncio
-async def test_me_care_plan_route_registered(http_client: AsyncClient) -> None:
-    """/api/v1/me/care-plan is a registered route (returns auth error, not 404)."""
-    resp = await http_client.get("/api/v1/me/care-plan")
-    assert resp.status_code != 404
+def _route_paths() -> set[str]:
+    """Inventory registered route paths from the FastAPI app."""
+    return {
+        getattr(r, "path", "")
+        for r in app.routes
+        if getattr(r, "path", "").startswith("/api/v1/me")
+    }
 
 
-@pytest.mark.asyncio
-async def test_me_schedule_route_registered(http_client: AsyncClient) -> None:
-    resp = await http_client.get("/api/v1/me/schedule")
-    assert resp.status_code != 404
+def test_me_care_plan_route_registered() -> None:
+    """/api/v1/me/care-plan is a registered GET route."""
+    assert "/api/v1/me/care-plan" in _route_paths()
 
 
-@pytest.mark.asyncio
-async def test_me_messages_route_registered(http_client: AsyncClient) -> None:
-    resp = await http_client.get("/api/v1/me/messages")
-    assert resp.status_code != 404
+def test_me_schedule_route_registered() -> None:
+    """/api/v1/me/schedule is a registered GET route."""
+    assert "/api/v1/me/schedule" in _route_paths()
+
+
+def test_me_messages_route_registered() -> None:
+    """/api/v1/me/messages is a registered route (GET + POST)."""
+    assert "/api/v1/me/messages" in _route_paths()
 
 
 @pytest.mark.asyncio

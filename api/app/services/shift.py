@@ -1,7 +1,7 @@
 """Shift scheduling service with conflict detection."""
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 
 from fastapi import HTTPException
 from sqlalchemy import and_, func, select
@@ -77,9 +77,7 @@ class ShiftService:
         query = (
             query.offset((page - 1) * size)
             .limit(size)
-            .order_by(
-                Shift.start_time.asc()  # type: ignore[attr-defined]
-            )
+            .order_by(Shift.start_time.asc())  # type: ignore[attr-defined]
         )
         result = await self.session.execute(query)
         shifts = list(result.scalars().all())
@@ -120,7 +118,9 @@ class ShiftService:
         await self.session.refresh(shift)
         return shift
 
-    async def update_shift(self, shift_id: uuid.UUID, data: ShiftUpdate) -> Shift | None:
+    async def update_shift(
+        self, shift_id: uuid.UUID, data: ShiftUpdate
+    ) -> Shift | None:
         """Update a shift."""
         shift = await self.get_shift(shift_id)
         if shift is None:
@@ -166,3 +166,25 @@ class ShiftService:
         await self.session.flush()
         await self.session.refresh(shift)
         return shift
+
+    async def list_upcoming_for_client(
+        self, client_id: uuid.UUID, days: int = 7
+    ) -> list[Shift]:
+        """Return upcoming (start_time >= now) shifts for a Client, next `days` days.
+
+        Cancelled shifts are excluded. Ordered by start_time ascending. The
+        Client persona's schedule view consumes this (issue #125).
+        """
+        now = datetime.now(UTC)
+        window_end = now + timedelta(days=days)
+        result = await self.session.execute(
+            select(Shift)
+            .where(
+                Shift.client_id == client_id,  # type: ignore[arg-type]
+                Shift.start_time >= now,  # type: ignore[arg-type]
+                Shift.start_time <= window_end,  # type: ignore[arg-type]
+                Shift.status != ShiftStatus.CANCELLED,  # type: ignore[arg-type]
+            )
+            .order_by(Shift.start_time.asc())  # type: ignore[attr-defined]
+        )
+        return list(result.scalars().all())
