@@ -94,3 +94,5 @@ If critical issues are found during cutover:
 | — | Invoice | New in v2 |
 | — | Notification | New in v2 |
 | — | AIConversation | New in v2 |
+| `BillingEmailLog` + `InvoiceEmailLog` | `email_events` (category=`invoice`) | **No backfill.** v2's `email_events` table starts empty at cutover. Pre-cutover billing-email lookups use the v1 read-replica; post-cutover sends are authoritative in v2. See [ADR-011](../adr/011-email-outbound-boundary.md) and issue #120. |
+| `EmailEvent` (other categories) | `email_events` | **No backfill.** Same rationale — v2 owns sends from cutover forward. |

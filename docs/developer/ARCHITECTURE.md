@@ -25,3 +25,9 @@
 
 - Clerk handles authentication: JWT verification on the backend, React components on the frontend.
 - Backend validates Clerk JWTs and extracts tenant context for RLS.
+
+## Outbound communications
+
+- All outbound email passes through `app.services.email.EmailSender`. Per-feature email methods (e.g., `BillingService.email_invoice`) call the sender; no feature service or router instantiates a transport directly.
+- Every send produces one row in `email_events` (single audit table, RLS-scoped). The architecture-fitness test in `api/app/tests/architecture/test_email_boundary.py` hard-fails CI if any module outside `app.services.email.*` imports a transport SDK.
+- See [`ADR-011`](../adr/011-email-outbound-boundary.md) for the full contract.

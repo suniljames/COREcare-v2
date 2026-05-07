@@ -4,7 +4,7 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.models.billing import InvoiceStatus
 
@@ -71,3 +71,31 @@ class InvoiceListResponse(BaseModel):
     total: int
     page: int
     size: int
+
+
+class InvoiceEmailRequest(BaseModel):
+    """Request body for POST /api/invoices/{invoice_id}/email.
+
+    Cap of 10 recipients matches dashboard usage (1-3 family members per
+    client) and respects HIPAA minimum-necessary. Larger campaigns belong
+    in a different surface entirely.
+    """
+
+    recipients: list[str] = Field(min_length=1, max_length=10)
+
+
+class InvoiceEmailEvent(BaseModel):
+    """Per-recipient send result returned by the email endpoint."""
+
+    id: uuid.UUID
+    recipient: str
+    status: str
+    sent_at: datetime | None
+    provider_message_id: str | None
+
+    model_config = {"from_attributes": True}
+
+
+class InvoiceEmailResponse(BaseModel):
+    invoice_id: uuid.UUID
+    events: list[InvoiceEmailEvent]

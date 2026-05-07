@@ -215,11 +215,11 @@ v1 has a `Notification` model with typed notifications (credential_expiring, cre
 
 **v2 docs say:** Q26/Q27/Q57 mention push notifications and SMS but no central in-app inbox for office users. Email is mentioned but not a queryable in-product list.
 
-### 6.2 Email reliability infrastructure — **M**
+### 6.2 Email reliability infrastructure — **M (partial)**
 
 v1 has `EmailEvent` (logs every send/bounce/click), SendGrid webhook handler, `email_delivery_canary.py` (periodic test send to verify delivery pipeline). Critical because credential alerts and shift offers go via email.
 
-**v2 docs say:** Nothing about email reliability. SLAs (Q60) cover overall uptime but not message-delivery SLO.
+**v2 status (post-#120):** Substrate present — single `EmailSender` boundary, single `email_events` audit table with the same lifecycle states as v1's `EmailEvent` (sent/failed/bounced/delivered/opened/clicked), idempotency keys, and PHI-redacted subject storage. See [`ADR-011`](../adr/011-email-outbound-boundary.md). **Still missing:** SendGrid webhook handler for bounce/delivery callbacks, delivery canary, message-delivery SLO. Each is a follow-up issue.
 
 ### 6.3 System Settings UI with confirmable changes — **M**
 

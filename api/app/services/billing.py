@@ -8,14 +8,22 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.billing import Invoice, InvoiceLineItem, InvoiceStatus
+from app.models.email import EmailCategory, EmailEvent
 from app.schemas.billing import InvoiceCreate, InvoiceUpdate
+from app.services.email import (
+    EmailSender,
+    IdempotencyConflictError,
+    SendRequest,
+    render_subjects,
+)
 
 
 class BillingService:
-    """CRUD for invoices and line items."""
+    """CRUD for invoices and line items, plus invoice email."""
 
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: AsyncSession, *, sender: EmailSender | None = None) -> None:
         self.session = session
+        self.sender = sender
 
     async def list_invoices(
         self,
@@ -45,9 +53,7 @@ class BillingService:
 
     async def get_invoice(self, invoice_id: uuid.UUID) -> Invoice | None:
         result = await self.session.execute(
-            select(Invoice).where(
-                Invoice.id == invoice_id  # type: ignore[arg-type]
-            )
+            select(Invoice).where(Invoice.id == invoice_id)  # type: ignore[arg-type]
         )
         return result.scalar_one_or_none()
 
@@ -141,3 +147,61 @@ class BillingService:
             )
         )
         return list(result.scalars().all())
+
+    async def email_invoice(
+        self,
+        invoice_id: uuid.UUID,
+        *,
+        agency_id: uuid.UUID,
+        recipients: list[str],
+    ) -> list[EmailEvent]:
+        """Email an invoice's PDF to one or more recipients (issue #120 / ADR-011).
+
+        Returns one EmailEvent per recipient. Idempotent on
+        (invoice_id, recipient): a second call with the same recipient returns
+        the original event without a re-send.
+
+        Cross-tenant requests get an empty list (the agency_id passed by the
+        caller does not match the invoice's tenant); on PostgreSQL the same
+        property holds via RLS and the invoice lookup returns None.
+        """
+        if self.sender is None:
+            raise RuntimeError(
+                "BillingService was constructed without an EmailSender; "
+                "wire one via BillingService(session, sender=...)"
+            )
+
+        invoice = await self.get_invoice(invoice_id)
+        if invoice is None or invoice.agency_id != agency_id:
+            return []
+
+        events: list[EmailEvent] = []
+        for recipient in recipients:
+            template = "Invoice {invoice_number} from your care agency"
+            params = {"invoice_number": invoice.invoice_number}
+            rendered, redacted = render_subjects(template, params)
+            req = SendRequest(
+                agency_id=agency_id,
+                category=EmailCategory.INVOICE,
+                ref_id=invoice.id,
+                recipient=recipient,
+                subject_redacted=redacted,
+                subject_rendered=rendered,
+                body=(
+                    f"Your invoice {invoice.invoice_number} is attached. "
+                    f"Total due: {invoice.total}."
+                ),
+                attachments=[
+                    {
+                        "filename": f"invoice-{invoice.invoice_number}.pdf",
+                        "content_type": "application/pdf",
+                    }
+                ],
+                idempotency_key=f"invoice:{invoice.id}:{recipient}",
+            )
+            try:
+                event = await self.sender.send(req)
+            except IdempotencyConflictError:
+                continue
+            events.append(event)
+        return events
