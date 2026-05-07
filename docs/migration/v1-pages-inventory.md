@@ -56,7 +56,7 @@ _Enumeration in progress (#81). Per-Django-app denominators below._
 
 ### Client
 
-_v1 has no Client-as-actor surface — see [the Client section absence note](#client) below._
+_v1 has no Client-as-actor surface — see [the Client section absence note](#client-section) below._
 
 | app | denominator | numerator | notes |
 |-----|-------------|-----------|-------|
@@ -284,6 +284,8 @@ Caregiver pages are field-facing: clock-in/out, schedule view, chart-note submis
 ---
 
 ## Client
+
+<a id="client-section"></a>
 
 _last reconciled: 2026-05-07 against v1 commit `9738412`_
 
