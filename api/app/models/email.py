@@ -65,9 +65,7 @@ class EmailEvent(TenantScopedModel, table=True):
     """
 
     __tablename__ = "email_events"
-    __table_args__ = (
-        UniqueConstraint("idempotency_key", name="uq_email_events_idempotency_key"),
-    )
+    __table_args__ = (UniqueConstraint("idempotency_key", name="uq_email_events_idempotency_key"),)
 
     category: EmailCategory = Field(index=True)
     ref_id: uuid.UUID = Field(index=True)

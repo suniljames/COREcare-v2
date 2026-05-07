@@ -11,7 +11,7 @@ Hard contracts:
      transport call still leaves a row with status=failed.
   4. idempotency_key is UNIQUE in the database. Re-sending with the same key
      returns the existing event without a transport call. A pending event with
-     the same key raises IdempotencyConflict.
+     the same key raises IdempotencyConflictError.
   5. agency_id is required on every send and is re-validated against the
      session's tenant context (when available).
 
@@ -51,7 +51,7 @@ class EmailValidationError(ValueError):
     """Raised when a SendRequest fails the boundary validation contract."""
 
 
-class IdempotencyConflict(RuntimeError):
+class IdempotencyConflictError(RuntimeError):
     """Raised when a pending event with the same idempotency_key exists."""
 
 
@@ -98,7 +98,7 @@ class EmailSender:
 
         Re-raises any exception from the transport after marking the audit row
         as failed. Returns the existing event for an idempotency-key match
-        already in 'sent' status. Raises IdempotencyConflict if a pending event
+        already in 'sent' status. Raises IdempotencyConflictError if a pending event
         exists for the same key.
         """
         self._validate(request)
@@ -109,12 +109,12 @@ class EmailSender:
             if existing.status == EmailStatus.SENT:
                 return existing
             if existing.status == EmailStatus.PENDING:
-                raise IdempotencyConflict(
+                raise IdempotencyConflictError(
                     f"send already in flight for idempotency_key={request.idempotency_key}"
                 )
             # Failed prior attempts may be retried by issuing a new key —
             # we do NOT silently retry under the same key.
-            raise IdempotencyConflict(
+            raise IdempotencyConflictError(
                 f"prior send for key={request.idempotency_key} ended in "
                 f"status={existing.status.value}; use a fresh key to retry"
             )
@@ -136,7 +136,7 @@ class EmailSender:
             await self.session.flush()
         except IntegrityError as exc:
             await self.session.rollback()
-            raise IdempotencyConflict(
+            raise IdempotencyConflictError(
                 f"idempotency_key={request.idempotency_key} already in use"
             ) from exc
 
@@ -210,8 +210,6 @@ class EmailSender:
 
     async def _lookup_idempotent(self, key: str) -> EmailEvent | None:
         result = await self.session.execute(
-            select(EmailEvent).where(
-                EmailEvent.idempotency_key == key  # type: ignore[arg-type]
-            )
+            select(EmailEvent).where(EmailEvent.idempotency_key == key)
         )
         return result.scalar_one_or_none()

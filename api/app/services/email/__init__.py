@@ -6,7 +6,7 @@ SDK directly. The architecture-fitness test in
 api/app/tests/architecture/test_email_boundary.py enforces this at CI time.
 
 Public API (importable by feature code):
-    EmailSender, EmailValidationError, IdempotencyConflict,
+    EmailSender, EmailValidationError, IdempotencyConflictError,
     SendRequest, SendResult, make_email_sender, render_subjects
 """
 
@@ -17,7 +17,7 @@ from app.services.email.redaction import render_subjects
 from app.services.email.sender import (
     EmailSender,
     EmailValidationError,
-    IdempotencyConflict,
+    IdempotencyConflictError,
     SendRequest,
     SendResult,
 )
@@ -50,7 +50,7 @@ def make_email_sender(session: AsyncSession) -> EmailSender:
 __all__ = [
     "EmailSender",
     "EmailValidationError",
-    "IdempotencyConflict",
+    "IdempotencyConflictError",
     "SendRequest",
     "SendResult",
     "make_email_sender",

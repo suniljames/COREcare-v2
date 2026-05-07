@@ -67,7 +67,7 @@ boundary, not at call sites.
 
 `idempotency_key` is `UNIQUE` in the database. Re-sending with the same key
 returns the existing event without a transport call. A pending event with
-the same key raises `IdempotencyConflict`.
+the same key raises `IdempotencyConflictError`.
 
 The window definition is the caller's responsibility:
 - `invoice`: key = `invoice:{invoice.id}:{recipient}` (one send per invoice

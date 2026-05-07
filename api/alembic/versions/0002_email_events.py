@@ -12,6 +12,7 @@ InvoiceEmailLog do NOT backfill — see CUTOVER_PLAN.md.
 from __future__ import annotations
 
 import sqlalchemy as sa
+
 from alembic import op
 
 revision = "0002"
@@ -120,9 +121,7 @@ def downgrade() -> None:
     op.execute("DROP POLICY IF EXISTS tenant_isolation ON email_events")
     op.execute("ALTER TABLE email_events DISABLE ROW LEVEL SECURITY")
     op.drop_index("ix_email_events_provider_message_id", table_name="email_events")
-    op.drop_constraint(
-        "uq_email_events_idempotency_key", "email_events", type_="unique"
-    )
+    op.drop_constraint("uq_email_events_idempotency_key", "email_events", type_="unique")
     op.drop_index("ix_email_events_failures", table_name="email_events")
     op.drop_index("ix_email_events_lookup", table_name="email_events")
     op.drop_index("ix_email_events_status", table_name="email_events")

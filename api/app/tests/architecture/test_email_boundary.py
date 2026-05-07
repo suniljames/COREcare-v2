@@ -26,7 +26,7 @@ FORBIDDEN_TRANSPORT_MODULES = {
 ALLOWED_PUBLIC_API = {
     "EmailSender",
     "EmailValidationError",
-    "IdempotencyConflict",
+    "IdempotencyConflictError",
     "SendRequest",
     "SendResult",
     "make_email_sender",
@@ -72,7 +72,7 @@ def _imports_in(path: Path) -> list[tuple[str, str | None]]:
 def test_no_module_outside_email_imports_a_transport(py_file: Path) -> None:
     """No module outside app.services.email.* may import sendgrid, smtplib, or
     app.services.email.transports."""
-    for mod, name in _imports_in(py_file):
+    for mod, _name in _imports_in(py_file):
         # `import sendgrid` / `import smtplib` / `import app.services.email.transports`
         if mod in FORBIDDEN_TRANSPORT_MODULES:
             pytest.fail(

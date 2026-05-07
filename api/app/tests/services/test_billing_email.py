@@ -122,11 +122,7 @@ async def test_email_invoice_idempotent_for_same_recipient(
 
     assert first[0].id == second[0].id
     rows = (
-        (
-            await session.execute(
-                select(EmailEvent).where(EmailEvent.ref_id == invoice.id)  # type: ignore[arg-type]
-            )
-        )
+        (await session.execute(select(EmailEvent).where(EmailEvent.ref_id == invoice.id)))
         .scalars()
         .all()
     )
@@ -148,9 +144,7 @@ async def test_email_invoice_multi_recipient_writes_one_row_each(
         "family2@example.com",
         "family3@example.com",
     ]
-    events = await service.email_invoice(
-        invoice.id, agency_id=AGENCY_A, recipients=recipients
-    )
+    events = await service.email_invoice(invoice.id, agency_id=AGENCY_A, recipients=recipients)
     await session.commit()
 
     assert len(events) == 3

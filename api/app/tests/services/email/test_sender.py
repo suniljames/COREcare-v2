@@ -28,7 +28,7 @@ from app.models.email import EmailCategory, EmailEvent, EmailStatus
 from app.services.email.sender import (
     EmailSender,
     EmailValidationError,
-    IdempotencyConflict,
+    IdempotencyConflictError,
     SendRequest,
 )
 from app.services.email.transports import EmailTransport, RecordingTransport
@@ -105,9 +105,7 @@ async def test_sender_rejects_crlf_and_nul_in_subject(
     sender = EmailSender(session, transport=transport)
 
     with pytest.raises(EmailValidationError):
-        await sender.send(
-            _make_request(subject=bad_subject, rendered_subject=bad_subject)
-        )
+        await sender.send(_make_request(subject=bad_subject, rendered_subject=bad_subject))
 
     rows = (await session.execute(select(EmailEvent))).scalars().all()
     assert rows == []
@@ -134,9 +132,7 @@ async def test_sender_accepts_subject_at_200_chars(session: AsyncSession) -> Non
     sender = EmailSender(session, transport=transport)
     boundary = "x" * 200
 
-    event = await sender.send(
-        _make_request(subject=boundary, rendered_subject=boundary)
-    )
+    event = await sender.send(_make_request(subject=boundary, rendered_subject=boundary))
     await session.commit()
 
     assert event.status == EmailStatus.SENT
@@ -272,7 +268,7 @@ async def test_sender_returns_existing_event_for_duplicate_key(
 async def test_sender_idempotency_conflict_on_in_flight_duplicate(
     session: AsyncSession,
 ) -> None:
-    """If a row with the same key exists in 'pending' status, raise IdempotencyConflict."""
+    """If a row with the same key exists in 'pending' status, raise IdempotencyConflictError."""
     transport = RecordingTransport()
     sender = EmailSender(session, transport=transport)
     key = "in-flight-key"
@@ -292,7 +288,7 @@ async def test_sender_idempotency_conflict_on_in_flight_duplicate(
     session.add(pending)
     await session.commit()
 
-    with pytest.raises(IdempotencyConflict):
+    with pytest.raises(IdempotencyConflictError):
         await sender.send(_make_request(idempotency_key=key))
 
 

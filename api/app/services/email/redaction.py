@@ -61,10 +61,7 @@ def render_subjects(
     params = params or {}
     rendered = template.format(**params) if params else template
 
-    redacted_params = {
-        name: PII_PARAM_TOKENS[name] if name in PII_PARAM_TOKENS else value
-        for name, value in params.items()
-    }
+    redacted_params = {name: PII_PARAM_TOKENS.get(name, value) for name, value in params.items()}
     redacted = template.format(**redacted_params) if redacted_params else template
     redacted = redact_phi(redacted)
     return rendered, redacted

@@ -80,6 +80,5 @@ class SendGridTransport(EmailTransport):
         # provisioned for v2. Until then, this transport is unselectable in
         # settings; tests use RecordingTransport.
         raise NotImplementedError(
-            "SendGridTransport.deliver pending v2 SendGrid provisioning "
-            "(see CUTOVER_PLAN.md)."
+            "SendGridTransport.deliver pending v2 SendGrid provisioning (see CUTOVER_PLAN.md)."
         )

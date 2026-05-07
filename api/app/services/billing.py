@@ -12,7 +12,7 @@ from app.models.email import EmailCategory, EmailEvent
 from app.schemas.billing import InvoiceCreate, InvoiceUpdate
 from app.services.email import (
     EmailSender,
-    IdempotencyConflict,
+    IdempotencyConflictError,
     SendRequest,
     render_subjects,
 )
@@ -21,9 +21,7 @@ from app.services.email import (
 class BillingService:
     """CRUD for invoices and line items, plus invoice email."""
 
-    def __init__(
-        self, session: AsyncSession, *, sender: EmailSender | None = None
-    ) -> None:
+    def __init__(self, session: AsyncSession, *, sender: EmailSender | None = None) -> None:
         self.session = session
         self.sender = sender
 
@@ -67,9 +65,7 @@ class BillingService:
         count = (count_result.scalar() or 0) + 1
         return f"INV-{count:06d}"
 
-    async def create_invoice(
-        self, data: InvoiceCreate, agency_id: uuid.UUID
-    ) -> Invoice:
+    async def create_invoice(self, data: InvoiceCreate, agency_id: uuid.UUID) -> Invoice:
         invoice_number = await self._generate_invoice_number(agency_id)
 
         # Calculate line item amounts
@@ -116,9 +112,7 @@ class BillingService:
 
         return invoice
 
-    async def update_invoice(
-        self, invoice_id: uuid.UUID, data: InvoiceUpdate
-    ) -> Invoice | None:
+    async def update_invoice(self, invoice_id: uuid.UUID, data: InvoiceUpdate) -> Invoice | None:
         invoice = await self.get_invoice(invoice_id)
         if invoice is None:
             return None
@@ -207,7 +201,7 @@ class BillingService:
             )
             try:
                 event = await self.sender.send(req)
-            except IdempotencyConflict:
+            except IdempotencyConflictError:
                 continue
             events.append(event)
         return events
