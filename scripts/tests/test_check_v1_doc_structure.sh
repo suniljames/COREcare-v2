@@ -1268,6 +1268,466 @@ p.write_text(text)
 PY
 assert_exit "JL-7: valid ../blob/<branch> anchor passes" 0 "$STRUCTURE" --dir "$TEST_DIR/jl7-blob-valid"
 
+# =====================================================================
+# v1-glossary.md checks (#105)
+# =====================================================================
+#
+# GL-1: status header form — "**Status:** SCAFFOLDED" prefix gates block-level
+#       checks off; "**Status:** AUTHORED. Last reconciled: YYYY-MM-DD against
+#       v1 commit `<sha>`." (exact form) gates them on; missing or malformed
+#       fails. Mirrors JL-1.
+# GL-2: when AUTHORED, no placeholder/pending markers remain — `_(pending)_`,
+#       `_(definitions pending)_`, `_(definitions pending content authoring;`,
+#       `_(pending content authoring)_`. Anything that announces itself as
+#       not-yet-authored.
+# GL-3: every link from the glossary to v1-pages-inventory.md#anchor,
+#       v1-user-journeys.md#anchor, or v1-integrations-and-exports.md#anchor
+#       resolves against an existing heading or explicit <a id> in the target
+#       doc. Always-on, mirrors JL-7. The integrations doc is permitted as a
+#       link target only when present; absent, glossary links into it must
+#       not exist (the glossary cannot point at a doc the docset omits).
+
+write_glossary_inventory() {
+  local path="$1"
+  cat > "$path" <<'EOF'
+# v1 Pages Inventory
+
+## Super-Admin
+
+<a id="super-admin-top-level"></a>
+### top-level (elitecare/urls.py)
+
+## Agency Admin
+
+### dashboard
+### employees
+### auth_service
+### billing
+### charting
+### clients
+
+## Care Manager
+
+### care_manager
+
+## Caregiver
+
+### caregiver_dashboard
+
+## Client
+
+<a id="client-section"></a>
+
+## Family Member
+
+### dashboard
+
+## Shared routes
+
+EOF
+}
+
+write_glossary_journeys() {
+  local path="$1"
+  cat > "$path" <<'EOF'
+# V1 User Journeys
+
+**Status:** AUTHORED. Last reconciled: 2026-05-07 against v1 commit `9738412`.
+
+## Super-Admin
+
+### View-As impersonation with audit trail
+A Super-Admin starts a View-As session.
+
+**Route trace:**
+1. [a](v1-pages-inventory.md#super-admin-top-level) — does thing.
+
+**Side effects:**
+- DB: writes a row.
+
+### Agency management — capability administration and View-As kill switch
+A Super-Admin manages.
+
+**Route trace:**
+1. [a](v1-pages-inventory.md#super-admin-top-level) — does thing.
+
+**Side effects:**
+- DB: writes a row.
+
+## Agency Admin
+
+### J1
+Lead.
+
+**Route trace:**
+1. [a](v1-pages-inventory.md#dashboard) — x.
+
+**Side effects:**
+- DB: y.
+
+### J2
+Lead.
+
+**Route trace:**
+1. [a](v1-pages-inventory.md#dashboard) — x.
+
+**Side effects:**
+- DB: y.
+
+### J3
+Lead.
+
+**Route trace:**
+1. [a](v1-pages-inventory.md#dashboard) — x.
+
+**Side effects:**
+- DB: y.
+
+### J4
+Lead.
+
+**Route trace:**
+1. [a](v1-pages-inventory.md#dashboard) — x.
+
+**Side effects:**
+- DB: y.
+
+### J5
+Lead.
+
+**Route trace:**
+1. [a](v1-pages-inventory.md#employees) — x.
+
+**Side effects:**
+- DB: y.
+
+## Care Manager
+
+### Team oversight — caseload action queue and field-expense submission
+Lead.
+
+**Route trace:**
+1. [a](v1-pages-inventory.md#care_manager) — x.
+
+**Side effects:**
+- DB: y.
+
+### J2
+Lead.
+
+**Route trace:**
+1. [a](v1-pages-inventory.md#care_manager) — x.
+
+**Side effects:**
+- DB: y.
+
+## Caregiver
+
+### J1
+Lead.
+
+**Route trace:**
+1. [a](v1-pages-inventory.md#caregiver_dashboard) — x.
+
+**Side effects:**
+- DB: y.
+
+### J2
+Lead.
+
+**Route trace:**
+1. [a](v1-pages-inventory.md#caregiver_dashboard) — x.
+
+**Side effects:**
+- DB: y.
+
+### J3
+Lead.
+
+**Route trace:**
+1. [a](v1-pages-inventory.md#caregiver_dashboard) — x.
+
+**Side effects:**
+- DB: y.
+
+### J4
+Lead.
+
+**Route trace:**
+1. [a](v1-pages-inventory.md#caregiver_dashboard) — x.
+
+**Side effects:**
+- DB: y.
+
+## Client
+
+### J1
+v1 has no Client-as-actor surface — see [the Client section](v1-pages-inventory.md#client-section).
+
+**Route trace:**
+1. v1 has no Client-authenticated route for this journey.
+
+**Side effects:**
+- DB: n/a — no Client-authenticated v1 surface.
+
+### J2
+v1 has no Client-as-actor surface — see [the Client section](v1-pages-inventory.md#client-section).
+
+**Route trace:**
+1. v1 has no Client-authenticated route for this journey.
+
+**Side effects:**
+- DB: n/a — no Client-authenticated v1 surface.
+
+## Family Member
+
+### J1
+Lead.
+
+**Route trace:**
+1. [a](v1-pages-inventory.md#family-member) — x.
+
+**Side effects:**
+- DB: y.
+
+### J2
+Lead.
+
+**Route trace:**
+1. [a](v1-pages-inventory.md#family-member) — x.
+
+**Side effects:**
+- DB: y.
+
+### J3
+Lead.
+
+**Route trace:**
+1. [a](v1-pages-inventory.md#family-member) — x.
+
+**Side effects:**
+- DB: y.
+EOF
+}
+
+# A glossary-shaped integrations doc the script's existing CL/SL/EL checks
+# also tolerate — minimal entries, valid schema; only used as a link target
+# for GL-3 anchor resolution.
+write_glossary_integrations() {
+  local path="$1"
+  cat > "$path" <<EOF
+# V1 Integrations and Exports
+
+## Schema
+
+table.
+
+## External integrations
+
+### Billing and payments
+
+$INTEGRATIONS_HEADER
+$INTEGRATIONS_SEP
+| QuickBooks Online | Intuit | OAuth | outbound; sync | _no UI surface — operator-only_ | Sees: nothing. | missing | H |
+
+### Payroll
+### Accounting
+### Messaging and notifications (third-party)
+
+$INTEGRATIONS_HEADER
+$INTEGRATIONS_SEP
+| Magic-link login email | internal | User submits form | outbound; sync | _no UI surface — operator-only_ | Sees: link in inbox. | missing | D |
+
+### Identity, auth, and SSO (third-party)
+### Other
+
+## Internal notification and email backend
+
+### Email pipeline
+
+$INTEGRATIONS_HEADER
+$INTEGRATIONS_SEP
+| Overpayment consent request | internal | Recovery initiated | outbound; sync | _no UI surface — operator-only_ | Sees: consent link. | missing | H |
+
+## Customer-facing exports
+
+## Cross-references
+EOF
+}
+
+write_authored_glossary() {
+  local path="$1"
+  cat > "$path" <<'EOF'
+# V1 Glossary
+
+**Status:** AUTHORED. Last reconciled: 2026-05-07 against v1 commit `9738412`.
+
+## Entries
+
+- **`elitecare`** — v1 Django project root. See [the Agency Admin top-level routes](v1-pages-inventory.md#dashboard).
+- **`MagicLinkToken`** — v1 model. See [the magic-link login email entry](v1-integrations-and-exports.md#email-pipeline).
+- **View-As impersonation** — v1 platform-operator surface. See [the View-As journey](v1-user-journeys.md#view-as-impersonation-with-audit-trail).
+EOF
+}
+
+echo ""
+echo "-- v1-glossary.md (#105) --"
+
+# --- Pass: SCAFFOLDED status skips block-level gates ---
+mkdir -p "$TEST_DIR/glossary-scaffolded"
+write_glossary_inventory "$TEST_DIR/glossary-scaffolded/v1-pages-inventory.md"
+write_good_delta "$TEST_DIR/glossary-scaffolded/v1-functionality-delta.md"
+cat > "$TEST_DIR/glossary-scaffolded/v1-glossary.md" <<'EOF'
+# V1 Glossary
+
+**Status:** SCAFFOLDED. Entries are pending authoring.
+
+## Pending entries
+
+- **`elitecare`** — pending.
+
+_(definitions pending content authoring; each will resolve to one-line text + first-use link)_
+EOF
+assert_exit "GL: SCAFFOLDED status skips GL-2, passes" 0 "$STRUCTURE" --dir "$TEST_DIR/glossary-scaffolded"
+
+# --- Pass: fully AUTHORED glossary ---
+mkdir -p "$TEST_DIR/glossary-good"
+write_glossary_inventory "$TEST_DIR/glossary-good/v1-pages-inventory.md"
+write_good_delta "$TEST_DIR/glossary-good/v1-functionality-delta.md"
+write_glossary_journeys "$TEST_DIR/glossary-good/v1-user-journeys.md"
+write_glossary_integrations "$TEST_DIR/glossary-good/v1-integrations-and-exports.md"
+write_authored_glossary "$TEST_DIR/glossary-good/v1-glossary.md"
+assert_exit "GL: AUTHORED glossary with all checks satisfied passes" 0 "$STRUCTURE" --dir "$TEST_DIR/glossary-good"
+
+# --- GL-1: missing status line ---
+mkdir -p "$TEST_DIR/gl1-missing"
+write_glossary_inventory "$TEST_DIR/gl1-missing/v1-pages-inventory.md"
+write_good_delta "$TEST_DIR/gl1-missing/v1-functionality-delta.md"
+cat > "$TEST_DIR/gl1-missing/v1-glossary.md" <<'EOF'
+# V1 Glossary
+
+## Entries
+
+- **`elitecare`** — v1 Django project root.
+EOF
+assert_exit "GL-1: missing **Status:** header fails" 1 "$STRUCTURE" --dir "$TEST_DIR/gl1-missing"
+
+# --- GL-1: malformed status line ---
+mkdir -p "$TEST_DIR/gl1-bad"
+write_glossary_inventory "$TEST_DIR/gl1-bad/v1-pages-inventory.md"
+write_good_delta "$TEST_DIR/gl1-bad/v1-functionality-delta.md"
+cat > "$TEST_DIR/gl1-bad/v1-glossary.md" <<'EOF'
+# V1 Glossary
+
+**Status:** AUTHORED maybe.
+
+## Entries
+
+- **`elitecare`** — v1 Django project root.
+EOF
+assert_exit "GL-1: malformed **Status:** header fails" 1 "$STRUCTURE" --dir "$TEST_DIR/gl1-bad"
+
+# --- GL-2: AUTHORED with `_(pending)_` marker fails ---
+mkdir -p "$TEST_DIR/gl2-pending"
+write_glossary_inventory "$TEST_DIR/gl2-pending/v1-pages-inventory.md"
+write_good_delta "$TEST_DIR/gl2-pending/v1-functionality-delta.md"
+write_glossary_journeys "$TEST_DIR/gl2-pending/v1-user-journeys.md"
+write_glossary_integrations "$TEST_DIR/gl2-pending/v1-integrations-and-exports.md"
+cat > "$TEST_DIR/gl2-pending/v1-glossary.md" <<'EOF'
+# V1 Glossary
+
+**Status:** AUTHORED. Last reconciled: 2026-05-07 against v1 commit `9738412`.
+
+## Entries
+
+- **`elitecare`** — v1 Django project root.
+
+## Cross-cutting v1 conventions
+
+_(pending)_
+EOF
+assert_exit "GL-2: AUTHORED with '_(pending)_' marker fails" 1 "$STRUCTURE" --dir "$TEST_DIR/gl2-pending"
+
+# --- GL-2: AUTHORED with `_(definitions pending)_` marker fails ---
+mkdir -p "$TEST_DIR/gl2-defs-pending"
+write_glossary_inventory "$TEST_DIR/gl2-defs-pending/v1-pages-inventory.md"
+write_good_delta "$TEST_DIR/gl2-defs-pending/v1-functionality-delta.md"
+write_glossary_journeys "$TEST_DIR/gl2-defs-pending/v1-user-journeys.md"
+write_glossary_integrations "$TEST_DIR/gl2-defs-pending/v1-integrations-and-exports.md"
+cat > "$TEST_DIR/gl2-defs-pending/v1-glossary.md" <<'EOF'
+# V1 Glossary
+
+**Status:** AUTHORED. Last reconciled: 2026-05-07 against v1 commit `9738412`.
+
+## Entries
+
+- **`elitecare`** — v1 Django project root.
+
+_(definitions pending content authoring; each will resolve to one-line text + first-use link)_
+EOF
+assert_exit "GL-2: AUTHORED with '_(definitions pending)_' marker fails" 1 "$STRUCTURE" --dir "$TEST_DIR/gl2-defs-pending"
+
+# --- GL-3: AUTHORED with link to nonexistent inventory anchor fails ---
+mkdir -p "$TEST_DIR/gl3-bad-inventory"
+write_glossary_inventory "$TEST_DIR/gl3-bad-inventory/v1-pages-inventory.md"
+write_good_delta "$TEST_DIR/gl3-bad-inventory/v1-functionality-delta.md"
+write_glossary_journeys "$TEST_DIR/gl3-bad-inventory/v1-user-journeys.md"
+write_glossary_integrations "$TEST_DIR/gl3-bad-inventory/v1-integrations-and-exports.md"
+cat > "$TEST_DIR/gl3-bad-inventory/v1-glossary.md" <<'EOF'
+# V1 Glossary
+
+**Status:** AUTHORED. Last reconciled: 2026-05-07 against v1 commit `9738412`.
+
+## Entries
+
+- **`elitecare`** — v1 Django project root. See [a section](v1-pages-inventory.md#nonexistent-anchor).
+EOF
+assert_exit "GL-3: orphan inventory anchor fails" 1 "$STRUCTURE" --dir "$TEST_DIR/gl3-bad-inventory"
+
+# --- GL-3: AUTHORED with link to nonexistent journeys anchor fails ---
+mkdir -p "$TEST_DIR/gl3-bad-journeys"
+write_glossary_inventory "$TEST_DIR/gl3-bad-journeys/v1-pages-inventory.md"
+write_good_delta "$TEST_DIR/gl3-bad-journeys/v1-functionality-delta.md"
+write_glossary_journeys "$TEST_DIR/gl3-bad-journeys/v1-user-journeys.md"
+write_glossary_integrations "$TEST_DIR/gl3-bad-journeys/v1-integrations-and-exports.md"
+cat > "$TEST_DIR/gl3-bad-journeys/v1-glossary.md" <<'EOF'
+# V1 Glossary
+
+**Status:** AUTHORED. Last reconciled: 2026-05-07 against v1 commit `9738412`.
+
+## Entries
+
+- **View-As impersonation** — v1 platform-operator surface. See [the View-As journey](v1-user-journeys.md#nonexistent-journey).
+EOF
+assert_exit "GL-3: orphan journeys anchor fails" 1 "$STRUCTURE" --dir "$TEST_DIR/gl3-bad-journeys"
+
+# --- GL-3: AUTHORED with link to nonexistent integrations anchor fails ---
+mkdir -p "$TEST_DIR/gl3-bad-integrations"
+write_glossary_inventory "$TEST_DIR/gl3-bad-integrations/v1-pages-inventory.md"
+write_good_delta "$TEST_DIR/gl3-bad-integrations/v1-functionality-delta.md"
+write_glossary_journeys "$TEST_DIR/gl3-bad-integrations/v1-user-journeys.md"
+write_glossary_integrations "$TEST_DIR/gl3-bad-integrations/v1-integrations-and-exports.md"
+cat > "$TEST_DIR/gl3-bad-integrations/v1-glossary.md" <<'EOF'
+# V1 Glossary
+
+**Status:** AUTHORED. Last reconciled: 2026-05-07 against v1 commit `9738412`.
+
+## Entries
+
+- **`MagicLinkToken`** — v1 model. See [the magic-link login email entry](v1-integrations-and-exports.md#nonexistent-section).
+EOF
+assert_exit "GL-3: orphan integrations anchor fails" 1 "$STRUCTURE" --dir "$TEST_DIR/gl3-bad-integrations"
+
+# --- GL-3: AUTHORED with valid anchors across all three docs passes ---
+# (Already covered by glossary-good above; listed for symmetry.)
+mkdir -p "$TEST_DIR/gl3-all-good"
+write_glossary_inventory "$TEST_DIR/gl3-all-good/v1-pages-inventory.md"
+write_good_delta "$TEST_DIR/gl3-all-good/v1-functionality-delta.md"
+write_glossary_journeys "$TEST_DIR/gl3-all-good/v1-user-journeys.md"
+write_glossary_integrations "$TEST_DIR/gl3-all-good/v1-integrations-and-exports.md"
+write_authored_glossary "$TEST_DIR/gl3-all-good/v1-glossary.md"
+assert_exit "GL-3: valid anchors across inventory + journeys + integrations passes" 0 "$STRUCTURE" --dir "$TEST_DIR/gl3-all-good"
+
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
 [[ "$FAIL" == 0 ]] || exit 1
