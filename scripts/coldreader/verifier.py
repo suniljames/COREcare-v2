@@ -52,9 +52,7 @@ def verify_evidence(
         if not any(needle in src for src in sources):
             return VerifyResult(
                 passed=False,
-                reason=(
-                    f"verbatim_evidence string not found in section or index: {needle!r}"
-                ),
+                reason=(f"verbatim_evidence string not found in section or index: {needle!r}"),
             )
     return VerifyResult(passed=True)
 

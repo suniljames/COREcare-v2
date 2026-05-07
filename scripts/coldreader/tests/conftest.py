@@ -30,15 +30,11 @@ class CannedResponse:
 class FakeAnthropicClient:
     """Anthropic-shaped client that returns canned responses without network calls."""
 
-    def __init__(
-        self, canned: dict[tuple[str, str], list[CannedResponse]] | None = None
-    ) -> None:
+    def __init__(self, canned: dict[tuple[str, str], list[CannedResponse]] | None = None) -> None:
         self._canned = canned or {}
         self.calls: list[RotationCall] = []
 
-    def add_response(
-        self, persona: str, question_id: str, response: CannedResponse
-    ) -> None:
+    def add_response(self, persona: str, question_id: str, response: CannedResponse) -> None:
         key = (persona, question_id)
         self._canned.setdefault(key, []).append(response)
 

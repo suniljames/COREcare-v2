@@ -79,9 +79,7 @@ class Usage:
         return Usage(
             input_tokens=self.input_tokens + other.input_tokens,
             output_tokens=self.output_tokens + other.output_tokens,
-            cache_read_input_tokens=(
-                self.cache_read_input_tokens + other.cache_read_input_tokens
-            ),
+            cache_read_input_tokens=(self.cache_read_input_tokens + other.cache_read_input_tokens),
             cache_creation_input_tokens=(
                 self.cache_creation_input_tokens + other.cache_creation_input_tokens
             ),
@@ -188,16 +186,12 @@ class AnthropicRotationClient:
         # declines, the response has no tool_use block and `answer` stays
         # empty — which the verifier correctly treats as a failure.
         tool_choice: dict[str, Any] = (
-            {"type": "auto"}
-            if call.use_extended_thinking
-            else {"type": "tool", "name": _TOOL_NAME}
+            {"type": "auto"} if call.use_extended_thinking else {"type": "tool", "name": _TOOL_NAME}
         )
         # When extended thinking is enabled, max_tokens must be > budget_tokens
         # per the Anthropic API contract; budget tokens are *additional* output.
         max_tokens = (
-            MAX_TOKENS + EXTENDED_THINKING_BUDGET
-            if call.use_extended_thinking
-            else MAX_TOKENS
+            MAX_TOKENS + EXTENDED_THINKING_BUDGET if call.use_extended_thinking else MAX_TOKENS
         )
         # Anthropic API forbids temperature != 1 when extended thinking is on.
         temperature = 1 if call.use_extended_thinking else 0
@@ -210,9 +204,7 @@ class AnthropicRotationClient:
             "tools": [
                 {
                     "name": _TOOL_NAME,
-                    "description": (
-                        "Record the rotation answer with verbatim evidence."
-                    ),
+                    "description": ("Record the rotation answer with verbatim evidence."),
                     "input_schema": _TOOL_SCHEMA,
                 }
             ],
@@ -255,8 +247,7 @@ class AnthropicRotationClient:
                 input_tokens=getattr(u, "input_tokens", 0),
                 output_tokens=getattr(u, "output_tokens", 0),
                 cache_read_input_tokens=getattr(u, "cache_read_input_tokens", 0) or 0,
-                cache_creation_input_tokens=getattr(u, "cache_creation_input_tokens", 0)
-                or 0,
+                cache_creation_input_tokens=getattr(u, "cache_creation_input_tokens", 0) or 0,
             ),
             used_extended_thinking=call.use_extended_thinking,
             text_block_content="\n".join(text_block_parts),

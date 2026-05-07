@@ -90,9 +90,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    inv_path = (
-        args.inventory or _repo_root() / "docs" / "migration" / "v1-pages-inventory.md"
-    )
+    inv_path = args.inventory or _repo_root() / "docs" / "migration" / "v1-pages-inventory.md"
 
     if args.dry_run:
         smoke = dry_run_smoke(inv_path)
@@ -128,9 +126,7 @@ def main(argv: list[str] | None = None) -> int:
     total_output = 0
     for fx in fixtures:
         try:
-            section_text = extract_section(
-                inv_path, fx.persona, min_bytes=fx.min_section_bytes
-            )
+            section_text = extract_section(inv_path, fx.persona, min_bytes=fx.min_section_bytes)
         except Exception as e:  # noqa: BLE001
             print(f"error extracting section for {fx.persona}: {e}", file=sys.stderr)
             return EXIT_SETUP_ERROR

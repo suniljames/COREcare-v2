@@ -211,9 +211,7 @@ def _evaluate(
             QuestionTelemetry(question_id=q.id, hits=0, total=len(q.must_mention)),
         )
 
-    mention_check = check_must_mention(
-        response.answer, q.must_mention, tolerance=q.tolerance
-    )
+    mention_check = check_must_mention(response.answer, q.must_mention, tolerance=q.tolerance)
     telemetry = QuestionTelemetry(
         question_id=q.id, hits=mention_check.hits, total=mention_check.total
     )

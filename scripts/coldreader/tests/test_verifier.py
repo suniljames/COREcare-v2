@@ -119,9 +119,7 @@ def test_must_mention_or_group_one_alternate_sufficient() -> None:
     """If any alternate appears, the entry is satisfied."""
     result = check_must_mention(
         answer="Uses the @staff_member_required decorator.",
-        must_mention=[
-            ["@staff_member_required", "staff_member_required", "staff-required"]
-        ],
+        must_mention=[["@staff_member_required", "staff_member_required", "staff-required"]],
     )
     assert result.passed
     assert result.hits == 1

@@ -205,12 +205,9 @@ def load_fixture(path: Path) -> Fixture:
         )
         _require(
             isinstance(tolerance_raw, int) and tolerance_raw >= 0,
-            f"{path}: question[{i}].tolerance must be a non-negative int; "
-            f"got {tolerance_raw!r}",
+            f"{path}: question[{i}].tolerance must be a non-negative int; got {tolerance_raw!r}",
         )
-        assert (
-            isinstance(qid, str) and isinstance(text, str) and isinstance(summary, str)
-        )
+        assert isinstance(qid, str) and isinstance(text, str) and isinstance(summary, str)
         assert isinstance(tolerance_raw, int)
         _require(
             qid not in seen_ids,

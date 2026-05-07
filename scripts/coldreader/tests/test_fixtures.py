@@ -114,9 +114,7 @@ def test_load_fixture_with_two_questions_fails(tmp_path: Path) -> None:
     path = _write_fixture(tmp_path, "family-member", body)
     with pytest.raises(FixtureSchemaError) as exc:
         load_fixture(path)
-    assert (
-        "exactly 3" in str(exc.value).lower() or "3 questions" in str(exc.value).lower()
-    )
+    assert "exactly 3" in str(exc.value).lower() or "3 questions" in str(exc.value).lower()
 
 
 def test_load_fixture_with_four_questions_fails(tmp_path: Path) -> None:
@@ -265,9 +263,9 @@ def test_load_fixture_with_dob_phi_fails(tmp_path: Path) -> None:
 def test_phi_placeholder_tokens_are_not_phi(tmp_path: Path) -> None:
     """`[CLIENT_NAME]`, `<FAMILY_MEMBER>` etc. are placeholders, not real PHI."""
     body = _well_formed_body()
-    body["questions"][0][
-        "fact_summary"
-    ] = "Family Member sees [CLIENT_NAME] and <FAMILY_MEMBER> placeholders."
+    body["questions"][0]["fact_summary"] = (
+        "Family Member sees [CLIENT_NAME] and <FAMILY_MEMBER> placeholders."
+    )
     path = _write_fixture(tmp_path, "family-member", body)
     fx = load_fixture(path)
     assert fx.persona == "family-member"
@@ -293,9 +291,7 @@ def test_anchor_must_mention_passes_when_alternates_in_section(
     body["questions"][2]["must_mention"] = [["ACTIVE_FLAG_TOKEN"]]
     path = _write_fixture(tmp_path, "family-member", body)
     fx = load_fixture(path)
-    section = (
-        "DASHBOARD_TOKEN, LINKED_CLIENT_TOKEN, and ACTIVE_FLAG_TOKEN appear here.\n"
-    )
+    section = "DASHBOARD_TOKEN, LINKED_CLIENT_TOKEN, and ACTIVE_FLAG_TOKEN appear here.\n"
     anchor_must_mention(fx, section=section, index="")  # no exception
 
 
@@ -328,9 +324,7 @@ def test_anchor_must_mention_one_alternate_anchoring_is_sufficient(
 ) -> None:
     """If any alternate appears in section/index, the entry is anchored."""
     body = _well_formed_body()
-    body["questions"][0]["must_mention"] = [
-        ["is_superuser_TOKEN", "made-up-paraphrase"]
-    ]
+    body["questions"][0]["must_mention"] = [["is_superuser_TOKEN", "made-up-paraphrase"]]
     body["questions"][1]["must_mention"] = [["foo_TOKEN"]]
     body["questions"][2]["must_mention"] = [["bar_TOKEN"]]
     path = _write_fixture(tmp_path, "family-member", body)
