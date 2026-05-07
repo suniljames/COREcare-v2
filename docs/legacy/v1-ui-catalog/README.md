@@ -56,7 +56,7 @@ Each persona directory will be populated by the crawler in #107. Per-persona rou
 
 ## Coverage
 
-Run [`../../scripts/check-v1-catalog-coverage.sh`](../../scripts/check-v1-catalog-coverage.sh) to verify that every inventory row either has a matching caption file or carries a `not_screenshotted: <reason>` skip-reason. The CI workflow [`v1-catalog-coverage.yml`](../../.github/workflows/v1-catalog-coverage.yml) runs this check automatically on PRs touching the inventory or this catalog.
+Run [`../../../scripts/check-v1-catalog-coverage.sh`](../../../scripts/check-v1-catalog-coverage.sh) to verify that every inventory row either has a matching caption file or carries a `not_screenshotted: <reason>` skip-reason. The CI workflow [`v1-catalog-coverage.yml`](../../../.github/workflows/v1-catalog-coverage.yml) runs this check automatically on PRs touching the inventory or this catalog.
 
 ## Generation provenance
 
