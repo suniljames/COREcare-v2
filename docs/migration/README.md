@@ -281,7 +281,9 @@ If any diff is non-empty: re-author affected rows in `v1-pages-inventory.md`. If
 
 CI posts these diffs as a sticky PR comment when a PR bumps the V1 Reference Commit SHA — see `.github/workflows/v1-sha-bump-diff-report.yml` (#131).
 
-**Refresh order — Agency Admin first.** Agency Admin is the most-iterated persona surface in v1 (billing, payroll, scheduling, credentials, compliance). When budget for a refresh is constrained, refresh Agency Admin first; file follow-ups for other personas. The pattern Agency Admin establishes (cell prose, H3 naming, flag accuracy) is the template subsequent persona refreshes inherit.
+### Refresh order — Agency Admin first
+
+Agency Admin is the most-iterated persona surface in v1 (billing, payroll, scheduling, credentials, compliance). When budget for a refresh is constrained, refresh Agency Admin first; file follow-ups for other personas. The pattern Agency Admin establishes (cell prose, H3 naming, flag accuracy) is the template subsequent persona refreshes inherit.
 
 ---
 
