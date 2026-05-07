@@ -34,7 +34,7 @@ _Enumeration in progress (#81). Per-Django-app denominators below._
 | _(top-level admin routes in elitecare/urls.py)_ | 22 | 22 | Agency Admin admin-prefixed routes outside `include()`; complete |
 | billing | 3 | 3 | capability-gated admin custom views; complete |
 | billing_catalogs | 4 | 4 | Hazel-managed billable service catalog; complete |
-| clients | 11 | 0 | mounted at `schedule/` and `clients/`; pending |
+| clients | 11 | 11 | per-client calendar, events with attachments, schedule PDF/preview; mounted at `schedule/` and `clients/`; complete |
 | compliance | 1 | 0 | mounted at `legal/`; mostly customer-facing; pending |
 | dashboard | 25 | 0 | agency dashboard, payroll, expenses; pending |
 | employees | 3 | 3 | caregiver invitation acceptance + profile-completion onboarding; complete |
@@ -42,11 +42,11 @@ _Enumeration in progress (#81). Per-Django-app denominators below._
 | quickbooks_integration | 8 | 8 | QuickBooks OAuth + invoice send + customer linking; complete |
 | auth_service | TBD | 0 | shared with all personas; pending |
 | _(dual-role / portal switching routes in elitecare/urls.py)_ | 5 | 0 | switch-role, portal-chooser, set-default-portal, clear-default-portal, family-signup; treat as Shared routes |
-| **total (Agency Admin, current estimate)** | **~130** | **40 (≈31%)** | denominator finalized after each app's rows land |
+| **total (Agency Admin, current estimate)** | **~130** | **51 (≈39%)** | denominator finalized after each app's rows land |
 
 **Skipped (the 5% headroom):** none yet enumerated; will populate as remaining apps are authored.
 
-**Status note (2026-05-07).** Issue #81 covers Agency Admin row authoring. As of this commit, the top-level admin routes, `billing`, `billing_catalogs`, `employees`, and `quickbooks_integration` apps are complete; remaining apps (clients, dashboard, charting, compliance, auth_service) and the dual-role/shared routes are pending. Per the committee's halfway-point rule (below 30% coverage triggers a per-app split), follow-up sub-issues author each remaining app independently. See #81 halfway-point check-in for the split plan.
+**Status note (2026-05-07).** Issue #81 covers Agency Admin row authoring. As of this commit, the top-level admin routes, `billing`, `billing_catalogs`, `clients` (per #84), `employees` (per #87), and `quickbooks_integration` (per #86) apps are complete; remaining apps (dashboard, charting, compliance, auth_service) and the dual-role/shared routes are pending. Per the committee's halfway-point rule (below 30% coverage triggers a per-app split), follow-up sub-issues author each remaining app independently. See #81 halfway-point check-in for the split plan.
 
 ---
 
@@ -135,6 +135,23 @@ _Hazel-managed billable service catalog (#1333 PR 3); delta H-severity gap_
 | `/admin/settings/service-catalog/new/` | Add a new billable service catalog entry. | Sees: catalog form with internal name, family label, base price, est. hours, hourly overage rate, MD-order required toggle. Can: submit to create. | missing | H | true | false | false | not_screenshotted: pending #79 |  |
 | `/admin/settings/service-catalog/<int:entry_id>/edit/` | Edit an existing billable service catalog entry (re-uses the catalog_form_view). | Sees: same catalog form pre-filled with current values. Can: edit and save. | missing | H | true | false | false | not_screenshotted: pending #79 |  |
 | `/admin/settings/service-catalog/<int:entry_id>/retire/` | Soft-retires a catalog entry (per Issue #1214 retire-not-delete pattern); preserves invoice history. | Sees: confirmation prompt with usage count for the entry. Can: confirm soft-retire. | missing | H | true | false | false | not_screenshotted: pending #79 |  |
+
+### clients
+_per-client unified calendar (Issue #40); custom non-shift events with attachments; monthly schedule PDF and HTML preview (Issues #455, #1106); the underlying app is dual-mounted at /schedule/ and /clients/_
+
+| route | purpose | what_user_sees_can_do | v2_status | severity | multi_tenant_refactor | rls_bypass_by_design | phi_displayed | screenshot_ref | v2_link |
+|-------|---------|-----------------------|-----------|----------|-----------------------|----------------------|---------------|----------------|---------|
+| `/clients/schedule/` | Legacy schedule landing — renders an empty placeholder for staff or redirects family-linked users to the family home; dual-mounted at /schedule/schedule/. | Sees: empty schedule placeholder (no shifts preloaded by the legacy view). Can: navigate elsewhere — this URL no longer surfaces real data. | missing | D | true | false | false | not_screenshotted: pending #79 |  |
+| `/clients/<int:client_id>/calendar/` | 🔒 PHI · Unified per-client calendar with daily, weekly, and monthly views combining scheduled shifts and custom events. | Sees: client name, calendar grid with shifts and events, caregiver-color legend, DST transition annotations on monthly. Can: switch view mode, navigate dates, drill to detail. | missing | M | true | false | true | not_screenshotted: pending #79 |  |
+| `/clients/<int:client_id>/calendar/api/` | 🔒 PHI · JSON calendar feed for the per-client calendar widget; returns shifts and events with title, time, and type. | Sees: serialized calendar entries (id, title with shift or event icon, start, end, className, type, editable). Can: drive the calendar widget asynchronously. | missing | M | true | false | true | not_screenshotted: pending #79 |  |
+| `/clients/<int:client_id>/events/create/` | 🔒 PHI · Creates a custom non-shift calendar event (medical appointment, milestone, family note) on a client's calendar. | Sees: client context, event-type picker, title, start and end date and time, location, description fields. Can: submit to create the event and return to the calendar. | missing | L | true | false | true | not_screenshotted: pending #79 |  |
+| `/clients/<int:client_id>/events/<int:event_id>/edit/` | 🔒 PHI · Edits an existing custom calendar event and surfaces its attachments list for inline management. | Sees: the same event form pre-filled with current values, attached files list with delete controls. Can: update fields, save, or remove attachments inline. | missing | L | true | false | true | not_screenshotted: pending #79 |  |
+| `/clients/<int:client_id>/events/<int:event_id>/delete/` | 🔒 PHI · Soft-delete confirmation for a custom calendar event; supports an AJAX path that returns an undo link. | Sees: confirmation prompt with event title and time. Can: confirm soft-delete via form post or AJAX, then undo via the returned restore link. | missing | L | true | false | true | not_screenshotted: pending #79 |  |
+| `/clients/<int:client_id>/events/<int:event_id>/restore/` | 🔒 PHI · Restores a previously soft-deleted custom calendar event (the undo handler paired with the delete flow). | Sees: AJAX success JSON or redirect to the calendar with a success message. Can: trigger via the post-delete undo link. | missing | L | true | false | true | not_screenshotted: pending #79 |  |
+| `/clients/<int:client_id>/events/<int:event_id>/attachments/upload/` | 🔒 PHI · Multi-file upload endpoint for attachments on a custom calendar event; enforces a 50MB cap and an allowed-extension list. | Sees: JSON with uploaded list and per-file errors. Can: attach pdf, doc, image, audio, or video files to the event. | missing | M | true | false | true | not_screenshotted: pending #79 |  |
+| `/clients/<int:client_id>/events/<int:event_id>/attachments/<int:attachment_id>/delete/` | 🔒 PHI · Removes a single attachment record and its underlying stored file from a custom calendar event. | Sees: AJAX success JSON or redirect back to the event edit form. Can: delete one attachment and free its storage. | missing | M | true | false | true | not_screenshotted: pending #79 |  |
+| `/clients/<int:client_id>/schedule/pdf/` | 🔒 PHI · Generates a monthly schedule PDF (calendar-grid or agenda layout) for a client; HIPAA-access-logged in v1. | Sees: downloadable PDF with client name, caregiver names, shift times, optional weekend column. Can: pick format, orientation, font size, color mode, weekend visibility. | missing | L | true | false | true | not_screenshotted: pending #79 |  |
+| `/clients/<int:client_id>/schedule/preview/` | 🔒 PHI · HTML preview partial for the print-config panel; mirrors the schedule PDF generator's options without producing a PDF. | Sees: HTML preview rendered with the chosen format and options. Can: re-render with different format, orientation, font size, color, or weekend toggle. | missing | L | true | false | true | not_screenshotted: pending #79 |  |
 
 ### employees
 _caregiver invitation acceptance and profile-completion onboarding (mounted at `/employees/`); Agency Admin initiates upstream via the invitation send flow_
