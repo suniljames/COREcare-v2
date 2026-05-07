@@ -39,14 +39,14 @@ _Enumeration in progress (#81). Per-Django-app denominators below._
 | dashboard | 25 | 0 | agency dashboard, payroll, expenses; pending |
 | employees | 3 | 0 | caregiver employee management; pending |
 | charting | 48 | 0 | shared with Care Manager / Caregiver — Agency Admin reachability TBD; pending |
-| quickbooks_integration | 8 | 0 | QuickBooks OAuth + sync UI; pending |
+| quickbooks_integration | 8 | 8 | QuickBooks OAuth + invoice send + customer linking; complete |
 | auth_service | TBD | 0 | shared with all personas; pending |
 | _(dual-role / portal switching routes in elitecare/urls.py)_ | 5 | 0 | switch-role, portal-chooser, set-default-portal, clear-default-portal, family-signup; treat as Shared routes |
-| **total (Agency Admin, current estimate)** | **~130** | **29 (≈22%)** | denominator finalized after each app's rows land |
+| **total (Agency Admin, current estimate)** | **~130** | **37 (≈28%)** | denominator finalized after each app's rows land |
 
 **Skipped (the 5% headroom):** none yet enumerated; will populate as remaining apps are authored.
 
-**Status note (2026-05-06).** Issue #81 covers Agency Admin row authoring. As of this commit, the top-level admin routes, `billing` app, and `billing_catalogs` app are complete; remaining apps (clients, dashboard, employees, charting, compliance, quickbooks_integration, auth_service) and the dual-role/shared routes are pending. Per the committee's halfway-point rule (below 30% coverage triggers a per-app split), follow-up sub-issues will author each remaining app independently. See #81 halfway-point check-in for the split plan.
+**Status note (2026-05-07).** Issue #81 covers Agency Admin row authoring. As of this commit, the top-level admin routes, `billing`, `billing_catalogs`, and `quickbooks_integration` apps are complete; remaining apps (clients, dashboard, employees, charting, compliance, auth_service) and the dual-role/shared routes are pending. Per the committee's halfway-point rule (below 30% coverage triggers a per-app split), follow-up sub-issues author each remaining app independently. See #81 halfway-point check-in for the split plan.
 
 ---
 
@@ -85,7 +85,7 @@ Super-Admin pages are platform-operator surfaces that bypass tenant isolation by
 
 ## Agency Admin
 
-_last reconciled: 2026-05-06 against v1 commit `9738412`_
+_last reconciled: 2026-05-07 against v1 commit `9738412`_
 
 Agency Admin pages cover scheduling, billing, payroll, credentialing, compliance, and team oversight. This is v1's largest surface and v2's highest-volume rebuild target. Rows are grouped by Django app under H3 sub-headings.
 
@@ -135,6 +135,20 @@ _Hazel-managed billable service catalog (#1333 PR 3); delta H-severity gap_
 | `/admin/settings/service-catalog/new/` | Add a new billable service catalog entry. | Sees: catalog form with internal name, family label, base price, est. hours, hourly overage rate, MD-order required toggle. Can: submit to create. | missing | H | true | false | false | not_screenshotted: pending #79 |  |
 | `/admin/settings/service-catalog/<int:entry_id>/edit/` | Edit an existing billable service catalog entry (re-uses the catalog_form_view). | Sees: same catalog form pre-filled with current values. Can: edit and save. | missing | H | true | false | false | not_screenshotted: pending #79 |  |
 | `/admin/settings/service-catalog/<int:entry_id>/retire/` | Soft-retires a catalog entry (per Issue #1214 retire-not-delete pattern); preserves invoice history. | Sees: confirmation prompt with usage count for the entry. Can: confirm soft-retire. | missing | H | true | false | false | not_screenshotted: pending #79 |  |
+
+### quickbooks_integration
+_QuickBooks Online OAuth + invoice send + COREcare-client-to-QB-customer linking; mounted at `quickbooks/` in elitecare/urls.py_
+
+| route | purpose | what_user_sees_can_do | v2_status | severity | multi_tenant_refactor | rls_bypass_by_design | phi_displayed | screenshot_ref | v2_link |
+|-------|---------|-----------------------|-----------|----------|-----------------------|----------------------|---------------|----------------|---------|
+| `/quickbooks/connect/` | Initiates the QuickBooks Online OAuth flow — redirects an Agency Admin to Intuit's consent screen. | Sees: redirect to Intuit's authorization page. Can: authorize the COREcare app to access the agency's QuickBooks Online company. | missing | H | true | false | false | not_screenshotted: pending #79 |  |
+| `/quickbooks/callback/` | Handles the OAuth callback from Intuit; exchanges the auth code for tokens and saves the active connection. | Sees: success or error message on the admin index after the redirect; success shows the connected QuickBooks company name. Can: complete the OAuth handshake. | missing | H | true | false | false | not_screenshotted: pending #79 |  |
+| `/quickbooks/disconnect/` | Disconnects the active QuickBooks connection — POST-only; deactivates every active connection row. | Sees: success message on the admin index after POST. Can: confirm the disconnect. | missing | H | true | false | false | not_screenshotted: pending #79 |  |
+| `/quickbooks/status/` | Reports QuickBooks connection state as JSON — used by admin pages to render the connection indicator. | Sees: JSON with connected boolean, QuickBooks company name, connected-at timestamp. Can: poll connection status from the admin UI. | missing | H | true | false | false | not_screenshotted: pending #79 |  |
+| `/quickbooks/send-invoice/<int:client_id>/` | 🔒 PHI · Sends a client's weekly invoice to QuickBooks; logs the send with a billing snapshot for audit. | Sees: JSON success or detailed error referencing the client name with hints to relink or create a customer. Can: trigger the send via POST with week_offset and an optional QB customer override. | missing | H | true | false | true | not_screenshotted: pending #79 |  |
+| `/quickbooks/customers/search/` | 🔒 PHI · Live search across the agency's QuickBooks customers — backs the link-customer modal in Client admin. | Sees: JSON list of matching customers with display name, email, phone, balance. Can: pick a QB customer to link to a COREcare client. | missing | H | true | false | true | not_screenshotted: pending #79 |  |
+| `/quickbooks/clients/<int:client_id>/link/` | 🔒 PHI · Links a COREcare client to a QuickBooks customer ID for reliable invoice creation (Issue #329). | Sees: JSON success or duplicate-link error naming the conflicting client. Can: submit a QB customer ID to bind to this client. | missing | H | true | false | true | not_screenshotted: pending #79 |  |
+| `/quickbooks/clients/<int:client_id>/unlink/` | Removes the QuickBooks customer link from a COREcare client; clears all link metadata fields. | Sees: JSON success or not-linked error. Can: confirm the unlink via POST. | missing | H | true | false | false | not_screenshotted: pending #79 |  |
 
 ---
 
