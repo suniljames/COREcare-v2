@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'docs/migration/v1-*.md'
+      - 'tools/v1-screenshot-catalog/*.md'
       - 'scripts/check-v1-doc-hygiene.sh'
       - 'scripts/check-v1-doc-structure.sh'
       - 'scripts/tests/test_check_v1_doc_*.sh'
@@ -12,6 +13,7 @@ on:
     branches: [main]
     paths:
       - 'docs/migration/v1-*.md'
+      - 'tools/v1-screenshot-catalog/*.md'
       - 'scripts/check-v1-doc-hygiene.sh'
       - 'scripts/check-v1-doc-structure.sh'
 
@@ -36,10 +38,10 @@ jobs:
     needs: scripts-self-test
     steps:
       - uses: actions/checkout@v4
-      - name: Hygiene scan over docs/migration/v1-*.md
+      - name: Hygiene scan over v1 reference docs
         run: |
           shopt -s nullglob
-          files=(docs/migration/v1-*.md)
+          files=(docs/migration/v1-*.md tools/v1-screenshot-catalog/*.md)
           if [[ ${#files[@]} -eq 0 ]]; then
             echo "No v1 reference docs present yet — skipping hygiene scan."
             exit 0

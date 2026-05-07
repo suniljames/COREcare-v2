@@ -49,10 +49,11 @@ test-e2e: ## Run Playwright E2E tests against full Docker stack
 
 # --- V1 reference docs ---
 
-test-v1-docs: ## Run v1 doc hygiene + structure + catalog-coverage script self-tests
+test-v1-docs: ## Run v1 doc hygiene + structure + catalog scripts self-tests
 	bash scripts/tests/test_check_v1_doc_hygiene.sh
 	bash scripts/tests/test_check_v1_doc_structure.sh
 	bash scripts/tests/test_check_v1_catalog_coverage.sh
+	bash scripts/tests/test_extract_inventory_routes.sh
 
 scan-v1-docs: ## Run hygiene + structure + catalog-coverage scripts over committed docs
 	@if compgen -G "docs/migration/v1-*.md" > /dev/null; then \
