@@ -34,6 +34,7 @@ Terms that need definition before the docset is complete:
 - **Overpayment consent** — v1 acknowledgment record for caregivers to accept an overpayment correction.
 - **Action queue** — v1 deterministic-detection feed of items needing a coordinator response, distinct from v2's planned AI-driven coordination assistant.
 - **Health report approval queue** — v1 dual-author health report flow with an explicit approval gate.
+- **`ClientFamilyMember`** — v1 model linking a Django `User` to a `Client` for family-portal visibility; carries per-link permission booleans (`can_view_schedule`, `can_message_caregivers`) and `unique_together(client, user)` but no soft-delete or active flag — revocation is hard-delete in v1. Cited in [`## Family Member`](v1-pages-inventory.md#family-member) section lead and in cross-reference index entries for `clients/` calendar/event routes.
 
 _(definitions pending content authoring; each will resolve to one-line text + first-use link)_
 
