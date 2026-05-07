@@ -23,16 +23,20 @@ describe("extract-inventory-routes.sh", () => {
     }
   });
 
+  // Inventory row schema (matches docs/migration/v1-pages-inventory.md):
+  //   | route | purpose | what_user_sees | v2_status | severity | mt | rls | phi | screenshot_ref | v2_link |
+  // Awk -F"|" sees 12 fields total (10 columns + leading + trailing empty).
+
   it("emits a JSON array on stdout", () => {
     const dir = mkdtempSync(join(tmpdir(), "inv-test-"));
     const fixture = join(dir, "inv.md");
     writeFileSync(fixture, [
       "## Super-Admin",
       "",
-      "| Name | Route | x | x | x | x | x | x | x | screenshot_ref | x | x |",
-      "|------|-------|---|---|---|---|---|---|---|----------------|---|---|",
-      "| Dashboard | `/admin/dashboard/` | x | x | x | x | x | x | x | super-admin/001-dashboard | x | x |",
-      "| Clients | `/admin/clients/` | x | x | x | x | x | x | x | not_screenshotted: pending #79 | x | x |",
+      "| route | purpose | what | v2 | sev | mt | rls | phi | screenshot_ref | v2_link |",
+      "|-------|---------|------|----|-----|----|----|-----|----------------|---------|",
+      "| `/admin/dashboard/` | x | x | x | x | x | x | x | super-admin/001-dashboard |  |",
+      "| `/admin/clients/` | x | x | x | x | x | x | x | not_screenshotted: pending #79 |  |",
       "",
     ].join("\n"));
     const rows = runScript(fixture) as Array<{ persona: string; route: string; screenshot_ref: string }>;
@@ -46,9 +50,9 @@ describe("extract-inventory-routes.sh", () => {
     writeFileSync(fixture, [
       "## Caregiver",
       "",
-      "| Name | Route | x | x | x | x | x | x | x | screenshot_ref | x | x |",
-      "|------|-------|---|---|---|---|---|---|---|----------------|---|---|",
-      "| Today's shifts | `/caregiver/today/` | x | x | x | x | x | x | x | caregiver/001-today | x | x |",
+      "| route | purpose | what | v2 | sev | mt | rls | phi | screenshot_ref | v2_link |",
+      "|-------|---------|------|----|-----|----|----|-----|----------------|---------|",
+      "| `/caregiver/today/` | x | x | x | x | x | x | x | caregiver/001-today |  |",
       "",
     ].join("\n"));
     const rows = runScript(fixture) as Array<{ persona: string; route: string; screenshot_ref: string }>;
@@ -65,9 +69,9 @@ describe("extract-inventory-routes.sh", () => {
     writeFileSync(fixture, [
       "## Random Section",
       "",
-      "| Name | Route | x | x | x | x | x | x | x | screenshot_ref | x | x |",
-      "|------|-------|---|---|---|---|---|---|---|----------------|---|---|",
-      "| Should be ignored | `/random/` | x | x | x | x | x | x | x | random-ref | x | x |",
+      "| route | purpose | what | v2 | sev | mt | rls | phi | screenshot_ref | v2_link |",
+      "|-------|---------|------|----|-----|----|----|-----|----------------|---------|",
+      "| `/random/` | x | x | x | x | x | x | x | random-ref |  |",
       "",
     ].join("\n"));
     const rows = runScript(fixture) as unknown[];
@@ -80,10 +84,10 @@ describe("extract-inventory-routes.sh", () => {
     writeFileSync(fixture, [
       "## Super-Admin",
       "",
-      "| Name | Route | x | x | x | x | x | x | x | screenshot_ref | x | x |",
-      "|------|-------|---|---|---|---|---|---|---|----------------|---|---|",
-      "| Real route | `/admin/dashboard/` | x | x | x | x | x | x | x | super-admin/001 | x | x |",
-      "| Summary row | total | x | x | x | x | x | x | x | x | x | x |",
+      "| route | purpose | what | v2 | sev | mt | rls | phi | screenshot_ref | v2_link |",
+      "|-------|---------|------|----|-----|----|----|-----|----------------|---------|",
+      "| `/admin/dashboard/` | x | x | x | x | x | x | x | super-admin/001 |  |",
+      "| total | summary | x | x | x | x | x | x | x |  |",
       "",
     ].join("\n"));
     const rows = runScript(fixture) as unknown[];
@@ -97,9 +101,9 @@ describe("extract-inventory-routes.sh", () => {
       .map((name, i) => [
         `## ${name}`,
         "",
-        "| Name | Route | x | x | x | x | x | x | x | screenshot_ref | x | x |",
-        "|------|-------|---|---|---|---|---|---|---|----------------|---|---|",
-        `| Route ${i} | \`/route-${i}/\` | x | x | x | x | x | x | x | ref-${i} | x | x |`,
+        "| route | purpose | what | v2 | sev | mt | rls | phi | screenshot_ref | v2_link |",
+        "|-------|---------|------|----|-----|----|----|-----|----------------|---------|",
+        `| \`/route-${i}/\` | x | x | x | x | x | x | x | ref-${i} |  |`,
         "",
       ].join("\n"))
       .join("\n");
