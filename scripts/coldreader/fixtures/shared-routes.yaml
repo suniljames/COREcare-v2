@@ -28,10 +28,9 @@ questions:
       Which routes are authored directly in the Shared routes section
       (not cross-referenced from a persona section)?
     expected_fact_summary: |
-      Five routes. Four dual-role portal-switching routes for users holding
-      both caregiver and care-manager profiles, plus one public
-      rate-limited family self-registration shortcut. The dual-role gate
-      derives eligibility from a role service.
+      Five routes — four portal-switching routes for users with both
+      caregiver and care-manager roles, plus one public rate-limited
+      self-registration route for family members.
 
   - id: q3
     text: >-
