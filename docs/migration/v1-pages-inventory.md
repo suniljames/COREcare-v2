@@ -168,6 +168,8 @@ _admin-prefixed routes registered directly in the project root, outside any incl
 ### Cross-reference index
 _Routes reachable by both Super-Admin and Agency Admin; canonical row in the linked persona section._
 
+**Curation criteria:** Super-Admin's `is_superuser=True` implies `is_staff=True`, so a Super-Admin reaches every `@staff_member_required` route — i.e., every row currently in `## Agency Admin`. This index is the curated subset where v2's operator portal will need to consider Super-Admin chrome treatment distinct from Agency Admin's: the View-As suite (RLS-bypass surfaces), expense review (financial controls), and role-permissions (capability administration). Routes with `phi_displayed=true` (the four expense-review entries) are the highest cross-tenant HIPAA-minimum-necessary considerations.
+
 | route | also reachable by | content branches by role | phi_displayed | row location |
 |-------|-------------------|---------------------------|---------------|--------------|
 | `/admin/view-as/hub/` | Agency Admin | no | false | [Agency Admin → top-level](#agency-admin-top-level) |
