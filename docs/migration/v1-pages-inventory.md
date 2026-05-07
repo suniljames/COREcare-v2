@@ -72,6 +72,20 @@ _Authored under #101. Per-Django-app denominators below._
 - `caregiver_dashboard.push_subscribe`, `push_unsubscribe` — JSON.
 - `charting/api/chart/save-*` (5 routes), `api/chart/finalize/`, `api/chart/catalog-services/`, `api/chart/billable-services/<id>/`, `api/chart/record-billable-service/`, `api/chart/capture-signature/` — JSON chart-save endpoints; surface in the active-shift / caregiver-chart UI. Referenced from the [Shared routes cross-reference index](#cross-reference-index) for traceability.
 
+### Care Manager
+
+| app | denominator | numerator | notes |
+|-----|-------------|-----------|-------|
+| care_manager | 6 | 6 | dedicated CM portal — caseload, client focus, three CM-expense screens, receipt download; complete |
+| charting | 1 (proxy_chart_view, gated `is_staff or is_care_manager`) | 0 | row authored under [Agency Admin → charting](#charting); cross-ref only — no duplicate row in this section |
+| **total (Care Manager)** | **7** | **6 (≈86% — see note)** | the single charting row is intentionally not duplicated; coverage of *authored-here* rows is 6/6 = 100%. The 7-route total is the persona's full reachable surface; cross-ref discharges authoring obligation per the #82 convention |
+
+**Excluded charting routes (not Care-Manager-reachable in v1).** Chart-comment review queue, health-report approval queue, all per-client clinical trend / summary / order views, and report-template administration are gated `@staff_member_required` in `charting/views.py` at v1 commit `9738412a`. `CareManagerProfile.is_staff = False`, so CMs do not reach them. ~25 routes total; not enumerated here.
+
+**Excluded redirect-only routes (not counted in denominator).** `/care-manager/dashboard/`, `/care-manager/clients/`, `/care-manager/schedule/`, `/care-manager/requests/` are `RedirectView` permanent redirects to `/care-manager/`; excluded per the README coverage rule.
+
+**Status note (2026-05-07).** Issue #100 closes this section. The cross-ref to `proxy_chart_view` discharges the charting authoring obligation per the row-not-duplicated convention. Excluded routes (per the lead paragraph) total ~25 in `charting/` and are not Care-Manager-reachable in v1.
+
 ### Client
 
 _v1 has no Client-as-actor surface — see [the Client section absence note](#client-section) below._
@@ -279,13 +293,21 @@ _password-reset flow (4 routes) + magic-link login (1 route); mounted at root pr
 
 ## Care Manager
 
-_last reconciled: 2026-05-06 against v1 commit `9738412`_
+_last reconciled: 2026-05-07 against v1 commit `9738412`_
 
-Care Manager pages cover care plan authoring, supervisory review, and team-level oversight of caregivers. Distinct from Agency Admin in clinical scope; distinct from Caregiver in supervisory authority.
+Care Manager is a dedicated role profile (`CareManagerProfile`, OneToOne with User, `is_staff=False`) — a caseload-first portal of six pages where a CM sees their assigned clients and submits the small expenses they incur in the field. v1's chart-comment review queue, health-report approval queue, per-client clinical trend and order views, and report-template administration are gated `@staff_member_required` in `charting/views.py` at v1 commit `9738412a`; CMs do not reach them, and v2 must not collapse this gate by granting CMs `is_staff`. Audit-log behavior in the CM portal is uneven — `ExpenseService` logs status transitions on submit/edit/resubmit, but `cm_serve_receipt` does not log downloads, and clinical-tab access inside `cm_client_focus` inherits whatever logging the underlying `charting` services emit; each row's `purpose` cell calls out where v1 audit-logs and where v2 must add coverage. The `proxy_chart_view` row lives under [Agency Admin → charting](#charting); see the [cross-reference index](#cross-reference-index) for dual-role portal switching, password reset, magic-link login, and the receipt-route Agency Admin oversight path.
+
+### care_manager
+_six HTML routes mounted at `/care-manager/` per `elitecare/urls.py` line 179: caseload, per-client focus, CM expense list, expense submit, expense edit, expense receipt download; four legacy `RedirectView` URLs (`/dashboard/`, `/clients/`, `/schedule/`, `/requests/`) are excluded per the README coverage rule_
 
 | route | purpose | what_user_sees_can_do | v2_status | severity | multi_tenant_refactor | rls_bypass_by_design | phi_displayed | screenshot_ref | v2_link |
 |-------|---------|-----------------------|-----------|----------|-----------------------|----------------------|---------------|----------------|---------|
-| _(rows pending content authoring)_ | | | | | | | | | |
+| `/care-manager/` | 🔒 PHI · `My Caseload` — priority-sorted list of every client assigned to this CM, with attention queue and all-clear groups; scope enforced by `CareManagerService.get_assigned_client_ids`; v1 does not audit-log this surface. | Sees: assigned clients with severity-colored attention badges, action queue with caregiver and client context, all-clear group, daily summary. Can: drill to a client's focus page, dismiss or annotate actions via the inline notify links. | missing | H | true | false | true | not_screenshotted: pending #79 |  |
+| `/care-manager/client/<int:pk>/` | 🔒 PHI · `Client Focus` — full per-client context for one assigned client across schedule, charting, vitals, and care-request tabs; unassigned-client access raises Http404; clinical-tab audit logging inherits whatever the underlying `charting` services emit (verify per-tab in v2 design). | Sees: client demographics with diagnosis and DNR badge, alert-badge strip, care-team caregiver cards with phone and email, family-member contacts, tab-specific data (schedule grid, charting rollup, vitals trend, request list) with notification dots per tab. Can: switch tabs via querystring, drill to caregivers and family members, take per-tab actions surfaced by the action queue. | missing | H | true | false | true | not_screenshotted: pending #79 |  |
+| `/care-manager/expenses/` | 🔒 PHI · CM expense list grouped per assigned client, with budget status; status transitions on the linked expenses are audit-logged via `ExpenseService` workflow events but the list view itself is not. | Sees: per-client expense groupings with status, amount, expense type, submission date; budget status banner; receipt thumbnails. Can: drill to a single expense to edit or resubmit, navigate to the submission form, open a receipt. | missing | M | true | false | true | not_screenshotted: pending #79 |  |
+| `/care-manager/expenses/submit/` | 🔒 PHI · CM expense submission form scoped to assigned clients; submission audit-logged via `ExpenseService.create_expense` workflow events. | Sees: budget status, expense-type picker, amount, description, expense date, client picker (assigned clients only), payment-method radio, receipt upload. Can: submit an expense with a single attached receipt; success returns to the expense list with a flash message. | missing | M | true | false | true | not_screenshotted: pending #79 |  |
+| `/care-manager/expenses/<int:expense_id>/edit/` | 🔒 PHI · CM expense edit / resubmit form; submitter-only ownership enforced; resubmits on REJECTED expenses route through `ExpenseService.resubmit_expense`, edits route through `ExpenseService.edit_expense` — both audit-logged via workflow events. | Sees: pre-filled form mirroring the submit page with the linked client locked, current status, and an optional receipt upload. Can: update fields and save, attach a new receipt (replaces the previous one), or resubmit a rejected expense. | missing | M | true | false | true | not_screenshotted: pending #79 |  |
+| `/care-manager/expenses/<int:expense_id>/receipt/<int:receipt_id>/` | 🔒 PHI · Auth-gated download of an expense receipt; access boundary is the submitter, the linked caregiver, or `is_staff` short-circuit at `care_manager/views.py:733` (Agency Admin oversight path); receipt is verified-bound to its parent expense via `get_object_or_404(ExpenseReceipt, pk=receipt_id, expense=expense)` to prevent cross-receipt IDOR; **v1 has no audit on this route — v2 design must add**. | Sees: file download initiated by the browser with `Content-Disposition: attachment` and a sanitized filename. Can: open or save the receipt blob. | missing | H | true | false | true | not_screenshotted: pending #79 |  |
 
 ---
 
@@ -411,6 +433,7 @@ Routes whose canonical row lives in a persona section.
 | `/password-reset/<uuid:token>/` | Agency Admin | all other personas | [Agency Admin → auth_service](#auth_service) |
 | `/password-reset/complete/` | Agency Admin | all other personas | [Agency Admin → auth_service](#auth_service) |
 | `/magic-login/<uuid:token>/` | Caregiver | Client, Family Member (admin users `is_staff`/`is_superuser` blocked at the view layer; URL reachable but bounces to invalid-token) | [Agency Admin → auth_service](#auth_service) (canonical row documents the v1 block-for-admins behavior; not duplicated in the Caregiver section) |
+| `/care-manager/expenses/<int:expense_id>/receipt/<int:receipt_id>/` | Care Manager | Agency Admin (oversight via `is_staff` short-circuit at `care_manager/views.py:733` in v1) | [Care Manager → care_manager](#care_manager) |
 
 ### Routes authored here (no primary-persona section)
 
