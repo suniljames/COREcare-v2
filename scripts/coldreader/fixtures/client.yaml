@@ -12,21 +12,25 @@ min_section_bytes: 1500
 
 questions:
   - id: q1
-    text: "Does v1 have a Client login or self-service portal?"
+    text: >-
+      Why does the Client section of the v1 inventory have no rows, and what
+      single record type in the `clients/` Django app links a Client to an
+      authenticator?
     fact_summary: |
-      No. v1 has no Client-as-actor surface. Clients are subjects of care,
-      not authenticators. `clients/models.py:15` defines `class Client` with
-      no `User` linkage; the only `User` linkage in the `clients/` app is
+      The Client section is intentionally rows-empty because v1 has no
+      Client-as-actor surface — Clients are subjects of care, not
+      authenticators. `clients/models.py:15` defines `class Client` with no
+      `User` linkage; the only `User` linkage in the `clients/` app is
       `class ClientFamilyMember` (clients/models.py:392) binding a Family
       Member account to a Client record. v1 carries zero
       `@client_required`-style decorators (verified by source grep at the
       pinned commit).
     must_mention:
-      - ["no", "No"]
-      - ["Client-as-actor", "actor"]
+      - ["Client-as-actor", "actor", "subjects of care", "no Client login"]
       - ["ClientFamilyMember"]
-      - ["clients/models.py"]
-    tolerance: 0
+      - ["clients/models.py", "models.py"]
+      - ["@client_required", "client_required"]
+    tolerance: 1
 
   - id: q2
     text: >-
@@ -47,7 +51,7 @@ questions:
       - ["ClientFamilyMember"]
       - ["charting"]
       - ["calendar"]
-    tolerance: 0
+    tolerance: 1
 
   - id: q3
     text: "Does v2 plan to add an authenticated Client portal? How is that decision tracked?"

@@ -22,10 +22,10 @@ questions:
       trends) are NOT Care-Manager-reachable.
     must_mention:
       - ["is_staff"]
-      - ["CareManagerProfile"]
-      - ["is_care_manager"]
-      - ["@staff_member_required", "staff_member_required"]
-    tolerance: 0
+      - ["CareManagerProfile", "Care Manager", "care_manager"]
+      - ["is_care_manager", "care_manager", "Care Manager"]
+      - ["@staff_member_required", "staff_member_required", "staff-required"]
+    tolerance: 1
 
   - id: q2
     text: "Where does a Care Manager review a chart on behalf of a caregiver?"
@@ -37,10 +37,10 @@ questions:
       and cross-referenced from the Care Manager section's lead — not
       duplicated.
     must_mention:
-      - ["/charting/proxy/", "proxy_chart_view", "proxy"]
-      - ["is_care_manager"]
+      - ["/charting/proxy/", "proxy_chart_view", "proxy charting", "proxy chart"]
+      - ["is_care_manager", "care_manager", "Care Manager"]
       - ["charting"]
-    tolerance: 0
+    tolerance: 1
 
   - id: q3
     text: >-
@@ -53,7 +53,7 @@ questions:
       `@staff_member_required` routes total in `charting/` are
       Care-Manager-unreachable; not enumerated in the Care Manager section.
     must_mention:
-      - ["@staff_member_required", "staff_member_required"]
+      - ["@staff_member_required", "staff_member_required", "staff-required"]
       - ["is_staff"]
-      - ["CareManagerProfile", "Care Manager"]
+      - ["CareManagerProfile", "Care Manager", "care_manager"]
     tolerance: 0

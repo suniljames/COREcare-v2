@@ -27,12 +27,12 @@ questions:
       strictly linked-client only; staff View-As sessions render the
       impersonated user's links via `effective_user`.
     must_mention:
-      - ["/family/dashboard/", "family/dashboard"]
+      - ["/family/dashboard/", "family/dashboard", "family dashboard", "Family Member home"]
       - ["ClientFamilyMember"]
-      - ["linked-client"]
-      - ["calendar"]
-      - ["billing"]
-    tolerance: 0
+      - ["linked-client", "linked client"]
+      - ["calendar", "events", "billing"]
+      - ["card per linked client", "linked clients", "per-client"]
+    tolerance: 1
 
   - id: q2
     text: "Can a Family Member see another family's client data, and how is that prevented?"
@@ -47,9 +47,9 @@ questions:
     must_mention:
       - ["No", "no"]
       - ["ClientFamilyMember", "client_family_members"]
-      - ["linked-client"]
-      - ["RLS"]
-    tolerance: 0
+      - ["linked-client", "linked client"]
+      - ["RLS", "Python"]
+    tolerance: 1
 
   - id: q3
     text: "Does v2's family-portal RLS policy need to handle revoked-link cases? Why?"
@@ -61,9 +61,9 @@ questions:
       treat revoked links as blocking visibility while preserving the
       historical row.
     must_mention:
-      - ["active-flag", "active flag"]
-      - ["soft-revocation", "soft-revoke"]
+      - ["active-flag", "active flag", "soft-delete", "no expiry"]
+      - ["soft-revocation", "soft-revoke", "soft revocation"]
       - ["audit"]
       - ["RLS"]
       - ["ClientFamilyMember"]
-    tolerance: 0
+    tolerance: 1

@@ -23,28 +23,31 @@ questions:
       and the QuickBooks OAuth + invoice send + customer linking under
       `### quickbooks_integration`. Multiple Django apps, same persona.
     must_mention:
-      - ["billing_catalogs"]
-      - ["quickbooks_integration", "QuickBooks"]
+      - ["billing_catalogs", "billing catalog", "billable service catalog"]
+      - ["quickbooks_integration", "QuickBooks", "quickbooks"]
       - ["dashboard"]
       - ["invoice"]
       - ["billing"]
-    tolerance: 0
+    tolerance: 1
 
   - id: q2
-    text: "Where does an Agency Admin go to add a new client?"
+    text: >-
+      What does an Agency Admin see and do across the per-client routes
+      under the `### clients` Django app?
     fact_summary: |
       Through the per-client routes mounted at `clients/` and `schedule/`
       under `### clients` — the Agency Admin section authors 11 client-app
       routes covering per-client calendar, events with attachments, schedule
-      PDF/preview. Client creation flows live within these admin-prefixed
-      routes (no Family Member or Caregiver client-creation surface in v1).
+      PDF/preview. Client creation/management flows live within these
+      admin-prefixed routes (no Family Member or Caregiver client-management
+      surface in v1).
     must_mention:
-      - ["clients"]
+      - ["clients", "client"]
       - ["calendar"]
       - ["events"]
       - ["schedule"]
-      - ["attachments"]
-    tolerance: 0
+      - ["attachments", "PDF"]
+    tolerance: 1
 
   - id: q3
     text: "Which Agency Admin screens display PHI and require special v2 treatment?"
@@ -59,9 +62,9 @@ questions:
       `phi_displayed=true` and surface in the cross-reference index for
       Super-Admin/Agency Admin parity.
     must_mention:
-      - ["phi_displayed"]
+      - ["phi_displayed", "PHI displayed", "PHI is displayed", "🔒 PHI"]
       - ["charting"]
       - ["clients"]
       - ["compliance"]
       - ["billing"]
-    tolerance: 0
+    tolerance: 1

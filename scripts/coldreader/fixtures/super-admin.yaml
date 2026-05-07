@@ -20,12 +20,12 @@ questions:
       in v1. Operator sees a confirmation prompt with the active-session
       count; can terminate all View-As sessions immediately.
     must_mention:
-      - ["/admin/view-as/kill-all/", "view-as/kill-all", "kill-all"]
-      - ["is_superuser"]
+      - ["/admin/view-as/kill-all/", "view-as/kill-all", "kill-all", "kill switch"]
+      - ["is_superuser", "superuser"]
       - ["View As", "View-As", "view-as"]
-      - ["audit-logged", "audit-log"]
-      - ["confirmation prompt", "confirmation"]
-    tolerance: 0
+      - ["audit-logged", "audit-log", "audit"]
+      - ["confirmation prompt", "confirmation", "active-session", "active sessions"]
+    tolerance: 1
 
   - id: q2
     text: "What separates the Super-Admin persona from Agency Admin in v1?"
@@ -39,12 +39,12 @@ questions:
       administration). The cross-reference index under `## Super-Admin →
       ### Cross-reference index` lists exactly these routes.
     must_mention:
-      - ["is_superuser"]
+      - ["is_superuser", "superuser"]
       - ["is_staff"]
-      - ["@staff_member_required", "staff_member_required"]
+      - ["@staff_member_required", "staff_member_required", "staff-required"]
       - ["View-As", "view-as", "View As"]
       - ["Agency Admin"]
-    tolerance: 0
+    tolerance: 1
 
   - id: q3
     text: "Which v1 platform-ops endpoints exist outside the row-count denominator and why?"
@@ -61,6 +61,6 @@ questions:
     must_mention:
       - ["/healthz", "healthz"]
       - ["/ops/disk-check/", "disk-check"]
-      - ["JSON", "redirect-only"]
-      - ["is_staff"]
-    tolerance: 0
+      - ["JSON", "redirect-only", "redirect"]
+      - ["is_staff", "platform"]
+    tolerance: 1

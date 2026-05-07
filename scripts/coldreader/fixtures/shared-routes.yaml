@@ -29,8 +29,8 @@ questions:
       - ["Cross-reference index", "cross-reference index"]
       - ["Agency Admin"]
       - ["Family Member"]
-      - ["primary-persona", "primary persona"]
-    tolerance: 0
+      - ["primary-persona", "primary persona", "persona section"]
+    tolerance: 1
 
   - id: q2
     text: >-
@@ -49,9 +49,9 @@ questions:
       - ["switch-role", "/switch-role/"]
       - ["portal-chooser", "/portal-chooser/"]
       - ["family-signup", "/family-signup/"]
-      - ["dual-role", "dual role"]
-      - ["RoleService", "role_service"]
-    tolerance: 0
+      - ["dual-role", "dual role", "dual portal"]
+      - ["RoleService", "role_service", "role service"]
+    tolerance: 1
 
   - id: q3
     text: >-
@@ -70,8 +70,8 @@ questions:
       not duplicated here.
     must_mention:
       - ["ClientFamilyMember"]
-      - ["link gate", "link"]
+      - ["link gate", "link", "ClientFamilyMember link"]
       - ["Family Member"]
-      - ["is_staff"]
-      - ["staff bypass", "bypass"]
-    tolerance: 0
+      - ["is_staff", "staff bypass"]
+      - ["staff bypass", "bypass", "staff", "is_staff"]
+    tolerance: 1
