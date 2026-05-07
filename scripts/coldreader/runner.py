@@ -23,6 +23,7 @@ class RotationFailure:
     question_text: str
     expected_fact_summary: str
     message: str
+    model_answer: str = ""
 
 
 @dataclass
@@ -36,10 +37,20 @@ class RotationResult:
         return not self.failures
 
     def format_failure(self, failure: RotationFailure) -> str:
+        # The model's actual answer is the load-bearing detail when triaging
+        # whether a failure is real drift, a fixture-vocabulary mismatch, or
+        # a question the model finds intractable. Without it the docs author
+        # has to dig into Actions logs.
+        answer_block = (
+            f"\n  Model answer: {failure.model_answer.strip()[:500]}"
+            if failure.model_answer
+            else ""
+        )
         return (
             f"FAILED — {failure.persona} / {failure.question_id} "
             f"({failure.question_text!r})\n"
-            f"  Expected fact: {failure.expected_fact_summary.strip()}\n"
+            f"  Expected fact: {failure.expected_fact_summary.strip()}"
+            f"{answer_block}\n"
             f"  {failure.message}"
         )
 
@@ -121,6 +132,7 @@ def _evaluate(
             message=(
                 "model returned empty answer — section + index do not contain the load-bearing fact"
             ),
+            model_answer=response.answer,
         )
     ev_check = verify_evidence(response.verbatim_evidence, section, index)
     if not ev_check.passed:
@@ -130,6 +142,7 @@ def _evaluate(
             question_text=q.text,
             expected_fact_summary=q.expected_fact_summary,
             message=ev_check.reason,
+            model_answer=response.answer,
         )
     summary_check = check_summary_match(response.answer, q.expected_fact_summary)
     if not summary_check.passed:
@@ -139,6 +152,7 @@ def _evaluate(
             question_text=q.text,
             expected_fact_summary=q.expected_fact_summary,
             message=summary_check.reason,
+            model_answer=response.answer,
         )
     return None
 
@@ -162,7 +176,9 @@ def run_rotation(
 
     result = RotationResult(persona=fx.persona)
     for q in fx.questions:
-        response, failure = _score_question(fx, q, section, index, client, allow_retry=allow_retry)
+        response, failure = _score_question(
+            fx, q, section, index, client, allow_retry=allow_retry
+        )
         result.usage = result.usage + response.usage
         if failure is not None:
             result.failures.append(failure)
