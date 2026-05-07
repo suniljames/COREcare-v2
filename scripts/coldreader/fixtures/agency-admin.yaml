@@ -3,6 +3,11 @@
 #
 # Three of the five contract questions from #81's authoring DoD —
 # the load-bearing ones for v2 portal + RLS design.
+#
+# `must_mention` is the validation oracle: each OR-group lists acceptable
+# surface forms; the model's answer must include at least one alternate from
+# each group (within `tolerance` misses). `fact_summary` is documentation
+# only — guidance for fixture authors and human readers.
 
 persona: agency-admin
 min_section_bytes: 25000
@@ -10,26 +15,40 @@ min_section_bytes: 25000
 questions:
   - id: q1
     text: "What screens does an Agency Admin see for managing client billing?"
-    expected_fact_summary: |
+    fact_summary: |
       Agency Admins reach the `### billing` and `### billing_catalogs` apps
       (capability-gated admin custom views and Hazel-managed billable service
       catalog), the per-client schedule PDF/preview under `### clients`, the
       timecard summaries + invoice list + billing exports under `### dashboard`,
       and the QuickBooks OAuth + invoice send + customer linking under
       `### quickbooks_integration`. Multiple Django apps, same persona.
+    must_mention:
+      - ["billing_catalogs"]
+      - ["quickbooks_integration", "QuickBooks"]
+      - ["dashboard"]
+      - ["invoice"]
+      - ["billing"]
+    tolerance: 0
 
   - id: q2
     text: "Where does an Agency Admin go to add a new client?"
-    expected_fact_summary: |
+    fact_summary: |
       Through the per-client routes mounted at `clients/` and `schedule/`
       under `### clients` — the Agency Admin section authors 11 client-app
       routes covering per-client calendar, events with attachments, schedule
       PDF/preview. Client creation flows live within these admin-prefixed
       routes (no Family Member or Caregiver client-creation surface in v1).
+    must_mention:
+      - ["clients"]
+      - ["calendar"]
+      - ["events"]
+      - ["schedule"]
+      - ["attachments"]
+    tolerance: 0
 
   - id: q3
     text: "Which Agency Admin screens display PHI and require special v2 treatment?"
-    expected_fact_summary: |
+    fact_summary: |
       Rows marked `🔒 PHI · ` and rows with `phi_displayed=true` in the row
       table — concentrated in `### charting` (clinical surface, 22 routes
       complete), `### clients` (per-client calendar and events with
@@ -39,3 +58,10 @@ questions:
       under top-level admin (`/admin/expenses/review/...`) carry
       `phi_displayed=true` and surface in the cross-reference index for
       Super-Admin/Agency Admin parity.
+    must_mention:
+      - ["phi_displayed"]
+      - ["charting"]
+      - ["clients"]
+      - ["compliance"]
+      - ["billing"]
+    tolerance: 0

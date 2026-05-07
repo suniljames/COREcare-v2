@@ -33,17 +33,20 @@ def _fixture(
             Question(
                 id="q1",
                 text="What does X see?",
-                expected_fact_summary="They see Y on the dashboard.",
+                fact_summary="They see Y on the dashboard.",
+                must_mention=(("dashboard",),),
             ),
             Question(
                 id="q2",
                 text="Can X access Z?",
-                expected_fact_summary="No — gated by linked-client only.",
+                fact_summary="No — gated by linked-client only.",
+                must_mention=(("linked-client",),),
             ),
             Question(
                 id="q3",
                 text="Why must v2 handle revoke?",
-                expected_fact_summary="No active-flag in v1; soft-revoke needed.",
+                fact_summary="No active-flag in v1; soft-revoke needed.",
+                must_mention=(("active-flag",), ("soft-revoke",)),
             ),
         ),
         source_path=Path("/tmp/fake.yaml"),
@@ -95,7 +98,9 @@ def test_rotation_passes_when_evidence_grounded(tmp_path: Path) -> None:
         ),
     )
 
-    result = run_rotation(fx, section=section, index=index, client=client, allow_retry=True)
+    result = run_rotation(
+        fx, section=section, index=index, client=client, allow_retry=True
+    )
     assert isinstance(result, RotationResult)
     assert result.passed
     assert len(result.failures) == 0
@@ -110,9 +115,24 @@ def test_rotation_passes_when_evidence_grounded(tmp_path: Path) -> None:
 def test_rotation_fails_when_verbatim_evidence_not_in_section(tmp_path: Path) -> None:
     fx = _fixture(
         questions=(
-            Question(id="q1", text="?", expected_fact_summary="X sees Y."),
-            Question(id="q2", text="?", expected_fact_summary="Y sees Z."),
-            Question(id="q3", text="?", expected_fact_summary="A sees B."),
+            Question(
+                id="q1",
+                text="?",
+                fact_summary="X sees Y.",
+                must_mention=(("dashboard",),),
+            ),
+            Question(
+                id="q2",
+                text="?",
+                fact_summary="Y sees Z.",
+                must_mention=(("Z",),),
+            ),
+            Question(
+                id="q3",
+                text="?",
+                fact_summary="A sees B.",
+                must_mention=(("active-flag",),),
+            ),
         )
     )
     client = FakeAnthropicClient()
@@ -146,12 +166,14 @@ def test_rotation_fails_when_verbatim_evidence_not_in_section(tmp_path: Path) ->
         "family-member",
         "q3",
         CannedResponse(
-            answer="They see B.",
+            answer="They see B because v1 has no active-flag on the link.",
             verbatim_evidence=("v1 has no active-flag",),
         ),
     )
 
-    result = run_rotation(fx, section=_section(), index=_index(), client=client, allow_retry=True)
+    result = run_rotation(
+        fx, section=_section(), index=_index(), client=client, allow_retry=True
+    )
     assert not result.passed
     assert len(result.failures) == 1
     f = result.failures[0]
@@ -188,7 +210,9 @@ def test_rotation_evidence_can_match_in_either_section_or_index(tmp_path: Path) 
             verbatim_evidence=("no active-flag on the link",),
         ),
     )
-    result = run_rotation(fx, section=_section(), index=_index(), client=client, allow_retry=False)
+    result = run_rotation(
+        fx, section=_section(), index=_index(), client=client, allow_retry=False
+    )
     assert result.passed
 
 
@@ -229,7 +253,9 @@ def test_rotation_fails_when_answer_is_null(tmp_path: Path) -> None:
             verbatim_evidence=("no active-flag on the link",),
         ),
     )
-    result = run_rotation(fx, section=_section(), index=_index(), client=client, allow_retry=True)
+    result = run_rotation(
+        fx, section=_section(), index=_index(), client=client, allow_retry=True
+    )
     assert not result.passed
     assert any(f.question_id == "q1" for f in result.failures)
 
@@ -278,7 +304,9 @@ def test_rotation_retries_failing_question_with_extended_thinking(
         ),
     )
 
-    result = run_rotation(fx, section=_section(), index=_index(), client=client, allow_retry=True)
+    result = run_rotation(
+        fx, section=_section(), index=_index(), client=client, allow_retry=True
+    )
     assert result.passed, "second-pass retry should rescue q1"
     # The retry call has use_extended_thinking=True
     retry_calls = [c for c in client.calls if c.use_extended_thinking]
@@ -314,7 +342,9 @@ def test_rotation_skips_retry_when_disabled(tmp_path: Path) -> None:
             verbatim_evidence=("no active-flag on the link",),
         ),
     )
-    result = run_rotation(fx, section=_section(), index=_index(), client=client, allow_retry=False)
+    result = run_rotation(
+        fx, section=_section(), index=_index(), client=client, allow_retry=False
+    )
     assert not result.passed
     # No retry call recorded
     assert all(not c.use_extended_thinking for c in client.calls)
@@ -356,7 +386,9 @@ def test_rotation_aggregates_token_usage(tmp_path: Path) -> None:
                 cache_creation_tokens=500,
             ),
         )
-    result = run_rotation(fx, section=_section(), index=_index(), client=client, allow_retry=False)
+    result = run_rotation(
+        fx, section=_section(), index=_index(), client=client, allow_retry=False
+    )
     assert result.usage.input_tokens == 300
     assert result.usage.output_tokens == 600
     assert result.usage.cache_read_input_tokens == 6000
@@ -378,7 +410,9 @@ def test_rotation_cache_hit_ratio_helper() -> None:
                 cache_read_tokens=900,
             ),
         )
-    result = run_rotation(fx, section=_section(), index=_index(), client=client, allow_retry=False)
+    result = run_rotation(
+        fx, section=_section(), index=_index(), client=client, allow_retry=False
+    )
     # 900 cached vs 100 uncached input per call → ratio 0.9
     assert abs(result.usage.cache_hit_ratio - 0.9) < 1e-6
 
@@ -444,7 +478,9 @@ def test_failure_message_includes_persona_question_text_and_missing_evidence(
             verbatim_evidence=("no active-flag on the link",),
         ),
     )
-    result = run_rotation(fx, section=_section(), index=_index(), client=client, allow_retry=True)
+    result = run_rotation(
+        fx, section=_section(), index=_index(), client=client, allow_retry=True
+    )
     assert not result.passed
     f = result.failures[0]
     msg = result.format_failure(f)
@@ -483,7 +519,9 @@ def test_fake_client_records_calls_in_order(tmp_path: Path) -> None:
             qid,
             CannedResponse(answer=answer, verbatim_evidence=(evidence,)),
         )
-    run_rotation(fx, section=_section(), index=_index(), client=client, allow_retry=False)
+    run_rotation(
+        fx, section=_section(), index=_index(), client=client, allow_retry=False
+    )
     assert [c.question_id for c in client.calls] == ["q1", "q2", "q3"]
 
 
@@ -507,7 +545,9 @@ def test_render_tracking_issue_body_for_failures(tmp_path: Path) -> None:
     client.add_response(
         "family-member",
         "q2",
-        CannedResponse(answer="No, gated linked-client only.", verbatim_evidence=("not there",)),
+        CannedResponse(
+            answer="No, gated linked-client only.", verbatim_evidence=("not there",)
+        ),
     )
     client.add_response(
         "family-member",
@@ -526,12 +566,207 @@ def test_render_tracking_issue_body_for_failures(tmp_path: Path) -> None:
             verbatim_evidence=("v1 has no active-flag",),
         ),
     )
-    result = run_rotation(fx, section=_section(), index=_index(), client=client, allow_retry=True)
+    result = run_rotation(
+        fx, section=_section(), index=_index(), client=client, allow_retry=True
+    )
     md = render_summary_markdown([result], model="claude-haiku-4-5-20251001")
     assert "claude-haiku-4-5-20251001" in md
     assert "FAIL" in md or "fail" in md
     assert "family-member" in md
     assert "q2" in md or "Can X access Z?" in md
+
+
+# --- Pass-B tool-refusal: empty answer + text block surfaces as SETUP error ---
+
+
+def test_pass_b_tool_refusal_surfaces_text_block_as_setup_failure(
+    tmp_path: Path,
+) -> None:
+    """When Pass-B returns empty answer + a text block, classify as SETUP error."""
+    from runner import FAILURE_CLASS_SETUP
+
+    fx = _fixture()
+    client = FakeAnthropicClient()
+    # q1 Pass-A: empty answer, no text → CONTENT failure on Pass-A.
+    client.add_response(
+        "family-member",
+        "q1",
+        CannedResponse(answer="", verbatim_evidence=()),
+    )
+    # q1 Pass-B: empty answer + a text block (model declined to call the tool).
+    client.add_response(
+        "family-member",
+        "q1",
+        CannedResponse(
+            answer="",
+            verbatim_evidence=(),
+            used_extended_thinking=True,
+            text_block_content="I am not sure I can answer this from the section alone.",
+        ),
+    )
+    # q2/q3 happy.
+    client.add_response(
+        "family-member",
+        "q2",
+        CannedResponse(
+            answer="No, gated linked-client only.",
+            verbatim_evidence=("linked-client only via ClientFamilyMember",),
+        ),
+    )
+    client.add_response(
+        "family-member",
+        "q3",
+        CannedResponse(
+            answer="v1 has no active-flag; v2 needs soft-revoke.",
+            verbatim_evidence=("no active-flag on the link",),
+        ),
+    )
+
+    result = run_rotation(
+        fx, section=_section(), index=_index(), client=client, allow_retry=True
+    )
+    assert not result.passed
+    assert result.has_setup_error
+    f = result.failures[0]
+    assert f.failure_class == FAILURE_CLASS_SETUP
+    assert "declined to call" in f.message.lower() or "tool" in f.message.lower()
+    assert "I am not sure" in f.message
+
+
+def test_text_block_content_truncated_in_failure_message(tmp_path: Path) -> None:
+    """Long text-block content is truncated to bound the auto-issue body."""
+    from runner import TEXT_BLOCK_TRUNCATE_CHARS
+
+    fx = _fixture()
+    long_text = "X" * (TEXT_BLOCK_TRUNCATE_CHARS + 200)
+    client = FakeAnthropicClient()
+    client.add_response(
+        "family-member", "q1", CannedResponse(answer="", verbatim_evidence=())
+    )
+    client.add_response(
+        "family-member",
+        "q1",
+        CannedResponse(
+            answer="",
+            verbatim_evidence=(),
+            used_extended_thinking=True,
+            text_block_content=long_text,
+        ),
+    )
+    client.add_response(
+        "family-member",
+        "q2",
+        CannedResponse(
+            answer="No, gated linked-client only.",
+            verbatim_evidence=("linked-client only via ClientFamilyMember",),
+        ),
+    )
+    client.add_response(
+        "family-member",
+        "q3",
+        CannedResponse(
+            answer="v1 has no active-flag; v2 needs soft-revoke.",
+            verbatim_evidence=("no active-flag on the link",),
+        ),
+    )
+
+    result = run_rotation(
+        fx, section=_section(), index=_index(), client=client, allow_retry=True
+    )
+    f = result.failures[0]
+    # Truncated to bound; no full-length echo.
+    assert "X" * (TEXT_BLOCK_TRUNCATE_CHARS + 50) not in f.message
+
+
+def test_text_block_phi_scrubbed_in_failure_message(tmp_path: Path) -> None:
+    """PHI-shaped strings in text-block content are scrubbed before logging."""
+    fx = _fixture()
+    client = FakeAnthropicClient()
+    client.add_response(
+        "family-member", "q1", CannedResponse(answer="", verbatim_evidence=())
+    )
+    client.add_response(
+        "family-member",
+        "q1",
+        CannedResponse(
+            answer="",
+            verbatim_evidence=(),
+            used_extended_thinking=True,
+            text_block_content=(
+                "I would normally cite jane.doe@example.com but cannot here."
+            ),
+        ),
+    )
+    client.add_response(
+        "family-member",
+        "q2",
+        CannedResponse(
+            answer="No, gated linked-client only.",
+            verbatim_evidence=("linked-client only via ClientFamilyMember",),
+        ),
+    )
+    client.add_response(
+        "family-member",
+        "q3",
+        CannedResponse(
+            answer="v1 has no active-flag; v2 needs soft-revoke.",
+            verbatim_evidence=("no active-flag on the link",),
+        ),
+    )
+
+    result = run_rotation(
+        fx, section=_section(), index=_index(), client=client, allow_retry=True
+    )
+    f = result.failures[0]
+    assert "jane.doe@example.com" not in f.message
+    assert "PHI-REDACTED" in f.message
+
+
+# --- per-question hit-count telemetry rendered in summary markdown ---
+
+
+def test_render_summary_includes_per_question_hit_counts(tmp_path: Path) -> None:
+    """Step summary must show hit counts on every question, PASS or FAIL."""
+    from runner import render_summary_markdown
+
+    fx = _fixture()
+    client = FakeAnthropicClient()
+    for qid in ("q1", "q2", "q3"):
+        answer, evidence = _KEYWORD_RICH_ANSWERS[qid]
+        client.add_response(
+            "family-member",
+            qid,
+            CannedResponse(answer=answer, verbatim_evidence=(evidence,)),
+        )
+    result = run_rotation(
+        fx, section=_section(), index=_index(), client=client, allow_retry=False
+    )
+    md = render_summary_markdown([result], model="claude-haiku-4-5-20251001")
+    # Each question line shows N of M hit counts.
+    assert "q1: 1 of 1" in md
+    assert "q2: 1 of 1" in md
+    # q3 has must_mention=(("active-flag",), ("soft-revoke",)) — answer contains both.
+    assert "q3: 2 of 2" in md
+
+
+def test_rotation_records_telemetry_for_passing_questions(tmp_path: Path) -> None:
+    """Telemetry list is populated for PASS questions, not just failures."""
+    fx = _fixture()
+    client = FakeAnthropicClient()
+    for qid in ("q1", "q2", "q3"):
+        answer, evidence = _KEYWORD_RICH_ANSWERS[qid]
+        client.add_response(
+            "family-member",
+            qid,
+            CannedResponse(answer=answer, verbatim_evidence=(evidence,)),
+        )
+    result = run_rotation(
+        fx, section=_section(), index=_index(), client=client, allow_retry=False
+    )
+    assert result.passed
+    assert len(result.telemetry) == 3
+    # All entries report the actual N-of-M, regardless of pass status.
+    assert all(t.total >= 1 for t in result.telemetry)
 
 
 # --- prevent stale yaml from confusing tests ---
@@ -542,7 +777,12 @@ def test_yaml_round_trip_smoke(tmp_path: Path) -> None:
         "persona": "family-member",
         "min_section_bytes": 1500,
         "questions": [
-            {"id": f"q{i}", "text": f"q{i}?", "expected_fact_summary": f"fact{i}"}
+            {
+                "id": f"q{i}",
+                "text": f"q{i}?",
+                "fact_summary": f"fact{i}",
+                "must_mention": [["alpha"]],
+            }
             for i in range(1, 4)
         ],
     }

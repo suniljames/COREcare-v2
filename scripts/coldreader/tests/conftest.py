@@ -24,16 +24,21 @@ class CannedResponse:
     cache_creation_tokens: int = 0
     input_tokens: int = 100
     output_tokens: int = 200
+    text_block_content: str = ""
 
 
 class FakeAnthropicClient:
     """Anthropic-shaped client that returns canned responses without network calls."""
 
-    def __init__(self, canned: dict[tuple[str, str], list[CannedResponse]] | None = None) -> None:
+    def __init__(
+        self, canned: dict[tuple[str, str], list[CannedResponse]] | None = None
+    ) -> None:
         self._canned = canned or {}
         self.calls: list[RotationCall] = []
 
-    def add_response(self, persona: str, question_id: str, response: CannedResponse) -> None:
+    def add_response(
+        self, persona: str, question_id: str, response: CannedResponse
+    ) -> None:
         key = (persona, question_id)
         self._canned.setdefault(key, []).append(response)
 
@@ -59,6 +64,7 @@ class FakeAnthropicClient:
                 cache_creation_input_tokens=canned.cache_creation_tokens,
             ),
             used_extended_thinking=canned.used_extended_thinking,
+            text_block_content=canned.text_block_content,
         )
 
 

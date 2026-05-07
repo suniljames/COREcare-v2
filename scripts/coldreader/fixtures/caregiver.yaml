@@ -3,6 +3,8 @@
 #
 # Three of the five contract questions from #101's authoring DoD —
 # the ones load-bearing for v2 caregiver-portal contract.
+#
+# `must_mention` is the validation oracle; `fact_summary` is documentation only.
 
 persona: caregiver
 min_section_bytes: 12000
@@ -12,19 +14,25 @@ questions:
     text: >-
       How does a caregiver clock in to a scheduled shift, and what's different
       for an unscheduled visit?
-    expected_fact_summary: |
+    fact_summary: |
       Scheduled shifts use `/caregiver/shift/<int:shift_id>/clock-in/` —
       the route is bound to a specific assigned shift. Unscheduled visits
       use `/caregiver/clock/` (no shift parameter). Both routes live under
       `### caregiver_dashboard`. The split is load-bearing for v2: the v1
       shift model assumes a pre-assigned shift exists for clock-in, while
       unscheduled clock-ins create a visit record on the fly.
+    must_mention:
+      - ["clock-in", "clock_in"]
+      - ["/caregiver/clock/", "/caregiver/shift/"]
+      - ["caregiver_dashboard"]
+      - ["shift"]
+    tolerance: 0
 
   - id: q2
     text: >-
       How does a caregiver fill in chart data for a visit, and which Django
       apps does that flow span?
-    expected_fact_summary: |
+    fact_summary: |
       Caregiver-side charting spans two Django apps:
       `### caregiver_dashboard` (shift/visit context, profile, schedule
       landing) and `### charting` (the active-shift chart UI at
@@ -35,12 +43,18 @@ questions:
       output, etc.) hits JSON `api/chart/save-*` endpoints that are excluded
       from the row-count denominator but referenced from the Shared routes
       cross-reference index for traceability.
+    must_mention:
+      - ["caregiver_dashboard"]
+      - ["charting"]
+      - ["medications"]
+      - ["/charting/visit/", "chart"]
+    tolerance: 0
 
   - id: q3
     text: >-
       What gates a caregiver's first clock-in (profile completion, onboarding,
       credential surface)?
-    expected_fact_summary: |
+    fact_summary: |
       `ProfileCompletionMiddleware` enforces a profile-completion gate at
       `/caregiver/onboarding/` and `/caregiver/profile/`; the caregiver
       cannot clock in until profile data and credentials are submitted. The
@@ -48,3 +62,9 @@ questions:
       `/employees/complete-profile/` (cross-referenced from this section's
       lead) under `### employees` — three routes covering caregiver
       invitation acceptance + profile-completion onboarding.
+    must_mention:
+      - ["ProfileCompletionMiddleware"]
+      - ["/caregiver/onboarding/", "onboarding"]
+      - ["profile"]
+      - ["clock-in", "clock_in"]
+    tolerance: 0
