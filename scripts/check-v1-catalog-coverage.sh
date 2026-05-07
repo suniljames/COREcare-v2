@@ -77,9 +77,11 @@ trap 'rm -rf "$WORK"' EXIT
 INV_REFS="$WORK/inv_refs.txt"
 INV_SKIPPED="$WORK/inv_skipped.txt"
 INV_BAD="$WORK/inv_bad.txt"
+INV_SKIP_REASONS="$WORK/inv_skip_reasons.txt"
 : > "$INV_REFS"
 : > "$INV_SKIPPED"
 : > "$INV_BAD"
+: > "$INV_SKIP_REASONS"
 
 awk -F'|' '
   NF == 12 {
@@ -97,6 +99,11 @@ awk -F'|' '
     }
     if (ref ~ /^not_screenshotted:/) {
       print route > "'"$INV_SKIPPED"'"
+      # Capture the reason for taxonomy soft-warn (Stage 5).
+      reason = ref
+      sub(/^not_screenshotted:[[:space:]]*/, "", reason)
+      sub(/[[:space:]]+$/, "", reason)
+      print route "\t" reason > "'"$INV_SKIP_REASONS"'"
       next
     }
     # Otherwise: canonical_id reference
@@ -219,6 +226,26 @@ if (( COVERAGE_PCT < THRESHOLD )); then
   echo ""
   echo "FAIL: coverage ${COVERAGE_PCT}% below threshold ${THRESHOLD}%"
   FAILED=1
+fi
+
+# ---------------------------------------------------------------------------
+# Stage 5 — skip-reason taxonomy soft-warn.
+#
+# Each not_screenshotted: <reason> value should match the locked taxonomy in
+# docs/legacy/README.md §Skip-reason taxonomy. Unknown values are flagged
+# with a WARN (not a FAIL) so the operator can either extend the taxonomy
+# table in the same PR or fix the inventory row.
+# ---------------------------------------------------------------------------
+
+LOCKED_REASONS_RE='^(pending #79|destructive_endpoint|gated_by_capability|no_seed_data|no_authenticated_surface|auth_redirect)$'
+UNKNOWN_REASONS=$(awk -F'\t' -v re="$LOCKED_REASONS_RE" '$2 !~ re {print $0}' "$INV_SKIP_REASONS")
+UNKNOWN_COUNT=$(echo -n "$UNKNOWN_REASONS" | grep -c . || true)
+
+if (( UNKNOWN_COUNT > 0 )); then
+  echo ""
+  echo "WARN: $UNKNOWN_COUNT inventory row(s) use a skip-reason value not in the locked taxonomy:"
+  echo "$UNKNOWN_REASONS" | sed 's/^/  - /'
+  echo "  → extend docs/legacy/README.md §Skip-reason taxonomy or fix the inventory."
 fi
 
 if (( FAILED == 0 )); then
