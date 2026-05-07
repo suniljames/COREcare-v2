@@ -49,11 +49,12 @@ test-e2e: ## Run Playwright E2E tests against full Docker stack
 
 # --- V1 reference docs ---
 
-test-v1-docs: ## Run v1 doc hygiene + structure script self-tests
+test-v1-docs: ## Run v1 doc hygiene + structure + catalog-coverage script self-tests
 	bash scripts/tests/test_check_v1_doc_hygiene.sh
 	bash scripts/tests/test_check_v1_doc_structure.sh
+	bash scripts/tests/test_check_v1_catalog_coverage.sh
 
-scan-v1-docs: ## Run hygiene + structure scripts over committed v1 reference docs
+scan-v1-docs: ## Run hygiene + structure + catalog-coverage scripts over committed docs
 	@if compgen -G "docs/migration/v1-*.md" > /dev/null; then \
 		bash scripts/check-v1-doc-hygiene.sh docs/migration/v1-*.md; \
 	else \
@@ -63,6 +64,11 @@ scan-v1-docs: ## Run hygiene + structure scripts over committed v1 reference doc
 		bash scripts/check-v1-doc-structure.sh; \
 	else \
 		echo "Pages inventory or delta doc absent — structure check skipped."; \
+	fi
+	@if [ -f docs/migration/v1-pages-inventory.md ]; then \
+		bash scripts/check-v1-catalog-coverage.sh; \
+	else \
+		echo "Pages inventory absent — catalog-coverage check skipped."; \
 	fi
 
 # --- API shortcuts ---

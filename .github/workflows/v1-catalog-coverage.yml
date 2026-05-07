@@ -1,0 +1,44 @@
+name: V1 Catalog Coverage
+
+on:
+  pull_request:
+    paths:
+      - 'docs/migration/v1-pages-inventory.md'
+      - 'docs/legacy/v1-ui-catalog/**'
+      - 'scripts/check-v1-catalog-coverage.sh'
+      - 'scripts/tests/test_check_v1_catalog_coverage.sh'
+      - '.github/workflows/v1-catalog-coverage.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/migration/v1-pages-inventory.md'
+      - 'docs/legacy/v1-ui-catalog/**'
+      - 'scripts/check-v1-catalog-coverage.sh'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  script-self-test:
+    name: Coverage script self-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The script does not read LFS-tracked binaries; skip smudge to keep
+          # the job lean per ADR-010.
+          lfs: false
+      - name: Run coverage script tests
+        run: bash scripts/tests/test_check_v1_catalog_coverage.sh
+
+  inventory-catalog-parity:
+    name: Inventory ↔ catalog parity
+    runs-on: ubuntu-latest
+    needs: script-self-test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - name: Run coverage check against repo state
+        run: bash scripts/check-v1-catalog-coverage.sh

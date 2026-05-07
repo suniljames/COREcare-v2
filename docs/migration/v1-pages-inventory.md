@@ -72,6 +72,15 @@ _Authored under #101. Per-Django-app denominators below._
 - `caregiver_dashboard.push_subscribe`, `push_unsubscribe` — JSON.
 - `charting/api/chart/save-*` (5 routes), `api/chart/finalize/`, `api/chart/catalog-services/`, `api/chart/billable-services/<id>/`, `api/chart/record-billable-service/`, `api/chart/capture-signature/` — JSON chart-save endpoints; surface in the active-shift / caregiver-chart UI. Referenced from the [Shared routes cross-reference index](#cross-reference-index) for traceability.
 
+### Client
+
+_v1 has no Client-as-actor surface — see [the Client section absence note](#client-section) below._
+
+| app | denominator | numerator | notes |
+|-----|-------------|-----------|-------|
+| _(no Django app reachable by Client persona)_ | 0 | 0 | Client is a model record (`clients.models.Client`), not an authenticator. No URL patterns reachable by a logged-in client. |
+| **total (Client)** | **0** | **0** | N/A — section is an absence note, not a row table. |
+
 ---
 
 ---
@@ -339,13 +348,19 @@ Three Caregiver-primary HTML routes from the `charting/` app — `@login_require
 
 ## Client
 
-_last reconciled: 2026-05-06 against v1 commit `9738412`_
+<a id="client-section"></a>
 
-Client pages cover the care recipient's view of their care plan, upcoming shifts, and assigned caregivers. Lower frequency than Caregiver; PHI handling is paramount because the client is the subject.
+_last reconciled: 2026-05-07 against v1 commit `9738412`_
 
-| route | purpose | what_user_sees_can_do | v2_status | severity | multi_tenant_refactor | rls_bypass_by_design | phi_displayed | screenshot_ref | v2_link |
-|-------|---------|-----------------------|-----------|----------|-----------------------|----------------------|---------------|----------------|---------|
-| _(rows pending content authoring)_ | | | | | | | | | |
+**v1 has no Client-as-actor surface.** Clients are subjects of care, not authenticators. `clients/models.py:15` defines `class Client(models.Model)` with no `User` linkage; the only `User` linkage in the `clients/` app is `class ClientFamilyMember` at `clients/models.py:392`, whose `user = ForeignKey(settings.AUTH_USER_MODEL)` field at `clients/models.py:400` binds a Family Member account to a Client record. Every `<int:client_id>`-parameterized URL pattern in v1 is reached by staff (Agency Admin, Care Manager, Caregiver) under `@staff_member_required` / role decorators, or by a linked Family Member under the `ClientFamilyMember` relationship — never by a logged-in client. v1 carries zero `@client_required`-style decorators (verified by source grep at the pinned commit). The `.claude/pm-context.md` `Stakeholders` table aligns with this reality: it lists Super-Admin, Agency Admin, Care Manager, Caregiver, and Family Member as personas; Client appears in the `Domain Vocabulary` table as a subject term, not in `Stakeholders` as an actor.
+
+**Where client-data visibility actually lives in v1.** Inventory rows that render a client's PHI live under other persona sections:
+
+- the [Family Member section](#family-member) of this inventory — the Family Member persona reaches client-linked dashboards, billing PDFs, health-report downloads, and event calendars under the `ClientFamilyMember` linkage (rows authored under #103).
+- [Agency Admin → clients](#clients) — staff reach the per-client unified calendar, custom event creation, attachments, and schedule PDF/preview (rows authored under #84).
+- [Agency Admin → charting](#charting) — staff reach the per-client charting tab, trend views, medication orders, chart-comment review, health-report generation and approval, and proxy charting (rows authored under #85).
+
+**v2 product question.** Whether v2 adds an authenticated Client portal as a deliberate divergence from v1 — and the implied new Clerk role plus per-client RLS policy — is tracked separately in [#109](https://github.com/suniljames/COREcare-v2/issues/109) (`needs-pm-input`). This inventory section is faithful to v1 and is intentionally empty of rows.
 
 ---
 

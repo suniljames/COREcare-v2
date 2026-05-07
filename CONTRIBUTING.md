@@ -23,6 +23,12 @@ This project follows the [engineering directives](https://github.com/suniljames/
 
 ## Dev/Test Environment
 
+After cloning, install Git LFS once so the [v1 UI catalog](docs/legacy/v1-ui-catalog/) WebP binaries (per [ADR-010](docs/adr/010-v1-ui-catalog-storage.md)) are fetched correctly:
+
+```bash
+git lfs install
+```
+
 Local Docker Compose: `docker compose up` starts API (8000), Web (3000), PostgreSQL, Redis.
 
 Test accounts (seeded by `make api-seed`):
