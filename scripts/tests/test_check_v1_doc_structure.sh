@@ -1667,6 +1667,49 @@ _(definitions pending content authoring; each will resolve to one-line text + fi
 EOF
 assert_exit "GL-2: AUTHORED with '_(definitions pending)_' marker fails" 1 "$STRUCTURE" --dir "$TEST_DIR/gl2-defs-pending"
 
+# --- GL-2: AUTHORED with `_(definitions pending content authoring` substring fails ---
+# Note the substring shape — script's pattern array deliberately matches the
+# scaffold suffix without requiring a closing `_`, so any partial-author
+# placeholder of this shape is caught.
+mkdir -p "$TEST_DIR/gl2-defs-authoring-substr"
+write_glossary_inventory "$TEST_DIR/gl2-defs-authoring-substr/v1-pages-inventory.md"
+write_good_delta "$TEST_DIR/gl2-defs-authoring-substr/v1-functionality-delta.md"
+write_glossary_journeys "$TEST_DIR/gl2-defs-authoring-substr/v1-user-journeys.md"
+write_glossary_integrations "$TEST_DIR/gl2-defs-authoring-substr/v1-integrations-and-exports.md"
+cat > "$TEST_DIR/gl2-defs-authoring-substr/v1-glossary.md" <<'EOF'
+# V1 Glossary
+
+**Status:** AUTHORED. Last reconciled: 2026-05-07 against v1 commit `9738412`.
+
+## Entries
+
+- **`elitecare`** — v1 Django project root.
+
+_(definitions pending content authoring; partial draft)_
+EOF
+assert_exit "GL-2: AUTHORED with '_(definitions pending content authoring' substring fails" 1 "$STRUCTURE" --dir "$TEST_DIR/gl2-defs-authoring-substr"
+
+# --- GL-2: AUTHORED with `_(pending content authoring)_` marker fails ---
+mkdir -p "$TEST_DIR/gl2-pending-authoring"
+write_glossary_inventory "$TEST_DIR/gl2-pending-authoring/v1-pages-inventory.md"
+write_good_delta "$TEST_DIR/gl2-pending-authoring/v1-functionality-delta.md"
+write_glossary_journeys "$TEST_DIR/gl2-pending-authoring/v1-user-journeys.md"
+write_glossary_integrations "$TEST_DIR/gl2-pending-authoring/v1-integrations-and-exports.md"
+cat > "$TEST_DIR/gl2-pending-authoring/v1-glossary.md" <<'EOF'
+# V1 Glossary
+
+**Status:** AUTHORED. Last reconciled: 2026-05-07 against v1 commit `9738412`.
+
+## Entries
+
+- **`elitecare`** — v1 Django project root.
+
+## Cross-cutting v1 conventions
+
+_(pending content authoring)_
+EOF
+assert_exit "GL-2: AUTHORED with '_(pending content authoring)_' marker fails" 1 "$STRUCTURE" --dir "$TEST_DIR/gl2-pending-authoring"
+
 # --- GL-3: AUTHORED with link to nonexistent inventory anchor fails ---
 mkdir -p "$TEST_DIR/gl3-bad-inventory"
 write_glossary_inventory "$TEST_DIR/gl3-bad-inventory/v1-pages-inventory.md"
