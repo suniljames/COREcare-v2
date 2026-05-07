@@ -54,6 +54,47 @@ _Enumeration in progress (#81). Per-Django-app denominators below._
 
 **Status note (2026-05-07).** Issue #81 covers Agency Admin row authoring; sub-issues #83–#89 split the work per Django app. All ten Django-app sub-sections are now complete: top-level admin routes, `billing`, `billing_catalogs`, `charting` (per #85), `clients` (per #84), `compliance` (per #88), `dashboard` (per this PR #83), `employees` (per #87), `quickbooks_integration` (per #86), and `auth_service` (per #88). Only the dual-role / shared routes remain (#89) — those land in the file's `## Shared routes` section, not under `## Agency Admin`. Coverage at this commit is **91 / 96 ≈ 95%**, meeting the section's ≥95% target; the remaining 5 dual-role routes are the headroom.
 
+### Care Manager
+
+| app | denominator | numerator | notes |
+|-----|-------------|-----------|-------|
+| care_manager | 6 | 6 | dedicated CM portal — caseload, client focus, three CM-expense screens, receipt download; complete |
+| charting | 1 (proxy_chart_view, gated `is_staff or is_care_manager`) | 0 | row authored under [Agency Admin → charting](#charting); cross-ref only — no duplicate row in this section |
+| **total (Care Manager)** | **7** | **6 (≈86% — see note)** | the single charting row is intentionally not duplicated; coverage of *authored-here* rows is 6/6 = 100%. The 7-route total is the persona's full reachable surface; cross-ref discharges authoring obligation per the #82 convention |
+
+**Excluded charting routes (not Care-Manager-reachable in v1).** Chart-comment review queue, health-report approval queue, all per-client clinical trend / summary / order views, and report-template administration are gated `@staff_member_required` in `charting/views.py` at v1 commit `9738412a`. `CareManagerProfile.is_staff = False`, so CMs do not reach them. ~25 routes total; not enumerated here.
+
+**Excluded redirect-only routes (not counted in denominator).** `/care-manager/dashboard/`, `/care-manager/clients/`, `/care-manager/schedule/`, `/care-manager/requests/` are `RedirectView` permanent redirects to `/care-manager/`; excluded per the README coverage rule.
+
+**Status note (2026-05-07).** Issue #100 closes this section. The cross-ref to `proxy_chart_view` discharges the charting authoring obligation per the row-not-duplicated convention. Excluded routes (per the lead paragraph) total ~25 in `charting/` and are not Care-Manager-reachable in v1.
+
+### Client
+
+_v1 has no Client-as-actor surface — see [the Client section absence note](#client-section) below._
+
+| app | denominator | numerator | notes |
+|-----|-------------|-----------|-------|
+| _(no Django app reachable by Client persona)_ | 0 | 0 | Client is a model record (`clients.models.Client`), not an authenticator. No URL patterns reachable by a logged-in client. |
+| **total (Client)** | **0** | **0** | N/A — section is an absence note, not a row table. |
+
+### Family Member
+
+_Per-Django-app denominators below. Family Member's primary-PHI surface is small (dashboard family-prefixed routes only); other Family-Member-reachable routes (per-client calendar, events, auth flows) are authored under primary-persona sections and indexed in the [Cross-reference index](#cross-reference-index)._
+
+| app | denominator | numerator | notes |
+|-----|-------------|-----------|-------|
+| dashboard | 4 | 4 | family-prefixed HTML routes; complete |
+| **total (Family Member, primary)** | **4** | **4 (100%)** | per-app sum; cross-referenced rows from `clients/` and `auth_service` are not counted in this denominator — they are authored under [Agency Admin](#agency-admin) and indexed in [Shared routes](#shared-routes) |
+
+**Skipped (excluded per coverage rules):**
+- `dashboard.family_redirect` — `/family/` is a redirect-only view (`elitecare/urls.py:55–59`).
+- `dashboard.family_calendar_event_api` — JSON-only API endpoint (`dashboard/urls.py:75–77`).
+- `dashboard.family_caregiver_profile_api` — JSON-only API endpoint (`dashboard/urls.py:80–82`).
+- `dashboard.family_home` — deprecated alias to `family_dashboard` (`dashboard/urls.py:13–14`).
+- `dashboard.family_signup` — authored in [`## Shared routes` row table](#routes-authored-here-no-primary-persona-section); reached via the `family-signup/` public shortcut and indexed there.
+
+**Status note (2026-05-07).** Issue #103 covers Family Member row authoring. All Family-Member-PRIMARY HTML routes are in `dashboard/` (4 rows). Family-Member-reachable routes that go through `ClientFamilyMember`-link gates — per-client calendar, events, schedule PDF — are authored under [Agency Admin → clients](#clients) and indexed in the [cross-reference index](#cross-reference-index). Coverage at this commit is **4 / 4 = 100%** of primary-PHI Family Member routes.
+
 ---
 
 ---
@@ -252,13 +293,21 @@ _password-reset flow (4 routes) + magic-link login (1 route); mounted at root pr
 
 ## Care Manager
 
-_last reconciled: 2026-05-06 against v1 commit `9738412`_
+_last reconciled: 2026-05-07 against v1 commit `9738412`_
 
-Care Manager pages cover care plan authoring, supervisory review, and team-level oversight of caregivers. Distinct from Agency Admin in clinical scope; distinct from Caregiver in supervisory authority.
+Care Manager is a dedicated role profile (`CareManagerProfile`, OneToOne with User, `is_staff=False`) — a caseload-first portal of six pages where a CM sees their assigned clients and submits the small expenses they incur in the field. v1's chart-comment review queue, health-report approval queue, per-client clinical trend and order views, and report-template administration are gated `@staff_member_required` in `charting/views.py` at v1 commit `9738412a`; CMs do not reach them, and v2 must not collapse this gate by granting CMs `is_staff`. Audit-log behavior in the CM portal is uneven — `ExpenseService` logs status transitions on submit/edit/resubmit, but `cm_serve_receipt` does not log downloads, and clinical-tab access inside `cm_client_focus` inherits whatever logging the underlying `charting` services emit; each row's `purpose` cell calls out where v1 audit-logs and where v2 must add coverage. The `proxy_chart_view` row lives under [Agency Admin → charting](#charting); see the [cross-reference index](#cross-reference-index) for dual-role portal switching, password reset, magic-link login, and the receipt-route Agency Admin oversight path.
+
+### care_manager
+_six HTML routes mounted at `/care-manager/` per `elitecare/urls.py` line 179: caseload, per-client focus, CM expense list, expense submit, expense edit, expense receipt download; four legacy `RedirectView` URLs (`/dashboard/`, `/clients/`, `/schedule/`, `/requests/`) are excluded per the README coverage rule_
 
 | route | purpose | what_user_sees_can_do | v2_status | severity | multi_tenant_refactor | rls_bypass_by_design | phi_displayed | screenshot_ref | v2_link |
 |-------|---------|-----------------------|-----------|----------|-----------------------|----------------------|---------------|----------------|---------|
-| _(rows pending content authoring)_ | | | | | | | | | |
+| `/care-manager/` | 🔒 PHI · `My Caseload` — priority-sorted list of every client assigned to this CM, with attention queue and all-clear groups; scope enforced by `CareManagerService.get_assigned_client_ids`; v1 does not audit-log this surface. | Sees: assigned clients with severity-colored attention badges, action queue with caregiver and client context, all-clear group, daily summary. Can: drill to a client's focus page, dismiss or annotate actions via the inline notify links. | missing | H | true | false | true | not_screenshotted: pending #79 |  |
+| `/care-manager/client/<int:pk>/` | 🔒 PHI · `Client Focus` — full per-client context for one assigned client across schedule, charting, vitals, and care-request tabs; unassigned-client access raises Http404; clinical-tab audit logging inherits whatever the underlying `charting` services emit (verify per-tab in v2 design). | Sees: client demographics with diagnosis and DNR badge, alert-badge strip, care-team caregiver cards with phone and email, family-member contacts, tab-specific data (schedule grid, charting rollup, vitals trend, request list) with notification dots per tab. Can: switch tabs via querystring, drill to caregivers and family members, take per-tab actions surfaced by the action queue. | missing | H | true | false | true | not_screenshotted: pending #79 |  |
+| `/care-manager/expenses/` | 🔒 PHI · CM expense list grouped per assigned client, with budget status; status transitions on the linked expenses are audit-logged via `ExpenseService` workflow events but the list view itself is not. | Sees: per-client expense groupings with status, amount, expense type, submission date; budget status banner; receipt thumbnails. Can: drill to a single expense to edit or resubmit, navigate to the submission form, open a receipt. | missing | M | true | false | true | not_screenshotted: pending #79 |  |
+| `/care-manager/expenses/submit/` | 🔒 PHI · CM expense submission form scoped to assigned clients; submission audit-logged via `ExpenseService.create_expense` workflow events. | Sees: budget status, expense-type picker, amount, description, expense date, client picker (assigned clients only), payment-method radio, receipt upload. Can: submit an expense with a single attached receipt; success returns to the expense list with a flash message. | missing | M | true | false | true | not_screenshotted: pending #79 |  |
+| `/care-manager/expenses/<int:expense_id>/edit/` | 🔒 PHI · CM expense edit / resubmit form; submitter-only ownership enforced; resubmits on REJECTED expenses route through `ExpenseService.resubmit_expense`, edits route through `ExpenseService.edit_expense` — both audit-logged via workflow events. | Sees: pre-filled form mirroring the submit page with the linked client locked, current status, and an optional receipt upload. Can: update fields and save, attach a new receipt (replaces the previous one), or resubmit a rejected expense. | missing | M | true | false | true | not_screenshotted: pending #79 |  |
+| `/care-manager/expenses/<int:expense_id>/receipt/<int:receipt_id>/` | 🔒 PHI · Auth-gated download of an expense receipt; access boundary is the submitter, the linked caregiver, or `is_staff` short-circuit at `care_manager/views.py:733` (Agency Admin oversight path); receipt is verified-bound to its parent expense via `get_object_or_404(ExpenseReceipt, pk=receipt_id, expense=expense)` to prevent cross-receipt IDOR; **v1 has no audit on this route — v2 design must add**. | Sees: file download initiated by the browser with `Content-Disposition: attachment` and a sanitized filename. Can: open or save the receipt blob. | missing | H | true | false | true | not_screenshotted: pending #79 |  |
 
 ---
 
@@ -276,25 +325,54 @@ Caregiver pages are field-facing: clock-in/out, schedule view, chart-note submis
 
 ## Client
 
-_last reconciled: 2026-05-06 against v1 commit `9738412`_
+<a id="client-section"></a>
 
-Client pages cover the care recipient's view of their care plan, upcoming shifts, and assigned caregivers. Lower frequency than Caregiver; PHI handling is paramount because the client is the subject.
+_last reconciled: 2026-05-07 against v1 commit `9738412`_
 
-| route | purpose | what_user_sees_can_do | v2_status | severity | multi_tenant_refactor | rls_bypass_by_design | phi_displayed | screenshot_ref | v2_link |
-|-------|---------|-----------------------|-----------|----------|-----------------------|----------------------|---------------|----------------|---------|
-| _(rows pending content authoring)_ | | | | | | | | | |
+**v1 has no Client-as-actor surface.** Clients are subjects of care, not authenticators. `clients/models.py:15` defines `class Client(models.Model)` with no `User` linkage; the only `User` linkage in the `clients/` app is `class ClientFamilyMember` at `clients/models.py:392`, whose `user = ForeignKey(settings.AUTH_USER_MODEL)` field at `clients/models.py:400` binds a Family Member account to a Client record. Every `<int:client_id>`-parameterized URL pattern in v1 is reached by staff (Agency Admin, Care Manager, Caregiver) under `@staff_member_required` / role decorators, or by a linked Family Member under the `ClientFamilyMember` relationship — never by a logged-in client. v1 carries zero `@client_required`-style decorators (verified by source grep at the pinned commit). The `.claude/pm-context.md` `Stakeholders` table aligns with this reality: it lists Super-Admin, Agency Admin, Care Manager, Caregiver, and Family Member as personas; Client appears in the `Domain Vocabulary` table as a subject term, not in `Stakeholders` as an actor.
+
+**Where client-data visibility actually lives in v1.** Inventory rows that render a client's PHI live under other persona sections:
+
+- the [Family Member section](#family-member) of this inventory — the Family Member persona reaches client-linked dashboards, billing PDFs, health-report downloads, and event calendars under the `ClientFamilyMember` linkage (rows authored under #103).
+- [Agency Admin → clients](#clients) — staff reach the per-client unified calendar, custom event creation, attachments, and schedule PDF/preview (rows authored under #84).
+- [Agency Admin → charting](#charting) — staff reach the per-client charting tab, trend views, medication orders, chart-comment review, health-report generation and approval, and proxy charting (rows authored under #85).
+
+**v2 product question.** Whether v2 adds an authenticated Client portal as a deliberate divergence from v1 — and the implied new Clerk role plus per-client RLS policy — is tracked separately in [#109](https://github.com/suniljames/COREcare-v2/issues/109) (`needs-pm-input`). This inventory section is faithful to v1 and is intentionally empty of rows.
 
 ---
 
 ## Family Member
 
-_last reconciled: 2026-05-06 against v1 commit `9738412`_
+_last reconciled: 2026-05-07 against v1 commit `9738412`_
 
-Family Member pages cover the limited-visibility view granted to a client's authorized representative. Invite redemption, recent visit notes, agency messaging. Lowest frequency; gaps here are the hardest to detect and easiest to silently drop.
+Family Member pages serve a client's authorized representative — typically a spouse, adult child, or designated POA. v1 grants visibility through a per-(client, user) link recorded in `ClientFamilyMember`; a single Family Member account may be linked to multiple clients. Every row in this section renders PHI scoped to the user's links (linked-client only). Rows lacking the `🔒 PHI · ` prefix or the explicit "linked-client only" scope clause are bugs, not editorial choices.
+
+v1 enforces this scope via Python checks in view bodies (see `clients/views.py:55–59` and `clients/services/family_portal_service.py:142`). v2 must enforce equivalent visibility at the RLS-policy layer keyed on `client_family_members`. Reviewers of v2 family-portal `/design` cycles should treat absence of that policy as a blocking gap.
+
+**v1 has no active-flag on `ClientFamilyMember`** — no soft-delete, no revoked-at, no expiry; the model carries only `unique_together(client, user)` plus per-link permission booleans (`can_view_schedule`, `can_message_caregivers`). Revocation requires hard-delete in v1; v2 design must add a soft-revocation path so audit trails of past family-member access survive after a link ends.
+
+Staff impersonation of Family Member sessions occurs via [Agency Admin's View-As surfaces](#top-level-elitecareurlspy) — those are audit-logged in v1 and must remain audit-logged in v2.
+
+Lowest-frequency persona; gaps are the hardest to detect and the easiest to silently drop. The denominator is small but the visibility-scope discipline is the entire point.
+
+### dashboard
+_family portal landing, per-client detail, billing PDF, health-report PDF; mounted under `/family/` in `dashboard/urls.py`_
 
 | route | purpose | what_user_sees_can_do | v2_status | severity | multi_tenant_refactor | rls_bypass_by_design | phi_displayed | screenshot_ref | v2_link |
 |-------|---------|-----------------------|-----------|----------|-----------------------|----------------------|---------------|----------------|---------|
-| _(rows pending content authoring)_ | | | | | | | | | |
+| `/family/dashboard/` | 🔒 PHI · Family Member home — lists every client the user is linked to via `ClientFamilyMember`, one card per link; uses `effective_user` so View-As sessions render the impersonated user's links. linked-client only; v1 has no audit on this route — v2 design must add. | Sees: card per linked client with client name and quick links into the per-client detail page; greeting. Can: drill into a client's family detail page. | missing | H | true | false | true | not_screenshotted: pending #79 |  |
+| `/family/client/<int:client_id>/` | 🔒 PHI · Per-client family portal — calendar, events, messages, billing summary, expense receipts, visit notes, care team, client documents, charting summaries, family-visibility-approved chart comments; POST submits a care-request message gated by the link's `can_message_caregivers` flag. linked-client only; v1 has no audit on this route — v2 design must add (chart-comment family-views are logged separately via `ChartCommentService.log_family_view`). | Sees: weekly/daily calendar, today's events, recent messages, billing summary, recent visit notes, care team, family-approved chart comments. Can: submit a care-request message (rate-limited 5/min), navigate calendar by week, drill into linked detail surfaces. | missing | H | true | false | true | not_screenshotted: pending #79 |  |
+| `/family/client/<int:client_id>/billing-pdf/` | 🔒 PHI · Family invoice PDF for a single linked client across the selected month; auto-generates a draft `Invoice` from billable visits if none exists; rate-limited 10/h per user. linked-client only; HIPAA-access-logged in v1. | Sees: PDF download initiated by browser. Can: pick month/year/revision via query params; open or save the PDF. | missing | M | true | false | true | not_screenshotted: pending #79 |  |
+| `/family/client/<int:client_id>/health-report/` | 🔒 PHI · Family-variant health-report PDF for a single linked client, generated on demand with selectable sections and a configurable day window; IDOR-protected via `FamilyPortalService.verify_access`; rate-limited 10/h per user. linked-client only; HIPAA-access-logged in v1. | Sees: PDF download initiated by browser. Can: pick day window (7/14/30/90) and section subset via query params; open or save the PDF. | missing | M | true | false | true | not_screenshotted: pending #79 |  |
+
+### clients
+_per-client calendar + events + schedule PDF reached via `ClientFamilyMember` link gate (`clients/views.py:_check_client_access`); rows authored under [Agency Admin → clients](#clients) and indexed in [Cross-reference index](#cross-reference-index)._
+
+### charting
+_chart comments approved with the family-visibility flag are surfaced inside `/family/client/<int:client_id>/` (Phase A2 — `ChartCommentService.log_family_view` audit-logs each surfacing); no Family-Member-direct charting routes exist in v1._
+
+### auth_service
+_password-reset flow + magic-login reach Family Member; rows authored under [Agency Admin → auth_service](#auth_service) and indexed in [Cross-reference index](#cross-reference-index)._
 
 ---
 
@@ -314,7 +392,7 @@ Routes whose canonical row lives in a persona section.
 | route | primary persona | also reachable by | row location |
 |-------|-----------------|-------------------|--------------|
 | `/charting/proxy/<int:visit_id>/` | Agency Admin | Care Manager | [Agency Admin → charting](#charting) |
-| `/charting/comments/<int:daily_chart_id>/` | Agency Admin | Care Manager, Caregiver | [Agency Admin → charting](#charting) |
+| `/charting/comments/<int:daily_chart_id>/` | Agency Admin | Care Manager, Caregiver (family-visibility-approved comments surface inside `/family/client/<int:client_id>/` via `ChartCommentService.log_family_view`; the route itself is not Family-Member-direct) | [Agency Admin → charting](#charting) |
 | `/charting/visit/<int:visit_id>/chart/` | Caregiver | Agency Admin (oversight, read-only via `is_staff`), Care Manager | (pending Caregiver section) |
 | `/charting/medications/<int:visit_id>/` | Caregiver | Agency Admin (visit-context oversight via `is_staff`) | (pending Caregiver section) |
 | `/charting/medications/<int:visit_id>/history/` | Caregiver | Agency Admin (visit-context oversight via `is_staff`) | (pending Caregiver section) |
@@ -322,6 +400,16 @@ Routes whose canonical row lives in a persona section.
 | `/charting/api/chart/save-glucose/` | Caregiver, Agency Admin, Care Manager | (gated to `is_staff or is_care_manager`) | excluded — JSON API endpoint |
 | `/charting/api/chart/save-intake-output/` | Caregiver, Agency Admin, Care Manager | (gated to `is_staff or is_care_manager`) | excluded — JSON API endpoint |
 | `/charting/api/chart/save-bowel-movement/` | Caregiver, Agency Admin, Care Manager | (gated to `is_staff or is_care_manager`) | excluded — JSON API endpoint |
+| `/clients/<int:client_id>/calendar/` | Agency Admin | Family Member (via `ClientFamilyMember` link gate; staff bypass returns `link=None`) | [Agency Admin → clients](#clients) |
+| `/clients/<int:client_id>/calendar/api/` | Agency Admin | Family Member (same family-link gate; powers the calendar widget) | [Agency Admin → clients](#clients) |
+| `/clients/<int:client_id>/events/create/` | Agency Admin | Family Member (`can_add_events = is_family or is_admin`) | [Agency Admin → clients](#clients) |
+| `/clients/<int:client_id>/events/<int:event_id>/edit/` | Agency Admin | Family Member (`can_edit_events = is_family or is_caregiver` — caregiver reachability authored under future Caregiver section) | [Agency Admin → clients](#clients) |
+| `/clients/<int:client_id>/events/<int:event_id>/delete/` | Agency Admin | Family Member (family-link gate) | [Agency Admin → clients](#clients) |
+| `/clients/<int:client_id>/events/<int:event_id>/restore/` | Agency Admin | Family Member (family-link gate; AJAX undo handler) | [Agency Admin → clients](#clients) |
+| `/clients/<int:client_id>/events/<int:event_id>/attachments/upload/` | Agency Admin | Family Member (family-link gate) | [Agency Admin → clients](#clients) |
+| `/clients/<int:client_id>/events/<int:event_id>/attachments/<int:attachment_id>/delete/` | Agency Admin | Family Member (family-link gate) | [Agency Admin → clients](#clients) |
+| `/clients/<int:client_id>/schedule/pdf/` | Agency Admin | Family Member (family-link gate; HIPAA-access-logged in v1) | [Agency Admin → clients](#clients) |
+| `/clients/<int:client_id>/schedule/preview/` | Agency Admin | Family Member (family-link gate) | [Agency Admin → clients](#clients) |
 | `/legal/accessibility/` | Agency Admin | all other personas + unauthenticated visitors (public page) | [Agency Admin → compliance](#compliance) |
 | `/compliance/files/visits/<int:visit_id>/physician-order/<int:proof_id>/` | Agency Admin | Care Manager, Caregiver (gated by `@require_visit_access`) | [Agency Admin → compliance](#compliance) |
 | `/compliance/files/visits/<int:visit_id>/signature/<int:signature_id>/` | Agency Admin | Care Manager, Caregiver (gated by `@require_visit_access`) | [Agency Admin → compliance](#compliance) |
@@ -330,6 +418,7 @@ Routes whose canonical row lives in a persona section.
 | `/password-reset/<uuid:token>/` | Agency Admin | all other personas | [Agency Admin → auth_service](#auth_service) |
 | `/password-reset/complete/` | Agency Admin | all other personas | [Agency Admin → auth_service](#auth_service) |
 | `/magic-login/<uuid:token>/` | Caregiver | Client, Family Member (admin users `is_staff`/`is_superuser` blocked at the view layer; URL reachable but bounces to invalid-token) | (pending Caregiver section; Agency Admin row in `### auth_service` documents the v1 block-for-admins behavior) |
+| `/care-manager/expenses/<int:expense_id>/receipt/<int:receipt_id>/` | Care Manager | Agency Admin (oversight via `is_staff` short-circuit at `care_manager/views.py:733` in v1) | [Care Manager → care_manager](#care_manager) |
 
 ### Routes authored here (no primary-persona section)
 

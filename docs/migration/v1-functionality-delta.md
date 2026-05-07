@@ -64,9 +64,11 @@ v1 has `visit_attach_service_view()` — an admin wizard for attaching catalog s
 
 ### 1.6 Per-visit billable rate vs. caregiver pay rate (split rate model) — **M**
 
-v1's `Shift` model carries both `pay_rate` (caregiver earnings) and `bill_rate` (client charge), separating the cost-of-labor from revenue. This is core to gross-margin reporting.
+v1's `Shift` model carries both `pay_rate` (caregiver earnings, `shifts/models.py:92`) and `bill_rate` (client charge, `shifts/models.py:101`) as first-class `DecimalField`s. The pay path is consumed in payroll cost (`caregiver_dashboard/admin.py:890-897`); the bill path is consumed in invoicing (`billing/services/billing_service.py:271-272`). Both are core to gross-margin reporting.
 
-**v2 docs say:** Q30 mentions "QuickBooks integration takes the same data and posts payroll/billing entries" but doesn't articulate the dual-rate model. Worth confirming both rates are first-class in v2.
+v1 also captures resolved rates at clock-in via `Visit.pay_rate_snapshot` and `Visit.bill_rate_snapshot` (`caregiver_dashboard/models.py:180-201`), with `RateResolutionService` walking a deterministic chain — `snapshot → shift → client/profile default → fallback` (`billing/services/rate_resolution_service.py:42-46`). The snapshot semantics make mid-shift rate changes immune to retroactive payroll edits.
+
+**v2 docs say:** Q30 mentions "QuickBooks integration takes the same data and posts payroll/billing entries" without articulating the dual-rate or snapshot model. v2 must preserve snapshot-at-clock-in semantics or accept retroactive payroll edits as a behavior change.
 
 ---
 
@@ -84,11 +86,13 @@ v1 has `OverpaymentConsent` (signed e-consent for deducting overpaid amounts fro
 
 **v2 docs say:** Nothing.
 
-### 2.3 Meal period waivers — **M** *(state-specific: CA, OR, NV, KY, NJ)*
+### 2.3 Meal period waivers — **M** *(California labor code; analogous laws in OR/NV/KY/NJ not separately handled in v1)*
 
-v1 has a `MealPeriodWaiver` model for caregivers opting out of meal-period tracking — required for CA-style break compliance.
+v1's `MealPeriodWaiver` (`caregiver_dashboard/models.py:1173`, Issue #275) is a one-to-one record per `Visit`. It inherits `BaseAttestation` (`compliance/models/base.py:18`), which captures `user`, `signed_at`, `ip_address`, `user_agent`, and `session_key`, and is immutable after create — this is a legally-defensible attestation, not a boolean flag. The clock-out flow gates waiver creation on `shift_hours > 5` (`caregiver_dashboard/views.py:757-765,858`), and waivers where `waived_voluntarily=False` roll up into `DailyTimesheet.meal_penalty_count` for premium-pay calculation (`payroll/management/commands/generate_timesheets.py:96-100`).
 
-**v2 docs say:** Nothing about meal/rest break tracking or waivers. v2 targets US private-duty agencies (Q2), and CA/OR/NV/KY/NJ have hard meal-break rules.
+The 5-hour threshold and the only state-aware artifact in v1 — the `California Labor Code` notice copy — are CA-specific (`compliance/tests/test_messages.py:84-95`). There is no `state_code` column on `MealPeriodWaiver` and no per-state branching for OR/NV/KY/NJ analogues.
+
+**v2 docs say:** Nothing about meal/rest break tracking or waivers. v2 targets US private-duty agencies (Q2). v2 must preserve immutable IP-stamped attestation semantics if it implements an equivalent, and should make per-state branching explicit if it expands beyond CA.
 
 ### 2.4 Standardized caregiver titles + auto-generated employee IDs — **M**
 
@@ -98,9 +102,14 @@ v1 has `CaregiverTitle` enum (RN, LVN, CNA, HHA, lead caregiver, MD, NP, OT, PA,
 
 ### 2.5 Mileage pay & reimbursement — **M**
 
-v1 separately tracks `mileage` on each `Visit`, computes mileage pay per-period, and exports it as a payroll line item. Mileage-rate is a configurable system setting.
+v1 stores per-visit miles on `Visit.mileage` and surfaces mileage in two distinct pathways:
 
-**v2 docs say:** Q30 acknowledges this in passing ("mileage if you reimburse per mile and the caregiver enters trip distance") — present but lightweight. Confirm v2 supports per-period totals and pay export, not just trip distance capture.
+- **Caregiver-facing payroll:** `SummaryService.get_weekly_summary_data` (`caregiver_dashboard/services/summary_service.py:75-149`) aggregates `total_mileage_reimbursement` per week and feeds the caregiver weekly PDF (`caregiver_dashboard/views.py:1420-1421`) and CSV exports (`caregiver_dashboard/views.py:1547,1592`).
+- **Invoice-facing billing:** `InvoiceLine.line_type` carries `mileage` as a discrete enum value alongside `service` and `expense` (`billing/models.py:347`), with `BillingCalculationService.build_mileage_details` constructing the line items (`billing/services/billing_calculation_service.py:262-295`).
+
+The rate is sourced from a single system-wide setting `caregiver_mileage_reimbursement_rate` (`core/settings_accessors.py:39`) — no per-client override, by design (Issue #1440).
+
+**v2 docs say:** Q30 acknowledges this in passing ("mileage if you reimburse per mile and the caregiver enters trip distance") — present but lightweight. v2 must preserve both pathways (caregiver payroll rollup and invoice line-item type) or document the divergence explicitly.
 
 ### 2.6 Comprehensive expense management for caregivers and care managers — **H**
 
@@ -120,9 +129,11 @@ v1 has middleware that redirects caregivers with incomplete profiles to onboardi
 
 ### 3.1 Per-client customizable chart templates — **H**
 
-v1 has a rich charting model: `ChartTemplate` per client with `ChartSection` (free text, meal tracking, checkbox grid, vital signs, glucose, nursing notes, intake/output, bowel movement, medication administration) and `ChartSectionItem` per section. Each item has inclusion status (included / required / excluded) per client with **exclusion reason categories** (N/A, client condition, clinical decision, family request, other).
+v1's charting model is `ChartTemplate` (`charting/models.py:55`) keyed by `client = ForeignKey(Client)` with a one-active-per-client invariant via `is_active`. Each template owns multiple `ChartTemplateSection` rows (`charting/models.py:254`), each in turn owning `ChartTemplateSectionItem` rows (`charting/models.py:358`). The 11 section types are defined in the `SectionType` enum (`charting/models.py:30-43`).
 
-**v2 docs say:** Q22 mentions "the care plan presents a checklist (ADLs completed, vitals, tasks)" — implies templates but treats them as derived from the care plan, not as separately configurable per-client. The v2 model loses per-client section customization and exclusion-reason tracking.
+Per-section customization lives on `ChartTemplateSection`: `section_status` ∈ `{included, required, excluded}` (`InclusionStatus` enum, `charting/models.py:16-19`); `exclusion_reason` is a free-text field (max 500); `exclusion_reason_category` is enum-bounded with values `not_applicable, client_condition, clinical_decision, family_request, other` (`ExclusionReasonCategory` enum, `charting/models.py:22-26`; field definitions at `charting/models.py:294-300`).
+
+**v2 docs say:** Q22 mentions "the care plan presents a checklist (ADLs completed, vitals, tasks)" — implies templates but treats them as derived from the care plan, not as separately configurable per-client. v2's care-plan-derived shape does not match v1's per-client section-override model; v2 must either denormalize care-plan tasks or introduce a parallel template layer.
 
 ### 3.2 Structured clinical chart entry types — **H**
 
