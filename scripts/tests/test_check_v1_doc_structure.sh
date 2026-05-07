@@ -669,6 +669,39 @@ $INTEGRATIONS_SEP
 EOF
 assert_exit "SL-3: severity empty when v2_status=missing fails" 1 "$STRUCTURE" --dir "$TEST_DIR/integrations-sl3-empty"
 
+# --- SL-3 (bad-token): invalid severity token in {H, M, L, D} set ---
+mkdir -p "$TEST_DIR/integrations-sl3-bad-token"
+write_integrations_inventory "$TEST_DIR/integrations-sl3-bad-token/v1-pages-inventory.md"
+write_good_delta "$TEST_DIR/integrations-sl3-bad-token/v1-functionality-delta.md"
+cat > "$TEST_DIR/integrations-sl3-bad-token/v1-integrations-and-exports.md" <<EOF
+# V1 Integrations and Exports
+
+## Schema
+
+table.
+
+## External integrations
+
+### Billing and payments
+
+$INTEGRATIONS_HEADER
+$INTEGRATIONS_SEP
+| Bad row | Vendor | Trigger | outbound; sync | [/quickbooks/](v1-pages-inventory.md#quickbooks_integration) | Sees: thing. | missing | X |
+
+### Payroll
+### Accounting
+### Messaging and notifications (third-party)
+### Identity, auth, and SSO (third-party)
+### Other
+
+## Internal notification and email backend
+
+## Customer-facing exports
+
+## Cross-references
+EOF
+assert_exit "SL-3: invalid severity token fails" 1 "$STRUCTURE" --dir "$TEST_DIR/integrations-sl3-bad-token"
+
 # --- SL-4: invalid direction_and_sync token ---
 mkdir -p "$TEST_DIR/integrations-sl4"
 write_integrations_inventory "$TEST_DIR/integrations-sl4/v1-pages-inventory.md"
