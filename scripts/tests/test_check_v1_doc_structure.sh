@@ -368,6 +368,33 @@ EOF
 write_good_delta "$TEST_DIR/family-good-noaudit/v1-functionality-delta.md"
 assert_exit "Family Member well-formed row with 'no audit' phrase passes" 0 "$STRUCTURE" --dir "$TEST_DIR/family-good-noaudit"
 
+# Boundary fixture: a malformed Shared-routes row placed AFTER ## Family Member
+# must NOT be subjected to Family Member per-row rules. Origin: PR #113 Q4 NIT.
+mkdir -p "$TEST_DIR/family-shared-boundary"
+cat > "$TEST_DIR/family-shared-boundary/v1-pages-inventory.md" <<'EOF'
+# v1 Pages Inventory
+
+## Super-Admin
+## Agency Admin
+## Care Manager
+## Caregiver
+## Client
+
+## Family Member
+
+| route | purpose |
+|-------|---------|
+| `/family/billing-pdf/` | 🔒 PHI · Family invoice PDF; linked-client only; HIPAA-access-logged in v1. |
+
+## Shared routes
+
+| route | purpose | persona | v2_status | severity |
+|-------|---------|---------|-----------|----------|
+| `/family-signup/` | Public signup form. | none | implemented | L |
+EOF
+write_good_delta "$TEST_DIR/family-shared-boundary/v1-functionality-delta.md"
+assert_exit "Family Member structure rules STOP at '## Shared routes' H2 boundary" 0 "$STRUCTURE" --dir "$TEST_DIR/family-shared-boundary"
+
 # =============================================================================
 # Integrations-and-exports doc tests (CL-1, CL-2, SL-1..SL-4, EL-1, EL-2)
 # =============================================================================
