@@ -45,6 +45,7 @@ done
 INVENTORY="$DIR/v1-pages-inventory.md"
 DELTA="$DIR/v1-functionality-delta.md"
 INTEGRATIONS="$DIR/v1-integrations-and-exports.md"
+JOURNEYS="$DIR/v1-user-journeys.md"
 
 REQUIRED_PERSONAS=(
   "Super-Admin"
@@ -347,6 +348,179 @@ if [[ -f "$INTEGRATIONS" ]]; then
           echo "$line"
         fi
       done <<< "$awk_violations"
+    fi
+  fi
+fi
+
+# --- v1-user-journeys.md (#104) ---
+# Validates the journeys doc once it has been authored. Until the status header
+# flips from SCAFFOLDED to AUTHORED, journey-block checks are skipped (the
+# scaffold's "_pending content authoring_" placeholders would otherwise produce
+# noisy violations during partial drafts). The status-header form itself, the
+# six persona H2s, and link integrity are validated in every state.
+#
+# JL-1: status header is "AUTHORED. Last reconciled: YYYY-MM-DD against
+#       v1 commit `<sha>`." once authoring is complete.
+# JL-2: six persona H2 sections present (always).
+# JL-3: per-persona journey count meets locked minimums (Super-Admin ≥2,
+#       Agency Admin ≥5, Care Manager ≥2, Caregiver ≥4, Client ≥2,
+#       Family Member ≥3) — gated on AUTHORED.
+# JL-4: no "_pending content authoring_" placeholder remains — gated on
+#       AUTHORED.
+# JL-5: no "**Failure-mode UX:** None" filler — gated on AUTHORED.
+# JL-6: every H3 under a persona section carries both a "**Route trace:**"
+#       and a "**Side effects:**" sub-block — gated on AUTHORED.
+# JL-7: every link to v1-pages-inventory.md#<anchor> resolves against an
+#       existing heading or explicit <a id> in the inventory (always).
+if [[ -f "$JOURNEYS" ]]; then
+  # JL-1: status header form (only enforced once flipped).
+  status_line=$(grep -E '^\*\*Status:\*\*' "$JOURNEYS" | head -1)
+  if [[ -z "$status_line" ]]; then
+    fail "$JOURNEYS missing **Status:** header line"
+    JOURNEYS_AUTHORED=0
+  elif echo "$status_line" | grep -qE '^\*\*Status:\*\* SCAFFOLDED'; then
+    JOURNEYS_AUTHORED=0
+  elif echo "$status_line" | grep -qE '^\*\*Status:\*\* AUTHORED\. Last reconciled: [0-9]{4}-[0-9]{2}-[0-9]{2} against v1 commit `[0-9a-f]{7,40}`\.[[:space:]]*$'; then
+    JOURNEYS_AUTHORED=1
+  else
+    fail "$JOURNEYS **Status:** header malformed; expected exactly 'SCAFFOLDED.' or 'AUTHORED. Last reconciled: YYYY-MM-DD against v1 commit \`<sha>\`.' (got: $status_line)"
+    JOURNEYS_AUTHORED=0
+  fi
+
+  # JL-2: persona H2 sections (always).
+  for persona in "${REQUIRED_PERSONAS[@]}"; do
+    if ! grep -qE "^## ${persona}([[:space:]]|$)" "$JOURNEYS"; then
+      fail "$JOURNEYS missing H2 section for persona: $persona"
+    fi
+  done
+
+  if [[ "${JOURNEYS_AUTHORED:-0}" == "1" ]]; then
+    # JL-3: per-persona journey count minimums.
+    # Pipe-separated "persona|min" pairs (no associative arrays — bash 3.2).
+    JL3_PAIRS=(
+      "Super-Admin|2"
+      "Agency Admin|5"
+      "Care Manager|2"
+      "Caregiver|4"
+      "Client|2"
+      "Family Member|3"
+    )
+    for pair in "${JL3_PAIRS[@]}"; do
+      persona="${pair%|*}"
+      min="${pair##*|}"
+      count=$(awk -v p="$persona" '
+        $0 ~ ("^## " p "([[:space:]]|$)") { in_section = 1; next }
+        in_section && /^## / { in_section = 0 }
+        in_section && /^### / { c++ }
+        END { print (c+0) }
+      ' "$JOURNEYS")
+      if (( count < min )); then
+        fail "$JOURNEYS persona '$persona' has $count journey H3s; minimum is $min"
+      fi
+    done
+
+    # JL-4: no _pending content authoring_ placeholder.
+    if grep -q "_pending content authoring_" "$JOURNEYS"; then
+      fail "$JOURNEYS still contains '_pending content authoring_' placeholder"
+    fi
+
+    # JL-5: no "**Failure-mode UX:** None" filler.
+    if grep -qE '\*\*Failure-mode UX:\*\* (None|none|N/A|n/a)\b' "$JOURNEYS"; then
+      fail "$JOURNEYS contains '**Failure-mode UX:** None|none|N/A' filler — omit the line entirely instead"
+    fi
+
+    # JL-6: each H3 inside a persona H2 carries Route trace + Side effects.
+    jl6_violations=$(awk '
+      BEGIN {
+        personas[1] = "Super-Admin"
+        personas[2] = "Agency Admin"
+        personas[3] = "Care Manager"
+        personas[4] = "Caregiver"
+        personas[5] = "Client"
+        personas[6] = "Family Member"
+      }
+      function flush_block() {
+        if (in_h3) {
+          if (!seen_route_trace) {
+            print FILENAME ":" h3_line ": JL-6: journey \"" h3_title "\" missing **Route trace:** sub-block"
+          }
+          if (!seen_side_effects) {
+            print FILENAME ":" h3_line ": JL-6: journey \"" h3_title "\" missing **Side effects:** sub-block"
+          }
+        }
+      }
+      /^## / {
+        flush_block()
+        in_h3 = 0
+        in_persona = 0
+        for (i = 1; i <= 6; i++) {
+          pat = "^## " personas[i] "([[:space:]]|$)"
+          if ($0 ~ pat) { in_persona = 1; break }
+        }
+        next
+      }
+      /^### / {
+        flush_block()
+        if (in_persona) {
+          in_h3 = 1
+          h3_title = substr($0, 5)
+          sub(/[[:space:]]+$/, "", h3_title)
+          h3_line = NR
+          seen_route_trace = 0
+          seen_side_effects = 0
+        } else {
+          in_h3 = 0
+        }
+        next
+      }
+      in_h3 && /\*\*Route trace:\*\*/ { seen_route_trace = 1 }
+      in_h3 && /\*\*Side effects:\*\*/ { seen_side_effects = 1 }
+      END { flush_block() }
+    ' "$JOURNEYS")
+    if [[ -n "$jl6_violations" ]]; then
+      while IFS= read -r line; do fail "$line"; done <<< "$jl6_violations"
+    fi
+  fi
+
+  # JL-7: anchor-resolution against inventory (always — also catches scaffold drift).
+  if [[ -f "$INVENTORY" ]]; then
+    jl7_violations=$(awk '
+      function trim(s) { sub(/^[ \t]+/, "", s); sub(/[ \t]+$/, "", s); return s }
+      function to_anchor(s,   a) {
+        a = tolower(s)
+        gsub(/[ \t]+/, "-", a)
+        gsub(/[^a-z0-9_-]/, "", a)
+        return a
+      }
+      NR == FNR {
+        if ($0 ~ /^#+ /) {
+          h = $0
+          sub(/^#+[[:space:]]*/, "", h)
+          ANCHORS[to_anchor(trim(h))] = 1
+        }
+        line = $0
+        while (match(line, /<a id="[^"]+"/)) {
+          a = substr(line, RSTART + 7, RLENGTH - 8)
+          ANCHORS[a] = 1
+          line = substr(line, RSTART + RLENGTH)
+        }
+        next
+      }
+      {
+        line = $0
+        while (match(line, /\(v1-pages-inventory\.md#[^)]+\)/)) {
+          link = substr(line, RSTART, RLENGTH)
+          # Strip "(v1-pages-inventory.md#" (length 23) and trailing ")".
+          anchor = substr(link, 24, length(link) - 24)
+          if (!(anchor in ANCHORS)) {
+            print FILENAME ":" FNR ": JL-7: anchor \"" anchor "\" not found in v1-pages-inventory.md"
+          }
+          line = substr(line, RSTART + RLENGTH)
+        }
+      }
+    ' "$INVENTORY" "$JOURNEYS")
+    if [[ -n "$jl7_violations" ]]; then
+      while IFS= read -r line; do fail "$line"; done <<< "$jl7_violations"
     fi
   fi
 fi
