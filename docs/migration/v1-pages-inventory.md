@@ -37,16 +37,16 @@ _Enumeration in progress (#81). Per-Django-app denominators below._
 | clients | 11 | 0 | mounted at `schedule/` and `clients/`; pending |
 | compliance | 1 | 0 | mounted at `legal/`; mostly customer-facing; pending |
 | dashboard | 25 | 0 | agency dashboard, payroll, expenses; pending |
-| employees | 3 | 0 | caregiver employee management; pending |
+| employees | 3 | 3 | caregiver invitation acceptance + profile-completion onboarding; complete |
 | charting | 48 | 0 | shared with Care Manager / Caregiver — Agency Admin reachability TBD; pending |
 | quickbooks_integration | 8 | 8 | QuickBooks OAuth + invoice send + customer linking; complete |
 | auth_service | TBD | 0 | shared with all personas; pending |
 | _(dual-role / portal switching routes in elitecare/urls.py)_ | 5 | 0 | switch-role, portal-chooser, set-default-portal, clear-default-portal, family-signup; treat as Shared routes |
-| **total (Agency Admin, current estimate)** | **~130** | **37 (≈28%)** | denominator finalized after each app's rows land |
+| **total (Agency Admin, current estimate)** | **~130** | **40 (≈31%)** | denominator finalized after each app's rows land |
 
 **Skipped (the 5% headroom):** none yet enumerated; will populate as remaining apps are authored.
 
-**Status note (2026-05-07).** Issue #81 covers Agency Admin row authoring. As of this commit, the top-level admin routes, `billing`, `billing_catalogs`, and `quickbooks_integration` apps are complete; remaining apps (clients, dashboard, employees, charting, compliance, auth_service) and the dual-role/shared routes are pending. Per the committee's halfway-point rule (below 30% coverage triggers a per-app split), follow-up sub-issues author each remaining app independently. See #81 halfway-point check-in for the split plan.
+**Status note (2026-05-07).** Issue #81 covers Agency Admin row authoring. As of this commit, the top-level admin routes, `billing`, `billing_catalogs`, `employees`, and `quickbooks_integration` apps are complete; remaining apps (clients, dashboard, charting, compliance, auth_service) and the dual-role/shared routes are pending. Per the committee's halfway-point rule (below 30% coverage triggers a per-app split), follow-up sub-issues author each remaining app independently. See #81 halfway-point check-in for the split plan.
 
 ---
 
@@ -135,6 +135,15 @@ _Hazel-managed billable service catalog (#1333 PR 3); delta H-severity gap_
 | `/admin/settings/service-catalog/new/` | Add a new billable service catalog entry. | Sees: catalog form with internal name, family label, base price, est. hours, hourly overage rate, MD-order required toggle. Can: submit to create. | missing | H | true | false | false | not_screenshotted: pending #79 |  |
 | `/admin/settings/service-catalog/<int:entry_id>/edit/` | Edit an existing billable service catalog entry (re-uses the catalog_form_view). | Sees: same catalog form pre-filled with current values. Can: edit and save. | missing | H | true | false | false | not_screenshotted: pending #79 |  |
 | `/admin/settings/service-catalog/<int:entry_id>/retire/` | Soft-retires a catalog entry (per Issue #1214 retire-not-delete pattern); preserves invoice history. | Sees: confirmation prompt with usage count for the entry. Can: confirm soft-retire. | missing | H | true | false | false | not_screenshotted: pending #79 |  |
+
+### employees
+_caregiver invitation acceptance and profile-completion onboarding (mounted at `/employees/`); Agency Admin initiates upstream via the invitation send flow_
+
+| route | purpose | what_user_sees_can_do | v2_status | severity | multi_tenant_refactor | rls_bypass_by_design | phi_displayed | screenshot_ref | v2_link |
+|-------|---------|-----------------------|-----------|----------|-----------------------|----------------------|---------------|----------------|---------|
+| `/employees/invitation/<uuid:token>/` | Caregiver invitation acceptance landing — accepts the UUID invitation token, then collects password and profile in one combined form. | Sees: invitation summary, password setup, profile fields (DOB, contact, optional photo). Can: set password, complete profile, submit to activate the caregiver account. | missing | M | true | false | false | not_screenshotted: pending #79 |  |
+| `/employees/complete-profile/` | Profile-completion form for existing caregivers redirected by the v1 ProfileCompletionMiddleware before they can clock in. | Sees: profile fields pre-populated with any data on file (title, DOB, contact, optional photo and bio). Can: save the completed profile and return to the caregiver dashboard. | missing | M | true | false | false | not_screenshotted: pending #79 |  |
+| `/employees/complete-profile/draft/` | Auto-save endpoint backing the profile-completion form; persists partial caregiver drafts so entered data survives a reload. | Sees: no UI of its own — invoked by the complete-profile form's auto-save logic. Can: post partial profile data as JSON; receives saved timestamp and field errors. | missing | M | true | false | false | not_screenshotted: pending #79 |  |
 
 ### quickbooks_integration
 _QuickBooks Online OAuth + invoice send + COREcare-client-to-QB-customer linking; mounted at `quickbooks/` in elitecare/urls.py_
