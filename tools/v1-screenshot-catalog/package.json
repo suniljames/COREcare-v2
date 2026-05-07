@@ -5,6 +5,7 @@
   "description": "One-shot Playwright crawler that captures v1 (COREcare-access) UI as a per-persona screenshot catalog committed to docs/legacy/v1-ui-catalog/. Operates against v1 — does NOT run against v2.",
   "scripts": {
     "crawl": "tsx crawl.ts",
+    "check-reproducibility": "tsx check-reproducibility.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
@@ -14,6 +15,9 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "@types/pngjs": "^6.0.5",
+    "pixelmatch": "^7.1.0",
+    "pngjs": "^7.0.0",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"

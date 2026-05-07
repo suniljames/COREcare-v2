@@ -74,3 +74,42 @@ jobs:
       - name: Unit tests
         run: pnpm test
         working-directory: tools/v1-screenshot-catalog
+
+  phi-audit-artifacts:
+    name: PHI audit artifacts present when catalog binaries added
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: false
+      - name: Detect new catalog binaries vs base ref
+        id: detect
+        run: |
+          BASE="origin/${{ github.base_ref }}"
+          # Files added (status=A) or modified (status=M) in
+          # docs/legacy/v1-ui-catalog/ matching *.webp
+          ADDED=$(git diff --name-status --diff-filter=AM "$BASE"...HEAD -- 'docs/legacy/v1-ui-catalog/**/*.webp' | wc -l | tr -d ' ')
+          AUDIT_PRE=$(git diff --name-status --diff-filter=A "$BASE"...HEAD -- 'tools/v1-screenshot-catalog/PHI-AUDIT-PRECRAWL-*.md' | wc -l | tr -d ' ')
+          AUDIT_POST=$(git diff --name-status --diff-filter=A "$BASE"...HEAD -- 'tools/v1-screenshot-catalog/PHI-AUDIT-POSTCRAWL-*.md' | wc -l | tr -d ' ')
+          echo "added=$ADDED" >> "$GITHUB_OUTPUT"
+          echo "audit_pre=$AUDIT_PRE" >> "$GITHUB_OUTPUT"
+          echo "audit_post=$AUDIT_POST" >> "$GITHUB_OUTPUT"
+          echo "WebP files added/modified vs $BASE: $ADDED"
+          echo "PHI-AUDIT-PRECRAWL-*.md added: $AUDIT_PRE"
+          echo "PHI-AUDIT-POSTCRAWL-*.md added: $AUDIT_POST"
+      - name: Require PHI audit artifacts when WebPs are added
+        if: steps.detect.outputs.added != '0'
+        run: |
+          if [[ "${{ steps.detect.outputs.audit_pre }}" == "0" ]]; then
+            echo "FAIL: This PR adds catalog WebPs but no PHI-AUDIT-PRECRAWL-*.md is present in tools/v1-screenshot-catalog/."
+            echo "      Per Security Phase 2 review (#107): the pre-crawl PHI spike audit must commit to the PR alongside the catalog."
+            exit 1
+          fi
+          if [[ "${{ steps.detect.outputs.audit_post }}" == "0" ]]; then
+            echo "FAIL: This PR adds catalog WebPs but no PHI-AUDIT-POSTCRAWL-*.md is present in tools/v1-screenshot-catalog/."
+            echo "      Per Security Phase 2 review (#107): the post-crawl 10%-sample audit must commit to the PR alongside the catalog."
+            exit 1
+          fi
+          echo "OK: PHI audit artifacts present alongside catalog binaries."
