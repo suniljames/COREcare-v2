@@ -1,0 +1,44 @@
+# Cold-reader rotation for the `## Super-Admin` section in
+# docs/migration/v1-pages-inventory.md.
+#
+# Authored against #99. v1 has exactly one super-admin-gated row
+# (`/admin/view-as/kill-all/`) plus the platform-ops endpoints excluded
+# from the row-count denominator.
+
+persona: super-admin
+min_section_bytes: 4000
+
+questions:
+  - id: q1
+    text: "What is the v1 platform-operator emergency control for runaway impersonation sessions?"
+    expected_fact_summary: |
+      `/admin/view-as/kill-all/` — the one super-admin-gated row in v1,
+      authored under `## Super-Admin → ### top-level (elitecare/urls.py)`.
+      Gated by `@user_passes_test(lambda u: u.is_superuser)`. Audit-logged
+      in v1. Operator sees a confirmation prompt with the active-session
+      count; can terminate all View-As sessions immediately.
+
+  - id: q2
+    text: "What separates the Super-Admin persona from Agency Admin in v1?"
+    expected_fact_summary: |
+      Super-Admin's `is_superuser=True` implies `is_staff=True`, so a
+      Super-Admin reaches every `@staff_member_required` route — i.e., every
+      row in `## Agency Admin`. The Super-Admin section is curated to the
+      narrow subset where v2's operator portal will need distinct chrome
+      treatment from Agency Admin's: the View-As suite (RLS-bypass surfaces),
+      expense review (financial controls), and role-permissions (capability
+      administration). The cross-reference index under `## Super-Admin →
+      ### Cross-reference index` lists exactly these routes.
+
+  - id: q3
+    text: "Which v1 platform-ops endpoints exist outside the row-count denominator and why?"
+    expected_fact_summary: |
+      `/healthz` (Render uptime probe, JSON, short-circuits middleware),
+      `/ops/disk-check/` (bearer-token JSON, disk utilization), `/status/`
+      (redirect-only), and `/admin/api/ops-stats/` (JSON). All excluded from
+      the Super-Admin row-count denominator per the README coverage rule
+      (JSON-only or redirect-only) but documented under
+      `### Platform ops endpoints (not in row-count denominator)` for v2
+      ops-surface design parity. Reachability: any authenticated `is_staff`
+      user; the platform-operator persona is the primary consumer during
+      oncall response.

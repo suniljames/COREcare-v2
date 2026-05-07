@@ -1,0 +1,41 @@
+# Cold-reader rotation for the `## Care Manager` section in
+# docs/migration/v1-pages-inventory.md.
+#
+# Three of the five contract questions from #100's authoring DoD —
+# the role-asymmetry-load-bearing ones for v2.
+
+persona: care-manager
+min_section_bytes: 4000
+
+questions:
+  - id: q1
+    text: "What is the difference between a Care Manager and an Agency Admin in v1?"
+    expected_fact_summary: |
+      Care Manager is an `is_staff=False` role with a `CareManagerProfile`
+      model; access is per-route via `is_care_manager` decorator/check;
+      data is scoped by `CareManagerClientAssignment` (assignment-scoped
+      data access). Agency Admin is `is_staff=True` with broad admin reach.
+      The asymmetry is load-bearing: many `@staff_member_required` queues
+      (chart-comment review, health-report approval, per-client clinical
+      trends) are NOT Care-Manager-reachable.
+
+  - id: q2
+    text: "Where does a Care Manager review a chart on behalf of a caregiver?"
+    expected_fact_summary: |
+      `/charting/proxy/<int:visit_id>/` (the `proxy_chart_view`). Primary
+      persona is Agency Admin per the cross-reference index, but Care
+      Managers reach it via the `is_staff or is_care_manager` body check.
+      The canonical row is authored under `## Agency Admin → ### charting`
+      and cross-referenced from the Care Manager section's lead — not
+      duplicated.
+
+  - id: q3
+    text: >-
+      Can a Care Manager approve chart comments or sign off on health-report
+      requests in v1?
+    expected_fact_summary: |
+      No — both queues are `@staff_member_required` and
+      `CareManagerProfile.is_staff=False`, so the Care Manager bounces.
+      Verified at v1 commit `9738412a` in `charting/views.py`. ~25
+      `@staff_member_required` routes total in `charting/` are
+      Care-Manager-unreachable; not enumerated in the Care Manager section.

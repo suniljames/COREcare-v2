@@ -1,0 +1,41 @@
+# Cold-reader rotation for the `## Agency Admin` section in
+# docs/migration/v1-pages-inventory.md.
+#
+# Three of the five contract questions from #81's authoring DoD —
+# the load-bearing ones for v2 portal + RLS design.
+
+persona: agency-admin
+min_section_bytes: 25000
+
+questions:
+  - id: q1
+    text: "What screens does an Agency Admin see for managing client billing?"
+    expected_fact_summary: |
+      Agency Admins reach the `### billing` and `### billing_catalogs` apps
+      (capability-gated admin custom views and Hazel-managed billable service
+      catalog), the per-client schedule PDF/preview under `### clients`, the
+      timecard summaries + invoice list + billing exports under `### dashboard`,
+      and the QuickBooks OAuth + invoice send + customer linking under
+      `### quickbooks_integration`. Multiple Django apps, same persona.
+
+  - id: q2
+    text: "Where does an Agency Admin go to add a new client?"
+    expected_fact_summary: |
+      Through the per-client routes mounted at `clients/` and `schedule/`
+      under `### clients` — the Agency Admin section authors 11 client-app
+      routes covering per-client calendar, events with attachments, schedule
+      PDF/preview. Client creation flows live within these admin-prefixed
+      routes (no Family Member or Caregiver client-creation surface in v1).
+
+  - id: q3
+    text: "Which Agency Admin screens display PHI and require special v2 treatment?"
+    expected_fact_summary: |
+      Rows marked `🔒 PHI · ` and rows with `phi_displayed=true` in the row
+      table — concentrated in `### charting` (clinical surface, 22 routes
+      complete), `### clients` (per-client calendar and events with
+      attachments rendering linked-client data), `### compliance` (the two
+      authenticated PHI file-stream routes mounted at `compliance/files/`),
+      and `### billing` (invoice/payment surfaces). The expense-review routes
+      under top-level admin (`/admin/expenses/review/...`) carry
+      `phi_displayed=true` and surface in the cross-reference index for
+      Super-Admin/Agency Admin parity.
