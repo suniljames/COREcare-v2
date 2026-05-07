@@ -6,7 +6,10 @@ on:
       - 'docs/migration/v1-pages-inventory.md'
       - 'docs/legacy/v1-ui-catalog/**'
       - 'scripts/check-v1-catalog-coverage.sh'
+      - 'scripts/extract-inventory-routes.sh'
       - 'scripts/tests/test_check_v1_catalog_coverage.sh'
+      - 'scripts/tests/test_extract_inventory_routes.sh'
+      - 'tools/v1-screenshot-catalog/**'
       - '.github/workflows/v1-catalog-coverage.yml'
   push:
     branches: [main]
@@ -14,6 +17,8 @@ on:
       - 'docs/migration/v1-pages-inventory.md'
       - 'docs/legacy/v1-ui-catalog/**'
       - 'scripts/check-v1-catalog-coverage.sh'
+      - 'scripts/extract-inventory-routes.sh'
+      - 'tools/v1-screenshot-catalog/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -21,14 +26,15 @@ concurrency:
 
 jobs:
   script-self-test:
-    name: Coverage script self-test
+    name: Bash script self-tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          # The script does not read LFS-tracked binaries; skip smudge to keep
-          # the job lean per ADR-010.
+          # The scripts do not read LFS-tracked binaries; skip smudge per ADR-010.
           lfs: false
+      - name: Run inventory-routes extractor tests
+        run: bash scripts/tests/test_extract_inventory_routes.sh
       - name: Run coverage script tests
         run: bash scripts/tests/test_check_v1_catalog_coverage.sh
 
@@ -42,3 +48,29 @@ jobs:
           lfs: false
       - name: Run coverage check against repo state
         run: bash scripts/check-v1-catalog-coverage.sh
+
+  crawler-tests:
+    name: Crawler unit tests
+    runs-on: ubuntu-latest
+    needs: script-self-test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: 'tools/v1-screenshot-catalog/pnpm-lock.yaml'
+      - name: Install crawler deps
+        run: pnpm install
+        working-directory: tools/v1-screenshot-catalog
+      - name: Typecheck
+        run: pnpm typecheck
+        working-directory: tools/v1-screenshot-catalog
+      - name: Unit tests
+        run: pnpm test
+        working-directory: tools/v1-screenshot-catalog
