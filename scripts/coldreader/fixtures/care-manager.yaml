@@ -29,5 +29,6 @@ questions:
       Can a Care Manager approve chart comments or sign off on health-report
       requests in v1?
     expected_fact_summary: |
-      No. Both queues are staff-required and CareManagerProfile.is_staff is
-      False, so the Care Manager bounces. Verified at the v1 pinned commit.
+      No. Both queues are restricted to staff users in v1, and Care Managers
+      are not staff. The chart-comment review queue and health-report
+      approval queue are unreachable for the Care Manager role.

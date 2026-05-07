@@ -34,7 +34,6 @@ questions:
       What gates a caregiver's first clock-in (profile completion, onboarding,
       credential surface)?
     expected_fact_summary: |
-      A profile-completion middleware enforces a gate at the onboarding and
-      profile routes; the caregiver cannot clock in until profile data and
-      credentials are submitted. The employee-side acceptance flow lives
-      separately.
+      A profile-completion gate blocks the first clock-in until the
+      caregiver finishes onboarding and submits profile data and
+      credentials. The onboarding and profile routes are the gate's surface.
