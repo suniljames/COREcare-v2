@@ -576,11 +576,11 @@ $INTEGRATIONS_SEP
 EOF
 assert_exit "SL-2: invalid v2_status token fails" 1 "$STRUCTURE" --dir "$TEST_DIR/integrations-sl2"
 
-# --- SL-3: severity set but v2_status is not "missing" ---
-mkdir -p "$TEST_DIR/integrations-sl3"
-write_integrations_inventory "$TEST_DIR/integrations-sl3/v1-pages-inventory.md"
-write_good_delta "$TEST_DIR/integrations-sl3/v1-functionality-delta.md"
-cat > "$TEST_DIR/integrations-sl3/v1-integrations-and-exports.md" <<EOF
+# --- SL-3 (set): severity set but v2_status is not "missing" ---
+mkdir -p "$TEST_DIR/integrations-sl3-set"
+write_integrations_inventory "$TEST_DIR/integrations-sl3-set/v1-pages-inventory.md"
+write_good_delta "$TEST_DIR/integrations-sl3-set/v1-functionality-delta.md"
+cat > "$TEST_DIR/integrations-sl3-set/v1-integrations-and-exports.md" <<EOF
 # V1 Integrations and Exports
 
 ## Schema
@@ -607,7 +607,40 @@ $INTEGRATIONS_SEP
 
 ## Cross-references
 EOF
-assert_exit "SL-3: severity set when v2_status != missing fails" 1 "$STRUCTURE" --dir "$TEST_DIR/integrations-sl3"
+assert_exit "SL-3: severity set when v2_status != missing fails" 1 "$STRUCTURE" --dir "$TEST_DIR/integrations-sl3-set"
+
+# --- SL-3 (empty): severity empty but v2_status is "missing" ---
+mkdir -p "$TEST_DIR/integrations-sl3-empty"
+write_integrations_inventory "$TEST_DIR/integrations-sl3-empty/v1-pages-inventory.md"
+write_good_delta "$TEST_DIR/integrations-sl3-empty/v1-functionality-delta.md"
+cat > "$TEST_DIR/integrations-sl3-empty/v1-integrations-and-exports.md" <<EOF
+# V1 Integrations and Exports
+
+## Schema
+
+table.
+
+## External integrations
+
+### Billing and payments
+
+$INTEGRATIONS_HEADER
+$INTEGRATIONS_SEP
+| Bad row | Vendor | Trigger | outbound; sync | [/quickbooks/](v1-pages-inventory.md#quickbooks_integration) | Sees: thing. | missing |  |
+
+### Payroll
+### Accounting
+### Messaging and notifications (third-party)
+### Identity, auth, and SSO (third-party)
+### Other
+
+## Internal notification and email backend
+
+## Customer-facing exports
+
+## Cross-references
+EOF
+assert_exit "SL-3: severity empty when v2_status=missing fails" 1 "$STRUCTURE" --dir "$TEST_DIR/integrations-sl3-empty"
 
 # --- SL-4: invalid direction_and_sync token ---
 mkdir -p "$TEST_DIR/integrations-sl4"
@@ -739,6 +772,402 @@ $INTEGRATIONS_SEP
 ## Cross-references
 EOF
 assert_exit "EL-2: '_no UI surface_' marker passes" 0 "$STRUCTURE" --dir "$TEST_DIR/integrations-el2-marker"
+
+# =====================================================================
+# v1-user-journeys.md checks (#104)
+# =====================================================================
+
+# Inventory fixture used by every journey test below: minimal but with
+# H3 anchors for journeys to cite, plus an explicit <a id> case.
+write_journeys_inventory() {
+  local path="$1"
+  cat > "$path" <<'EOF'
+# v1 Pages Inventory
+
+## Super-Admin
+
+<a id="super-admin-top-level"></a>
+### top-level (elitecare/urls.py)
+
+## Agency Admin
+
+### dashboard
+### employees
+### auth_service
+
+## Care Manager
+
+### care_manager
+
+## Caregiver
+
+### caregiver_dashboard
+
+### charting
+
+<a id="caregiver-charting"></a>
+
+## Client
+
+<a id="client-section"></a>
+
+## Family Member
+
+### dashboard
+
+## Shared routes
+
+EOF
+}
+
+# Helper: write an AUTHORED journeys doc that satisfies all checks.
+write_good_journeys() {
+  local path="$1"
+  cat > "$path" <<'EOF'
+# V1 User Journeys
+
+**Status:** AUTHORED. Last reconciled: 2026-05-07 against v1 commit `9738412`.
+
+## Super-Admin
+
+### Journey 1
+A Super-Admin manages.
+
+**Route trace:**
+1. [a](v1-pages-inventory.md#super-admin-top-level) — does thing.
+
+**Side effects:**
+- DB: writes a row.
+
+### Journey 2
+A Super-Admin investigates.
+
+**Route trace:**
+1. [a](v1-pages-inventory.md#super-admin-top-level) — does thing.
+
+**Side effects:**
+- DB: writes a row.
+
+## Agency Admin
+
+### J1
+Lead.
+
+**Route trace:**
+1. [a](v1-pages-inventory.md#dashboard) — x.
+
+**Side effects:**
+- DB: y.
+
+### J2
+Lead.
+
+**Route trace:**
+1. [a](v1-pages-inventory.md#dashboard) — x.
+
+**Side effects:**
+- DB: y.
+
+### J3
+Lead.
+
+**Route trace:**
+1. [a](v1-pages-inventory.md#dashboard) — x.
+
+**Side effects:**
+- DB: y.
+
+### J4
+Lead.
+
+**Route trace:**
+1. [a](v1-pages-inventory.md#dashboard) — x.
+
+**Side effects:**
+- DB: y.
+
+### J5
+Lead.
+
+**Route trace:**
+1. [a](v1-pages-inventory.md#employees) — x.
+
+**Side effects:**
+- DB: y.
+
+## Care Manager
+
+### J1
+Lead.
+
+**Route trace:**
+1. [a](v1-pages-inventory.md#care_manager) — x.
+
+**Side effects:**
+- DB: y.
+
+### J2
+Lead.
+
+**Route trace:**
+1. [a](v1-pages-inventory.md#care_manager) — x.
+
+**Side effects:**
+- DB: y.
+
+## Caregiver
+
+### J1
+Lead.
+
+**Route trace:**
+1. [a](v1-pages-inventory.md#caregiver_dashboard) — x.
+
+**Side effects:**
+- DB: y.
+
+### J2
+Lead.
+
+**Route trace:**
+1. [a](v1-pages-inventory.md#caregiver-charting) — x.
+
+**Side effects:**
+- DB: y.
+
+### J3
+Lead.
+
+**Route trace:**
+1. [a](v1-pages-inventory.md#caregiver_dashboard) — x.
+
+**Side effects:**
+- DB: y.
+
+### J4
+Lead.
+
+**Route trace:**
+1. [a](v1-pages-inventory.md#caregiver_dashboard) — x.
+
+**Side effects:**
+- DB: y.
+
+## Client
+
+### J1
+v1 has no Client-as-actor surface — see [the Client section](v1-pages-inventory.md#client-section).
+
+**Route trace:**
+1. v1 has no Client-authenticated route for this journey.
+
+**Side effects:**
+- DB: n/a — no Client-authenticated v1 surface.
+
+### J2
+v1 has no Client-as-actor surface — see [the Client section](v1-pages-inventory.md#client-section).
+
+**Route trace:**
+1. v1 has no Client-authenticated route for this journey.
+
+**Side effects:**
+- DB: n/a — no Client-authenticated v1 surface.
+
+## Family Member
+
+### J1
+Lead.
+
+**Route trace:**
+1. [a](v1-pages-inventory.md#family-member) — x.
+
+**Side effects:**
+- DB: y.
+
+### J2
+Lead.
+
+**Route trace:**
+1. [a](v1-pages-inventory.md#family-member) — x.
+
+**Side effects:**
+- DB: y.
+
+### J3
+Lead.
+
+**Route trace:**
+1. [a](v1-pages-inventory.md#family-member) — x.
+
+**Side effects:**
+- DB: y.
+EOF
+}
+
+echo ""
+echo "-- v1-user-journeys.md (#104) --"
+
+# --- Pass: SCAFFOLDED status skips block-level gates ---
+mkdir -p "$TEST_DIR/journeys-scaffolded"
+write_good_inventory "$TEST_DIR/journeys-scaffolded/v1-pages-inventory.md"
+write_good_delta "$TEST_DIR/journeys-scaffolded/v1-functionality-delta.md"
+cat > "$TEST_DIR/journeys-scaffolded/v1-user-journeys.md" <<'EOF'
+# V1 User Journeys
+
+**Status:** SCAFFOLDED.
+
+## Super-Admin
+## Agency Admin
+## Care Manager
+## Caregiver
+## Client
+## Family Member
+EOF
+assert_exit "JL: SCAFFOLDED status skips JL-3..JL-6, passes" 0 "$STRUCTURE" --dir "$TEST_DIR/journeys-scaffolded"
+
+# --- Pass: fully AUTHORED journeys ---
+mkdir -p "$TEST_DIR/journeys-good"
+write_journeys_inventory "$TEST_DIR/journeys-good/v1-pages-inventory.md"
+write_good_delta "$TEST_DIR/journeys-good/v1-functionality-delta.md"
+write_good_journeys "$TEST_DIR/journeys-good/v1-user-journeys.md"
+assert_exit "JL: AUTHORED journeys with all checks satisfied passes" 0 "$STRUCTURE" --dir "$TEST_DIR/journeys-good"
+
+# --- JL-1: missing status line ---
+mkdir -p "$TEST_DIR/jl1-missing"
+write_good_inventory "$TEST_DIR/jl1-missing/v1-pages-inventory.md"
+write_good_delta "$TEST_DIR/jl1-missing/v1-functionality-delta.md"
+cat > "$TEST_DIR/jl1-missing/v1-user-journeys.md" <<'EOF'
+# V1 User Journeys
+
+## Super-Admin
+## Agency Admin
+## Care Manager
+## Caregiver
+## Client
+## Family Member
+EOF
+assert_exit "JL-1: missing **Status:** header fails" 1 "$STRUCTURE" --dir "$TEST_DIR/jl1-missing"
+
+# --- JL-1: malformed status line ---
+mkdir -p "$TEST_DIR/jl1-bad"
+write_good_inventory "$TEST_DIR/jl1-bad/v1-pages-inventory.md"
+write_good_delta "$TEST_DIR/jl1-bad/v1-functionality-delta.md"
+cat > "$TEST_DIR/jl1-bad/v1-user-journeys.md" <<'EOF'
+# V1 User Journeys
+
+**Status:** AUTHORED maybe.
+
+## Super-Admin
+## Agency Admin
+## Care Manager
+## Caregiver
+## Client
+## Family Member
+EOF
+assert_exit "JL-1: malformed **Status:** header fails" 1 "$STRUCTURE" --dir "$TEST_DIR/jl1-bad"
+
+# --- JL-2: missing persona H2 ---
+mkdir -p "$TEST_DIR/jl2-missing"
+write_good_inventory "$TEST_DIR/jl2-missing/v1-pages-inventory.md"
+write_good_delta "$TEST_DIR/jl2-missing/v1-functionality-delta.md"
+cat > "$TEST_DIR/jl2-missing/v1-user-journeys.md" <<'EOF'
+# V1 User Journeys
+
+**Status:** SCAFFOLDED.
+
+## Super-Admin
+## Agency Admin
+## Care Manager
+## Caregiver
+## Client
+EOF
+assert_exit "JL-2: missing 'Family Member' H2 fails" 1 "$STRUCTURE" --dir "$TEST_DIR/jl2-missing"
+
+# --- JL-3: under-min journey count ---
+mkdir -p "$TEST_DIR/jl3"
+write_journeys_inventory "$TEST_DIR/jl3/v1-pages-inventory.md"
+write_good_delta "$TEST_DIR/jl3/v1-functionality-delta.md"
+write_good_journeys "$TEST_DIR/jl3/v1-user-journeys.md"
+# Drop one Caregiver H3 — make it 3, below the min of 4.
+# Use sed to remove one specific H3 block.
+python3 - "$TEST_DIR/jl3/v1-user-journeys.md" <<'PY'
+import sys, re, pathlib
+p = pathlib.Path(sys.argv[1])
+text = p.read_text()
+# Remove the J4 block under Caregiver (between "### J4" under Caregiver and the next ### or ##).
+# Caregiver has J1..J4 in our fixture. Find the second ### J4 occurrence (Caregiver only has one J4).
+text = re.sub(r"### J4\nLead\.\n\n\*\*Route trace:\*\*\n1\. \[a\]\(v1-pages-inventory\.md#caregiver_dashboard\) — x\.\n\n\*\*Side effects:\*\*\n- DB: y\.\n\n", "", text, count=1)
+p.write_text(text)
+PY
+assert_exit "JL-3: Caregiver below min (3<4) fails" 1 "$STRUCTURE" --dir "$TEST_DIR/jl3"
+
+# --- JL-4: pending placeholder still present ---
+mkdir -p "$TEST_DIR/jl4"
+write_journeys_inventory "$TEST_DIR/jl4/v1-pages-inventory.md"
+write_good_delta "$TEST_DIR/jl4/v1-functionality-delta.md"
+write_good_journeys "$TEST_DIR/jl4/v1-user-journeys.md"
+# Inject placeholder.
+python3 - "$TEST_DIR/jl4/v1-user-journeys.md" <<'PY'
+import sys, pathlib
+p = pathlib.Path(sys.argv[1])
+p.write_text(p.read_text().replace("Lead.", "_pending content authoring_", 1))
+PY
+assert_exit "JL-4: '_pending content authoring_' placeholder fails" 1 "$STRUCTURE" --dir "$TEST_DIR/jl4"
+
+# --- JL-5: Failure-mode UX None filler ---
+mkdir -p "$TEST_DIR/jl5"
+write_journeys_inventory "$TEST_DIR/jl5/v1-pages-inventory.md"
+write_good_delta "$TEST_DIR/jl5/v1-functionality-delta.md"
+write_good_journeys "$TEST_DIR/jl5/v1-user-journeys.md"
+python3 - "$TEST_DIR/jl5/v1-user-journeys.md" <<'PY'
+import sys, pathlib
+p = pathlib.Path(sys.argv[1])
+p.write_text(p.read_text() + "\n**Failure-mode UX:** None\n")
+PY
+assert_exit "JL-5: '**Failure-mode UX:** None' filler fails" 1 "$STRUCTURE" --dir "$TEST_DIR/jl5"
+
+# --- JL-6: missing Route trace ---
+mkdir -p "$TEST_DIR/jl6-route"
+write_journeys_inventory "$TEST_DIR/jl6-route/v1-pages-inventory.md"
+write_good_delta "$TEST_DIR/jl6-route/v1-functionality-delta.md"
+write_good_journeys "$TEST_DIR/jl6-route/v1-user-journeys.md"
+python3 - "$TEST_DIR/jl6-route/v1-user-journeys.md" <<'PY'
+import sys, pathlib
+p = pathlib.Path(sys.argv[1])
+# Strip the **Route trace:** line from the first journey only.
+text = p.read_text()
+text = text.replace("**Route trace:**\n1. [a](v1-pages-inventory.md#super-admin-top-level) — does thing.\n\n", "", 1)
+p.write_text(text)
+PY
+assert_exit "JL-6: missing **Route trace:** sub-block fails" 1 "$STRUCTURE" --dir "$TEST_DIR/jl6-route"
+
+# --- JL-6: missing Side effects ---
+mkdir -p "$TEST_DIR/jl6-side"
+write_journeys_inventory "$TEST_DIR/jl6-side/v1-pages-inventory.md"
+write_good_delta "$TEST_DIR/jl6-side/v1-functionality-delta.md"
+write_good_journeys "$TEST_DIR/jl6-side/v1-user-journeys.md"
+python3 - "$TEST_DIR/jl6-side/v1-user-journeys.md" <<'PY'
+import sys, pathlib
+p = pathlib.Path(sys.argv[1])
+text = p.read_text()
+text = text.replace("**Side effects:**\n- DB: writes a row.\n", "", 1)
+p.write_text(text)
+PY
+assert_exit "JL-6: missing **Side effects:** sub-block fails" 1 "$STRUCTURE" --dir "$TEST_DIR/jl6-side"
+
+# --- JL-7: bad anchor ---
+mkdir -p "$TEST_DIR/jl7"
+write_journeys_inventory "$TEST_DIR/jl7/v1-pages-inventory.md"
+write_good_delta "$TEST_DIR/jl7/v1-functionality-delta.md"
+write_good_journeys "$TEST_DIR/jl7/v1-user-journeys.md"
+python3 - "$TEST_DIR/jl7/v1-user-journeys.md" <<'PY'
+import sys, pathlib
+p = pathlib.Path(sys.argv[1])
+text = p.read_text()
+text = text.replace("v1-pages-inventory.md#super-admin-top-level", "v1-pages-inventory.md#nonexistent-anchor", 1)
+p.write_text(text)
+PY
+assert_exit "JL-7: orphan inventory anchor fails" 1 "$STRUCTURE" --dir "$TEST_DIR/jl7"
 
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
