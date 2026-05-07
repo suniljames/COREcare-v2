@@ -21,6 +21,16 @@ from app.models.user import User, UserRole
 DEFAULT_TTL_HOURS = 72
 TOKEN_BYTES = 32  # 256-bit token
 
+# Generic detail string for all pre-redemption failures — never leak whether
+# the token was found, expired, or had a mismatched email. Specific failure
+# reasons are captured in the audit log only (Writer §1).
+INVITE_INVALID_DETAIL = "Invite is invalid or expired."
+
+
+def _normalize_email(email: str) -> str:
+    """Unicode-safe email comparison (Security §2): strip + casefold."""
+    return email.strip().casefold()
+
 
 def _ensure_aware(dt: datetime) -> datetime:
     """SQLite returns naive datetimes; treat them as UTC for comparison."""
@@ -80,8 +90,15 @@ class ClientInviteService:
     ) -> tuple[User, Client]:
         """Redeem an invite. Returns (user, client) on success.
 
+        Pre-redemption failures all return the same generic detail
+        ("Invite is invalid or expired.") so the response does not leak
+        whether the token was unknown, already-used, expired, or email-
+        mismatched. Specific reasons are written to the audit log.
+
         Raises:
             403: token unknown OR clerk_email does not match invite.email
+              OR existing User holds a staff role (collision)
+              OR Client is already linked to a different User
             410 Gone: invite expired OR already redeemed
         """
         result = await self.session.execute(
@@ -91,25 +108,24 @@ class ClientInviteService:
         if invite is None:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Invite not found.",
+                detail=INVITE_INVALID_DETAIL,
             )
 
-        # Expiry / single-use checks first (no audit; the token itself is
-        # legitimate but stale, not an active impersonation attempt).
+        # Expiry / single-use checks first.
         if invite.redeemed_at is not None:
             raise HTTPException(
                 status_code=status.HTTP_410_GONE,
-                detail="This invite has already been used.",
+                detail=INVITE_INVALID_DETAIL,
             )
         if _ensure_aware(invite.expires_at) <= datetime.now(UTC):
             raise HTTPException(
                 status_code=status.HTTP_410_GONE,
-                detail="This invite has expired.",
+                detail=INVITE_INVALID_DETAIL,
             )
 
-        # Email-match check — failure is the canonical signal for an
-        # impersonation attempt. Audit it.
-        if invite.email.lower() != clerk_email.lower():
+        # Unicode-safe email-match check. Failure is the canonical signal for
+        # an impersonation attempt — audit it.
+        if _normalize_email(invite.email) != _normalize_email(clerk_email):
             self.session.add(
                 AuditEvent(
                     user_id=None,
@@ -124,10 +140,10 @@ class ClientInviteService:
             await self.session.flush()
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Email does not match invite.",
+                detail=INVITE_INVALID_DETAIL,
             )
 
-        # Resolve or create the User row.
+        # Resolve the User row by clerk_id, if one exists.
         user_result = await self.session.execute(
             select(User).where(User.clerk_id == clerk_user_id)  # type: ignore[arg-type]
         )
@@ -143,6 +159,26 @@ class ClientInviteService:
             await self.session.flush()
             await self.session.refresh(user)
         else:
+            # If the existing User holds any non-Client role, refuse —
+            # redeeming an invite must not silently demote a staff or family
+            # account to Client and reassign their agency (SWE §5).
+            if user.role != UserRole.CLIENT:
+                self.session.add(
+                    AuditEvent(
+                        user_id=user.id,
+                        agency_id=invite.agency_id,
+                        action=AuditAction.LOGIN,
+                        resource_type="client_invite",
+                        resource_id=str(invite.id),
+                        is_phi_access=False,
+                        details="client_invite_failed_role_collision",
+                    )
+                )
+                await self.session.flush()
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=INVITE_INVALID_DETAIL,
+                )
             user.role = UserRole.CLIENT
             user.email = clerk_email
             user.agency_id = invite.agency_id
@@ -150,11 +186,29 @@ class ClientInviteService:
             await self.session.flush()
             await self.session.refresh(user)
 
-        # Link the Client row to the User.
+        # Link the Client row to the User. If a different User is already
+        # linked (e.g., reissued invite redeemed by attacker), refuse.
         client_result = await self.session.execute(
             select(Client).where(Client.id == invite.client_id)  # type: ignore[arg-type]
         )
         client = client_result.scalar_one()
+        if client.client_user_id is not None and client.client_user_id != user.id:
+            self.session.add(
+                AuditEvent(
+                    user_id=user.id,
+                    agency_id=invite.agency_id,
+                    action=AuditAction.LOGIN,
+                    resource_type="client_invite",
+                    resource_id=str(invite.id),
+                    is_phi_access=False,
+                    details="client_invite_failed_already_linked",
+                )
+            )
+            await self.session.flush()
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=INVITE_INVALID_DETAIL,
+            )
         client.client_user_id = user.id
         self.session.add(client)
 

@@ -273,3 +273,56 @@ async def test_redeem_invite_single_use(session: AsyncSession) -> None:
             clerk_email="eleanor@example.com",
         )
     assert exc_info.value.status_code == 410
+
+
+@pytest.mark.asyncio
+async def test_redeem_invite_existing_staff_user_rejected(
+    session: AsyncSession,
+) -> None:
+    """A clerk_id matching an existing Caregiver is refused — redemption must
+    not silently demote a staff account to Client (round-1 review SWE §5)."""
+    from fastapi import HTTPException
+
+    from app.services.client_invite import ClientInviteService
+
+    client = Client(first_name="Eleanor", last_name="X", agency_id=AGENCY_ID)
+    actor = User(email="cm@test.com", role=UserRole.CARE_MANAGER, agency_id=AGENCY_ID)
+    # Pre-existing caregiver account with the clerk_id an attacker will use.
+    existing = User(
+        email="caregiver@test.com",
+        role=UserRole.CAREGIVER,
+        clerk_id="clerk_caregiver_existing",
+        agency_id=AGENCY_ID,
+    )
+    session.add(client)
+    session.add(actor)
+    session.add(existing)
+    await session.commit()
+    await session.refresh(client)
+    await session.refresh(actor)
+
+    service = ClientInviteService(session)
+    invite = await service.issue_invite(
+        client_id=client.id,
+        email="caregiver@test.com",
+        actor_user_id=actor.id,
+        agency_id=AGENCY_ID,
+    )
+    await session.commit()
+
+    with pytest.raises(HTTPException) as exc_info:
+        await service.redeem_invite(
+            token=invite.token,
+            clerk_user_id="clerk_caregiver_existing",
+            clerk_email="caregiver@test.com",
+        )
+    assert exc_info.value.status_code == 403
+
+    # Audit captures the role-collision event
+    result = await session.execute(
+        select(AuditEvent).where(
+            AuditEvent.details == "client_invite_failed_role_collision"  # type: ignore[arg-type]
+        )
+    )
+    events = list(result.scalars().all())
+    assert len(events) == 1

@@ -9,6 +9,7 @@ import uuid
 from datetime import UTC, datetime
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.message_thread import MessageThread
@@ -24,7 +25,12 @@ class MessageThreadService:
     async def get_or_create_for_client(
         self, client_id: uuid.UUID, agency_id: uuid.UUID
     ) -> MessageThread:
-        """Return the (Client, Agency) thread, creating it if absent."""
+        """Return the (Client, Agency) thread, creating it if absent.
+
+        Two simultaneous first-loads can race on the unique constraint on
+        client_id; on IntegrityError we re-fetch the row created by the
+        winning transaction (SRE §2, round-1 review).
+        """
         result = await self.session.execute(
             select(MessageThread).where(
                 MessageThread.client_id == client_id  # type: ignore[arg-type]
@@ -40,7 +46,19 @@ class MessageThreadService:
             last_message_at=datetime.now(UTC),
         )
         self.session.add(thread)
-        await self.session.flush()
+        try:
+            await self.session.flush()
+        except IntegrityError:
+            await self.session.rollback()
+            result = await self.session.execute(
+                select(MessageThread).where(
+                    MessageThread.client_id == client_id  # type: ignore[arg-type]
+                )
+            )
+            existing = result.scalar_one_or_none()
+            if existing is None:
+                raise
+            return existing
         await self.session.refresh(thread)
         return thread
 
@@ -63,16 +81,15 @@ class MessageThreadService:
     ) -> Message:
         """Send a message from the Client into their thread.
 
-        recipient_id is the agency itself — represented as the agency_id;
-        the agency-side inbox enumerates threads, not per-staff recipients.
-        For DB FK reasons we set recipient_id=sender_user_id when no specific
-        staff recipient applies; the routing is by thread_id, not recipient.
+        Routing is by thread_id — the agency-side inbox enumerates threads,
+        not per-staff recipients. recipient_id is left None on Client→agency
+        messages; per-recipient family messages still populate it.
         """
         thread = await self.get_or_create_for_client(client_id, agency_id)
 
         msg = Message(
             sender_id=sender_user_id,
-            recipient_id=sender_user_id,  # routing is by thread_id; see docstring
+            recipient_id=None,
             thread_id=thread.id,
             body=body,
             agency_id=agency_id,

@@ -61,7 +61,10 @@ class Message(TenantScopedModel, table=True):
     __tablename__ = "messages"
 
     sender_id: uuid.UUID = Field(foreign_key="users.id", index=True)
-    recipient_id: uuid.UUID = Field(foreign_key="users.id", index=True)
+    # Nullable — Client→agency thread messages route by thread_id only, with no
+    # specific staff recipient (issue #125). Per-recipient family messages still
+    # populate this field. Consumers filtering by recipient_id must handle NULL.
+    recipient_id: uuid.UUID | None = Field(default=None, foreign_key="users.id", index=True)
     thread_id: uuid.UUID = Field(index=True)
     body: str = Field(sa_column=Column(Text))
     is_read: bool = Field(default=False)

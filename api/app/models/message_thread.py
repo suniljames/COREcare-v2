@@ -18,7 +18,10 @@ def _utcnow() -> datetime:
 
 
 class MessageThread(TenantScopedModel, table=True):
-    """One thread per (Client, Agency) pair. Unique on (client_id, agency_id)."""
+    """One thread per Client. Each Client lives in exactly one Agency in v2-MVP,
+    so the per-(Client, Agency) constraint reduces to unique on `client_id`.
+    The co-client account model (multiple Users per Client) is a deferred
+    follow-up; if it lands, this becomes UniqueConstraint(client_id, agency_id)."""
 
     __tablename__ = "message_threads"
 

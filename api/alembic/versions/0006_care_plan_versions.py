@@ -25,7 +25,15 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("agency_id", sa.Uuid, sa.ForeignKey("agencies.id"), nullable=False),
-        sa.Column("client_id", sa.Uuid, sa.ForeignKey("clients.id"), nullable=False),
+        # ON DELETE RESTRICT: clinical record-of-truth must outlive Client
+        # soft-delete. Hard-deletion of a Client is intentionally blocked when
+        # care plan history exists (Data Engineer §3, round-1 review).
+        sa.Column(
+            "client_id",
+            sa.Uuid,
+            sa.ForeignKey("clients.id", ondelete="RESTRICT"),
+            nullable=False,
+        ),
         sa.Column("version_no", sa.Integer, nullable=False),
         sa.Column("is_active", sa.Boolean, nullable=False, server_default=sa.false()),
         sa.Column("plain_summary", sa.Text, nullable=False, server_default=""),

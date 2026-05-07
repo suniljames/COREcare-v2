@@ -35,57 +35,65 @@ DUAL_AXIS_TABLES = {
 }
 
 
+# `current_setting('app.x', true)` returns NULL when the GUC was never set on
+# the current connection. `NULL = ''` is NULL → policy fails. Wrap with
+# `coalesce(..., '')` so the staff-path predicate (empty client context) holds
+# on a fresh connection, before auth has had a chance to set GUCs.
+_TENANT = "coalesce(current_setting('app.current_tenant_id', true), '')"
+_CLIENT = "coalesce(current_setting('app.current_client_id', true), '')"
+
+
 def _create_dual_axis_policy(table: str, own_column: str) -> str:
     return f"""
         CREATE POLICY tenant_and_client_isolation ON {table}
           USING (
-            (current_setting('app.current_client_id', true) = ''
-              AND (agency_id::text = current_setting('app.current_tenant_id', true)
-                   OR current_setting('app.current_tenant_id', true) = ''))
+            ({_CLIENT} = ''
+              AND (agency_id::text = {_TENANT}
+                   OR {_TENANT} = ''))
             OR
-            (current_setting('app.current_client_id', true) <> ''
-              AND {own_column}::text = current_setting('app.current_client_id', true)
-              AND agency_id::text = current_setting('app.current_tenant_id', true))
+            ({_CLIENT} <> ''
+              AND {own_column}::text = {_CLIENT}
+              AND agency_id::text = {_TENANT})
           )
           WITH CHECK (
-            (current_setting('app.current_client_id', true) = ''
-              AND (agency_id::text = current_setting('app.current_tenant_id', true)
-                   OR current_setting('app.current_tenant_id', true) = ''))
+            ({_CLIENT} = ''
+              AND (agency_id::text = {_TENANT}
+                   OR {_TENANT} = ''))
             OR
-            (current_setting('app.current_client_id', true) <> ''
-              AND {own_column}::text = current_setting('app.current_client_id', true)
-              AND agency_id::text = current_setting('app.current_tenant_id', true))
+            ({_CLIENT} <> ''
+              AND {own_column}::text = {_CLIENT}
+              AND agency_id::text = {_TENANT})
           )
     """
 
 
 def _create_messages_policy() -> str:
     """Messages: visible if the thread belongs to the current Client."""
-    return """
+    return f"""
         CREATE POLICY tenant_and_client_isolation ON messages
           USING (
-            (current_setting('app.current_client_id', true) = ''
-              AND (agency_id::text = current_setting('app.current_tenant_id', true)
-                   OR current_setting('app.current_tenant_id', true) = ''))
+            ({_CLIENT} = ''
+              AND (agency_id::text = {_TENANT}
+                   OR {_TENANT} = ''))
             OR
-            (current_setting('app.current_client_id', true) <> ''
+            ({_CLIENT} <> ''
               AND thread_id IN (
                 SELECT id FROM message_threads
-                WHERE client_id::text = current_setting('app.current_client_id', true)
+                WHERE client_id::text = {_CLIENT}
               )
-              AND agency_id::text = current_setting('app.current_tenant_id', true))
+              AND agency_id::text = {_TENANT})
           )
           WITH CHECK (
-            (current_setting('app.current_client_id', true) = ''
-              AND (agency_id::text = current_setting('app.current_tenant_id', true)
-                   OR current_setting('app.current_tenant_id', true) = ''))
+            ({_CLIENT} = ''
+              AND (agency_id::text = {_TENANT}
+                   OR {_TENANT} = ''))
             OR
-            (current_setting('app.current_client_id', true) <> ''
+            ({_CLIENT} <> ''
               AND thread_id IN (
                 SELECT id FROM message_threads
-                WHERE client_id::text = current_setting('app.current_client_id', true)
+                WHERE client_id::text = {_CLIENT}
               )
-              AND agency_id::text = current_setting('app.current_tenant_id', true))
+              AND agency_id::text = {_TENANT})
           )
     """
 
