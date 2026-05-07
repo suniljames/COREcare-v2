@@ -107,7 +107,7 @@ async def test_issue_invite_writes_audit(session: AsyncSession) -> None:
     await session.commit()
 
     result = await session.execute(
-        select(AuditEvent).where(AuditEvent.resource_type == "client_invite")
+        select(AuditEvent).where(AuditEvent.resource_type == "client_invite")  # type: ignore[arg-type]
     )
     events = list(result.scalars().all())
     assert len(events) == 1
@@ -189,7 +189,7 @@ async def test_redeem_invite_email_mismatch_fails(session: AsyncSession) -> None
     # Audit written
     result = await session.execute(
         select(AuditEvent).where(
-            AuditEvent.details == "client_invite_failed_email_mismatch"
+            AuditEvent.details == "client_invite_failed_email_mismatch"  # type: ignore[arg-type]
         )
     )
     events = list(result.scalars().all())

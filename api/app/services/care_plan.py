@@ -19,9 +19,7 @@ class CarePlanService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def get_active_for_client(
-        self, client_id: uuid.UUID
-    ) -> CarePlanVersion | None:
+    async def get_active_for_client(self, client_id: uuid.UUID) -> CarePlanVersion | None:
         """Return the unique is_active=True version for a Client, if any."""
         result = await self.session.execute(
             select(CarePlanVersion).where(

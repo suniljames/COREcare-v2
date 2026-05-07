@@ -1,7 +1,7 @@
 """Create message_threads table.
 
-Revision ID: 0004
-Revises: 0003
+Revision ID: 0005
+Revises: 0004
 Create Date: 2026-05-07
 
 One thread per (Client, Agency) pair. Enables agency-side inbox enumeration
@@ -9,10 +9,11 @@ and is the join target for Client-persona message RLS.
 """
 
 import sqlalchemy as sa
+
 from alembic import op
 
-revision = "0004"
-down_revision = "0003"
+revision = "0005"
+down_revision = "0004"
 branch_labels = None
 depends_on = None
 

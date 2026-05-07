@@ -32,8 +32,8 @@ redeem_router = APIRouter(prefix="/api/client-invites", tags=["client-invites"])
 async def issue_client_invite(
     client_id: uuid.UUID,
     body: ClientInviteIssue,
-    admin: User = Depends(require_role(UserRole.CARE_MANAGER)),
-    session: AsyncSession = Depends(get_session),
+    admin: User = Depends(require_role(UserRole.CARE_MANAGER)),  # noqa: B008
+    session: AsyncSession = Depends(get_session),  # noqa: B008
 ) -> ClientInviteIssueResponse:
     """Issue a Client-persona invite. Requires care_manager+."""
     if admin.agency_id is None:
@@ -51,7 +51,7 @@ async def issue_client_invite(
 @redeem_router.post("/redeem", status_code=status.HTTP_200_OK)
 async def redeem_client_invite(
     body: ClientInviteRedeem,
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session),  # noqa: B008
 ) -> dict[str, str]:
     """Redeem a Client-persona invite. Public endpoint (Clerk redemption flow)."""
     service = ClientInviteService(session)

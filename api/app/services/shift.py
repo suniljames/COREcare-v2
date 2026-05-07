@@ -75,9 +75,7 @@ class ShiftService:
         total = total_result.scalar() or 0
 
         query = (
-            query.offset((page - 1) * size)
-            .limit(size)
-            .order_by(Shift.start_time.asc())  # type: ignore[attr-defined]
+            query.offset((page - 1) * size).limit(size).order_by(Shift.start_time.asc())  # type: ignore[attr-defined]
         )
         result = await self.session.execute(query)
         shifts = list(result.scalars().all())
@@ -118,9 +116,7 @@ class ShiftService:
         await self.session.refresh(shift)
         return shift
 
-    async def update_shift(
-        self, shift_id: uuid.UUID, data: ShiftUpdate
-    ) -> Shift | None:
+    async def update_shift(self, shift_id: uuid.UUID, data: ShiftUpdate) -> Shift | None:
         """Update a shift."""
         shift = await self.get_shift(shift_id)
         if shift is None:
@@ -167,9 +163,7 @@ class ShiftService:
         await self.session.refresh(shift)
         return shift
 
-    async def list_upcoming_for_client(
-        self, client_id: uuid.UUID, days: int = 7
-    ) -> list[Shift]:
+    async def list_upcoming_for_client(self, client_id: uuid.UUID, days: int = 7) -> list[Shift]:
         """Return upcoming (start_time >= now) shifts for a Client, next `days` days.
 
         Cancelled shifts are excluded. Ordered by start_time ascending. The

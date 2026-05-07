@@ -16,7 +16,6 @@ from sqlmodel import SQLModel
 
 from app.main import app
 from app.models import Agency, CarePlanVersion, Client, User  # noqa: F401
-from app.models.user import UserRole
 
 TEST_DB_URL = "sqlite+aiosqlite:///./test_me_router.db"
 AGENCY_ID = uuid.UUID("00000000-0000-0000-0000-00000000d001")
@@ -71,7 +70,6 @@ def test_me_messages_route_registered() -> None:
 @pytest.mark.asyncio
 async def test_client_care_plan_response_excludes_clinical_detail() -> None:
     """ClientCarePlanRead schema serialization excludes clinical_detail at runtime."""
-    from app.models import CarePlanVersion
     from app.schemas.care_plan import ClientCarePlanRead
 
     cpv = CarePlanVersion(

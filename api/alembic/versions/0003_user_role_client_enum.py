@@ -1,7 +1,7 @@
 """Add 'client' value to userrole enum.
 
-Revision ID: 0002
-Revises: 0001
+Revision ID: 0003
+Revises: 0002
 Create Date: 2026-05-07
 
 PG enum-add restriction: standalone migration, no other DDL referencing the
@@ -10,8 +10,8 @@ new value in the same transaction.
 
 from alembic import op
 
-revision = "0002"
-down_revision = "0001"
+revision = "0003"
+down_revision = "0002"
 branch_labels = None
 depends_on = None
 

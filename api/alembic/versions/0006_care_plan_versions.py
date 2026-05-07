@@ -1,7 +1,7 @@
 """Create care_plan_versions table.
 
-Revision ID: 0005
-Revises: 0004
+Revision ID: 0006
+Revises: 0005
 Create Date: 2026-05-07
 
 Append-only versioned care plans. Partial unique index enforces
@@ -9,10 +9,11 @@ Append-only versioned care plans. Partial unique index enforces
 """
 
 import sqlalchemy as sa
+
 from alembic import op
 
-revision = "0005"
-down_revision = "0004"
+revision = "0006"
+down_revision = "0005"
 branch_labels = None
 depends_on = None
 
@@ -46,18 +47,10 @@ def upgrade() -> None:
             nullable=True,
         ),
     )
-    op.create_index(
-        "ix_care_plan_versions_client_id", "care_plan_versions", ["client_id"]
-    )
-    op.create_index(
-        "ix_care_plan_versions_agency_id", "care_plan_versions", ["agency_id"]
-    )
-    op.create_index(
-        "ix_care_plan_versions_version_no", "care_plan_versions", ["version_no"]
-    )
-    op.create_index(
-        "ix_care_plan_versions_is_active", "care_plan_versions", ["is_active"]
-    )
+    op.create_index("ix_care_plan_versions_client_id", "care_plan_versions", ["client_id"])
+    op.create_index("ix_care_plan_versions_agency_id", "care_plan_versions", ["agency_id"])
+    op.create_index("ix_care_plan_versions_version_no", "care_plan_versions", ["version_no"])
+    op.create_index("ix_care_plan_versions_is_active", "care_plan_versions", ["is_active"])
     op.create_index(
         "ix_care_plan_versions_authored_by_user_id",
         "care_plan_versions",
@@ -72,9 +65,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.execute("DROP INDEX IF EXISTS uq_care_plan_active_per_client")
-    op.drop_index(
-        "ix_care_plan_versions_authored_by_user_id", table_name="care_plan_versions"
-    )
+    op.drop_index("ix_care_plan_versions_authored_by_user_id", table_name="care_plan_versions")
     op.drop_index("ix_care_plan_versions_is_active", table_name="care_plan_versions")
     op.drop_index("ix_care_plan_versions_version_no", table_name="care_plan_versions")
     op.drop_index("ix_care_plan_versions_agency_id", table_name="care_plan_versions")

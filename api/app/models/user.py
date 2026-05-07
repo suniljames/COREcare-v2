@@ -35,6 +35,4 @@ class User(BaseModel, table=True):
     role: UserRole = Field(default=UserRole.CAREGIVER)
     is_active: bool = Field(default=True)
     clerk_id: str | None = Field(default=None, unique=True, index=True)
-    agency_id: uuid.UUID | None = Field(
-        default=None, foreign_key="agencies.id", index=True
-    )
+    agency_id: uuid.UUID | None = Field(default=None, foreign_key="agencies.id", index=True)

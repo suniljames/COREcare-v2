@@ -34,16 +34,10 @@ class CarePlanVersion(TenantScopedModel, table=True):
     is_active: bool = Field(default=False, index=True)
     plain_summary: str = Field(default="", sa_column=Column(Text))
     care_team_blob: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
-    weekly_support_blob: dict[str, Any] = Field(
-        default_factory=dict, sa_column=Column(JSON)
-    )
+    weekly_support_blob: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     allergies: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-    emergency_contact_blob: dict[str, Any] = Field(
-        default_factory=dict, sa_column=Column(JSON)
-    )
-    clinical_detail: dict[str, Any] = Field(
-        default_factory=dict, sa_column=Column(JSON)
-    )
+    emergency_contact_blob: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    clinical_detail: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     authored_by_user_id: uuid.UUID = Field(foreign_key="users.id", index=True)
     supersedes_version_id: uuid.UUID | None = Field(
         default=None, foreign_key="care_plan_versions.id"

@@ -55,8 +55,8 @@ async def session() -> AsyncGenerator[AsyncSession, None]:
 
 def test_user_role_enum_includes_client() -> None:
     """UserRole enum has CLIENT value."""
-    assert UserRole.CLIENT == "client"
     assert UserRole.CLIENT.value == "client"
+    assert UserRole["CLIENT"] is UserRole.CLIENT
 
 
 def test_client_model_has_client_user_id_field() -> None:
@@ -150,9 +150,7 @@ def test_client_care_plan_read_excludes_clinical_detail() -> None:
     assert "allergies" in fields
     assert "emergency_contact_blob" in fields
     # The structural enforcement: clinical_detail is staff-only
-    assert (
-        "clinical_detail" not in fields
-    ), "Client schema must not expose clinical_detail"
+    assert "clinical_detail" not in fields, "Client schema must not expose clinical_detail"
 
 
 # --- MessageThread ---

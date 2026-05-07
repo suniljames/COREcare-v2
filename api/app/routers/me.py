@@ -54,16 +54,14 @@ async def _audit(
 @router.get("/care-plan", response_model=ClientCarePlanRead | None)
 async def read_my_care_plan(
     request: Request,  # noqa: ARG001
-    user: User = Depends(get_current_user),
-    client: Client = Depends(require_client_self()),
-    session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),  # noqa: B008
+    client: Client = Depends(require_client_self()),  # noqa: B008
+    session: AsyncSession = Depends(get_session),  # noqa: B008
 ) -> ClientCarePlanRead | None:
     """Read the active care plan version for the authenticated Client."""
     service = CarePlanService(session)
     active = await service.get_active_for_client(client.id)
-    await _audit(
-        session, user=user, client=client, action_detail="client_read_own_care_plan"
-    )
+    await _audit(session, user=user, client=client, action_detail="client_read_own_care_plan")
     if active is None:
         return None
     return ClientCarePlanRead.model_validate(active)
@@ -72,33 +70,29 @@ async def read_my_care_plan(
 @router.get("/schedule", response_model=list[ClientShiftRead])
 async def read_my_schedule(
     request: Request,  # noqa: ARG001
-    user: User = Depends(get_current_user),
-    client: Client = Depends(require_client_self()),
-    session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),  # noqa: B008
+    client: Client = Depends(require_client_self()),  # noqa: B008
+    session: AsyncSession = Depends(get_session),  # noqa: B008
 ) -> list[ClientShiftRead]:
     """Read the next 7 days of shifts for the authenticated Client."""
     service = ShiftService(session)
     shifts = await service.list_upcoming_for_client(client.id, days=7)
-    await _audit(
-        session, user=user, client=client, action_detail="client_read_own_schedule"
-    )
+    await _audit(session, user=user, client=client, action_detail="client_read_own_schedule")
     return [ClientShiftRead.model_validate(s) for s in shifts]
 
 
 @router.get("/messages", response_model=ClientThreadRead)
 async def read_my_messages(
     request: Request,  # noqa: ARG001
-    user: User = Depends(get_current_user),
-    client: Client = Depends(require_client_self()),
-    session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),  # noqa: B008
+    client: Client = Depends(require_client_self()),  # noqa: B008
+    session: AsyncSession = Depends(get_session),  # noqa: B008
 ) -> ClientThreadRead:
     """Read the Client's message thread with their agency."""
     service = MessageThreadService(session)
     thread = await service.get_or_create_for_client(client.id, client.agency_id)
     messages = await service.list_messages(thread.id)
-    await _audit(
-        session, user=user, client=client, action_detail="client_read_own_messages"
-    )
+    await _audit(session, user=user, client=client, action_detail="client_read_own_messages")
     return ClientThreadRead(
         id=thread.id,
         last_message_at=thread.last_message_at,
@@ -113,9 +107,9 @@ async def read_my_messages(
 )
 async def send_my_message(
     body: ClientMessageCreate,
-    user: User = Depends(get_current_user),
-    client: Client = Depends(require_client_self()),
-    session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),  # noqa: B008
+    client: Client = Depends(require_client_self()),  # noqa: B008
+    session: AsyncSession = Depends(get_session),  # noqa: B008
 ) -> ClientMessageRead:
     """Send a message from the Client into their thread."""
     if not body.body.strip():
