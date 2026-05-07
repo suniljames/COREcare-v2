@@ -29,6 +29,22 @@
 #      v1-pages-inventory.md — whether written as a relative path, an absolute
 #      GitHub URL, or a `../blob/<branch>/...` form — resolves to a real
 #      heading or <a id> in the inventory (JL-7). Issues #104, #134.
+#   8. v1-pages-inventory.md cross-reference index sub-sections (any "###
+#      Cross-reference index" heading) keep their mirrored flag values in
+#      sync with the canonical persona-section row they link to. Triggers
+#      only when the index table header contains BOTH `phi_displayed` and
+#      `row location` columns (header-intersection rule — the same machinery
+#      picks up future mirrored columns automatically when they appear in
+#      both headers). Violation codes:
+#        CR-1  route from index not found at the linked anchor (or the row
+#              location cell carries no `(#anchor)` link).
+#        CR-2  route slug is duplicated under the linked anchor — canonical
+#              lookup is ambiguous.
+#        CR-3  `phi_displayed` value disagreement between index row and
+#              canonical row.
+#        CR-4  `phi_displayed` value outside `{true, false}` on either side.
+#      Issue #124 — drift in this column would silently mis-scope v2's
+#      operator-portal HIPAA-minimum-necessary controls.
 #
 # Usage:
 #   scripts/check-v1-doc-structure.sh [--dir <docs-dir>]
@@ -673,6 +689,210 @@ if [[ -f "$GLOSSARY" ]]; then
   ' "${gl3_target_files[@]}" "$GLOSSARY")
   if [[ -n "$gl3_violations" ]]; then
     while IFS= read -r line; do fail "$line"; done <<< "$gl3_violations"
+  fi
+fi
+
+# --- Inventory: cross-reference index ↔ canonical row consistency (#124) ---
+# Two-pass awk over v1-pages-inventory.md. Pass 1 builds a map keyed by
+# (anchor, route_slug) → "<line>|<phi_displayed>" by walking persona-section
+# tables; cross-reference index sub-sections are explicitly skipped during
+# this pass so their mirrored rows do not pollute the canonical map. Pass 2
+# walks every "### Cross-reference index" sub-section and, for indexes whose
+# header contains both `phi_displayed` and `row location`, compares each row's
+# mirrored flag against the canonical row found via the linked anchor.
+#
+# Anchors track BOTH explicit `<a id="...">` standalone-line declarations
+# (which apply to the immediately-following heading, e.g. line 211 in the
+# real inventory) AND GFM-derived anchors from heading text. Canonical rows
+# are recorded under every anchor that points at their containing H2/H3, so
+# a link using either form resolves.
+if [[ -f "$INVENTORY" ]]; then
+  xref_violations=$(awk '
+    function trim(s) { sub(/^[ \t]+/, "", s); sub(/[ \t]+$/, "", s); return s }
+    function to_anchor(s,   a) {
+      a = tolower(s)
+      gsub(/[ \t]+/, "-", a)
+      gsub(/[^a-z0-9_-]/, "", a)
+      return a
+    }
+    function clear(arr,   k) { for (k in arr) delete arr[k] }
+
+    # ---- Pass 1: build CANONICAL[anchor SUBSEP slug] = "<line>|<phi>" ----
+    NR == FNR {
+      # Standalone explicit anchor — applies to next heading.
+      if ($0 ~ /^<a id="[^"]+"><\/a>[[:space:]]*$/) {
+        match($0, /id="[^"]+"/)
+        pending_anchor = substr($0, RSTART + 4, RLENGTH - 5)
+        next
+      }
+
+      # H3 heading — reset to just this H3'\''s anchors.
+      if ($0 ~ /^### /) {
+        n_anchors = 0
+        clear(header_cols)
+        in_canon_table = 0
+        if (pending_anchor != "") {
+          current_anchors[++n_anchors] = pending_anchor
+          pending_anchor = ""
+        }
+        heading_text = trim(substr($0, 5))
+        current_anchors[++n_anchors] = to_anchor(heading_text)
+        # Cross-reference index sub-sections hold mirrored rows, not canonical.
+        if (heading_text == "Cross-reference index") {
+          in_xref_skip = 1
+        } else {
+          in_xref_skip = 0
+        }
+        next
+      }
+      # H2 heading — reset to just this H2'\''s anchors.
+      if ($0 ~ /^## /) {
+        n_anchors = 0
+        clear(header_cols)
+        in_canon_table = 0
+        in_xref_skip = 0
+        if (pending_anchor != "") {
+          current_anchors[++n_anchors] = pending_anchor
+          pending_anchor = ""
+        }
+        heading_text = trim(substr($0, 4))
+        current_anchors[++n_anchors] = to_anchor(heading_text)
+        next
+      }
+
+      if (in_xref_skip) next
+      if (n_anchors == 0) next
+
+      # Markdown table line.
+      if ($0 ~ /^\|/) {
+        n_cells = split($0, cells, /\|/)
+        first_cell = trim(cells[2])
+        # Header row — first cell content is literally "route".
+        if (first_cell == "route") {
+          clear(header_cols)
+          for (i = 2; i < n_cells; i++) {
+            col = trim(cells[i])
+            header_cols[col] = i
+          }
+          in_canon_table = 1
+          next
+        }
+        if (!in_canon_table) next
+        # Separator row — skip.
+        if ($0 ~ /^\|[- :|]+\|[[:space:]]*$/) next
+        # Data row — first cell should be a backticked route slug.
+        if (first_cell ~ /^`[^`]+`/) {
+          slug = first_cell
+          sub(/^`/, "", slug)
+          sub(/`.*/, "", slug)
+          phi_col = ("phi_displayed" in header_cols) ? header_cols["phi_displayed"] : 0
+          if (phi_col != 0) {
+            phi_val = trim(cells[phi_col])
+            for (a = 1; a <= n_anchors; a++) {
+              key = current_anchors[a] SUBSEP slug
+              if (key in CANONICAL) {
+                CANONICAL_DUP[key] = 1
+              }
+              CANONICAL[key] = FNR "|" phi_val
+            }
+          }
+        }
+        next
+      }
+      # Non-table line inside the section — leave canonical-table state.
+      in_canon_table = 0
+      next
+    }
+
+    # ---- Pass 2: walk "### Cross-reference index" sub-sections ----
+    {
+      if ($0 ~ /^### Cross-reference index[[:space:]]*$/) {
+        in_xref = 1
+        xref_phi_col = 0
+        xref_loc_col = 0
+        xref_table_started = 0
+        xref_header_seen = 0
+        next
+      }
+      if ($0 ~ /^## / || $0 ~ /^### /) {
+        in_xref = 0
+        next
+      }
+      if (!in_xref) next
+      if ($0 !~ /^\|/) next
+
+      n_cells = split($0, cells, /\|/)
+      if (!xref_header_seen) {
+        for (i = 2; i < n_cells; i++) {
+          col = trim(cells[i])
+          if (col == "phi_displayed") xref_phi_col = i
+          if (col == "row location") xref_loc_col = i
+        }
+        xref_header_seen = 1
+        # Header-intersection rule: only fire when both columns are present.
+        if (xref_phi_col == 0 || xref_loc_col == 0) {
+          in_xref = 0
+        }
+        next
+      }
+      if (!xref_table_started && $0 ~ /^\|[- :|]+\|[[:space:]]*$/) {
+        xref_table_started = 1
+        next
+      }
+      first_cell = trim(cells[2])
+      if (first_cell !~ /^`[^`]+`/) next
+      slug = first_cell
+      sub(/^`/, "", slug)
+      sub(/`.*/, "", slug)
+      idx_phi = trim(cells[xref_phi_col])
+      loc_cell = trim(cells[xref_loc_col])
+
+      # Extract the first markdown anchor link in the row-location cell.
+      if (match(loc_cell, /\(#[^)]+\)/)) {
+        anchor = substr(loc_cell, RSTART + 2, RLENGTH - 3)
+      } else {
+        print FILENAME ":" FNR ": CR-1: route '\''" slug "'\'' from cross-reference index has no anchor link in row location cell"
+        next
+      }
+
+      key = anchor SUBSEP slug
+      if (!(key in CANONICAL)) {
+        print FILENAME ":" FNR ": CR-1: route '\''" slug "'\'' from cross-reference index not found at anchor '\''" anchor "'\''"
+        next
+      }
+      if (key in CANONICAL_DUP) {
+        print FILENAME ":" FNR ": CR-2: route '\''" slug "'\'' has multiple canonical rows under anchor '\''" anchor "'\'' — disambiguate the link target"
+        next
+      }
+
+      split(CANONICAL[key], parts, "|")
+      canon_line = parts[1]
+      canon_phi = parts[2]
+
+      # CR-4: vocabulary check — emit on the offending side, do not proceed to CR-3.
+      if (idx_phi != "true" && idx_phi != "false") {
+        print FILENAME ":" FNR ": CR-4: phi_displayed='\''" idx_phi "'\'' is not in {true, false}"
+        next
+      }
+      if (canon_phi != "true" && canon_phi != "false") {
+        print FILENAME ":" canon_line ": CR-4: phi_displayed='\''" canon_phi "'\'' is not in {true, false}"
+        next
+      }
+
+      # CR-3: equality.
+      if (idx_phi != canon_phi) {
+        print FILENAME ":" FNR ": CR-3: phi_displayed disagreement between index and canonical row. Index has '\''" idx_phi "'\'' (here); canonical row at " FILENAME ":" canon_line " has '\''" canon_phi "'\'' (route '\''" slug "'\''). Reconfirm v1'\''s PHI exposure at this route in the source repo, then update whichever side is incorrect. Do not align the index to the canonical (or vice-versa) without source verification — that re-introduces the silent-drift risk this check is preventing."
+      }
+    }
+  ' "$INVENTORY" "$INVENTORY")
+  if [[ -n "$xref_violations" ]]; then
+    while IFS= read -r line; do
+      if [[ "$line" =~ ^[^:]+:[0-9]+:[[:space:]] ]]; then
+        fail "$line"
+      else
+        echo "$line"
+      fi
+    done <<< "$xref_violations"
   fi
 fi
 

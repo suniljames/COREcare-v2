@@ -1771,6 +1771,346 @@ write_glossary_integrations "$TEST_DIR/gl3-all-good/v1-integrations-and-exports.
 write_authored_glossary "$TEST_DIR/gl3-all-good/v1-glossary.md"
 assert_exit "GL-3: valid anchors across inventory + journeys + integrations passes" 0 "$STRUCTURE" --dir "$TEST_DIR/gl3-all-good"
 
+# =============================================================================
+# Cross-reference index phi_displayed consistency tests (#124)
+# CR-1: route at index not found at linked anchor (or no anchor link in row location)
+# CR-2: route slug duplicated under linked anchor (canonical lookup ambiguous)
+# CR-3: phi_displayed value disagreement between index row and canonical row
+# CR-4: phi_displayed value outside {true, false} on either side
+#
+# Trigger: only when the cross-reference-index table header contains BOTH
+# `phi_displayed` and `row location` columns (header-intersection rule).
+# =============================================================================
+
+# Helper: write a six-persona inventory with a Super-Admin cross-reference index
+# linking to an Agency-Admin canonical row. Both phi_displayed values are
+# parameterized so each test case can flip them independently.
+write_xref_inventory() {
+  local path="$1"
+  local canon_phi="$2"
+  local index_phi="$3"
+  cat > "$path" <<EOF
+# v1 Pages Inventory
+
+## Super-Admin
+
+### Cross-reference index
+
+| route | also reachable by | content branches by role | phi_displayed | row location |
+|-------|-------------------|--------------------------|---------------|--------------|
+| \`/admin/expenses/review/\` | Agency Admin | no | $index_phi | [Agency Admin → top-level](#agency-admin-top-level) |
+
+## Agency Admin
+
+<a id="agency-admin-top-level"></a>
+### top-level
+
+| route | phi_displayed |
+|-------|---------------|
+| \`/admin/expenses/review/\` | $canon_phi |
+
+## Care Manager
+
+## Caregiver
+
+## Client
+
+## Family Member
+EOF
+}
+
+echo ""
+echo "== cross-reference index phi_displayed consistency tests (#124) =="
+
+# --- Test 1: index value matches canonical → pass ---
+mkdir -p "$TEST_DIR/xref-match"
+write_xref_inventory "$TEST_DIR/xref-match/v1-pages-inventory.md" "true" "true"
+write_good_delta "$TEST_DIR/xref-match/v1-functionality-delta.md"
+assert_exit "CR-3: index phi_displayed matches canonical → pass" 0 "$STRUCTURE" --dir "$TEST_DIR/xref-match"
+
+# --- Test 2: index says false, canonical says true → CR-3 fail ---
+mkdir -p "$TEST_DIR/xref-mismatch-false-true"
+write_xref_inventory "$TEST_DIR/xref-mismatch-false-true/v1-pages-inventory.md" "true" "false"
+write_good_delta "$TEST_DIR/xref-mismatch-false-true/v1-functionality-delta.md"
+assert_exit "CR-3: index 'false' vs canonical 'true' fails" 1 "$STRUCTURE" --dir "$TEST_DIR/xref-mismatch-false-true"
+
+# --- Test 3: index says true, canonical says false → CR-3 fail (symmetric) ---
+mkdir -p "$TEST_DIR/xref-mismatch-true-false"
+write_xref_inventory "$TEST_DIR/xref-mismatch-true-false/v1-pages-inventory.md" "false" "true"
+write_good_delta "$TEST_DIR/xref-mismatch-true-false/v1-functionality-delta.md"
+assert_exit "CR-3: index 'true' vs canonical 'false' fails (symmetric)" 1 "$STRUCTURE" --dir "$TEST_DIR/xref-mismatch-true-false"
+
+# --- Test 4: cross-reference index without phi_displayed column → pass (no-op) ---
+# The Shared routes shape: header is `| route | persona | row location |`. Header
+# intersection with canonical-row header excludes phi_displayed entirely, so the
+# rule must not fire even though anchors and routes match.
+mkdir -p "$TEST_DIR/xref-no-phi-col"
+cat > "$TEST_DIR/xref-no-phi-col/v1-pages-inventory.md" <<'EOF'
+# v1 Pages Inventory
+
+## Super-Admin
+
+## Agency Admin
+
+<a id="agency-admin-top-level"></a>
+### top-level
+
+| route | phi_displayed |
+|-------|---------------|
+| `/admin/expenses/review/` | true |
+
+## Care Manager
+
+## Caregiver
+
+## Client
+
+## Family Member
+
+## Shared routes
+
+### Cross-reference index
+
+| route | primary persona | row location |
+|-------|-----------------|--------------|
+| `/admin/expenses/review/` | Agency Admin | [Agency Admin → top-level](#agency-admin-top-level) |
+EOF
+write_good_delta "$TEST_DIR/xref-no-phi-col/v1-functionality-delta.md"
+assert_exit "header-intersection: index without phi_displayed column → no-op pass" 0 "$STRUCTURE" --dir "$TEST_DIR/xref-no-phi-col"
+
+# --- Test 5: anchor in row location does not exist in inventory → CR-1 fail ---
+mkdir -p "$TEST_DIR/xref-bad-anchor"
+cat > "$TEST_DIR/xref-bad-anchor/v1-pages-inventory.md" <<'EOF'
+# v1 Pages Inventory
+
+## Super-Admin
+
+### Cross-reference index
+
+| route | also reachable by | content branches by role | phi_displayed | row location |
+|-------|-------------------|--------------------------|---------------|--------------|
+| `/admin/expenses/review/` | Agency Admin | no | true | [Agency Admin → top-level](#nonexistent-anchor) |
+
+## Agency Admin
+
+<a id="agency-admin-top-level"></a>
+### top-level
+
+| route | phi_displayed |
+|-------|---------------|
+| `/admin/expenses/review/` | true |
+
+## Care Manager
+
+## Caregiver
+
+## Client
+
+## Family Member
+EOF
+write_good_delta "$TEST_DIR/xref-bad-anchor/v1-functionality-delta.md"
+assert_exit "CR-1: anchor in row location does not exist fails" 1 "$STRUCTURE" --dir "$TEST_DIR/xref-bad-anchor"
+
+# --- Test 6: route slug duplicated under linked anchor → CR-2 fail ---
+mkdir -p "$TEST_DIR/xref-dup-canonical"
+cat > "$TEST_DIR/xref-dup-canonical/v1-pages-inventory.md" <<'EOF'
+# v1 Pages Inventory
+
+## Super-Admin
+
+### Cross-reference index
+
+| route | also reachable by | content branches by role | phi_displayed | row location |
+|-------|-------------------|--------------------------|---------------|--------------|
+| `/admin/foo/` | Agency Admin | no | true | [Agency Admin → top-level](#agency-admin-top-level) |
+
+## Agency Admin
+
+<a id="agency-admin-top-level"></a>
+### top-level
+
+| route | phi_displayed |
+|-------|---------------|
+| `/admin/foo/` | true |
+| `/admin/foo/` | false |
+
+## Care Manager
+
+## Caregiver
+
+## Client
+
+## Family Member
+EOF
+write_good_delta "$TEST_DIR/xref-dup-canonical/v1-functionality-delta.md"
+assert_exit "CR-2: duplicate canonical row under anchor fails" 1 "$STRUCTURE" --dir "$TEST_DIR/xref-dup-canonical"
+
+# --- Test 7: route slug not present at the linked anchor → CR-1 fail ---
+mkdir -p "$TEST_DIR/xref-missing-route"
+cat > "$TEST_DIR/xref-missing-route/v1-pages-inventory.md" <<'EOF'
+# v1 Pages Inventory
+
+## Super-Admin
+
+### Cross-reference index
+
+| route | also reachable by | content branches by role | phi_displayed | row location |
+|-------|-------------------|--------------------------|---------------|--------------|
+| `/admin/expenses/review/` | Agency Admin | no | true | [Agency Admin → top-level](#agency-admin-top-level) |
+
+## Agency Admin
+
+<a id="agency-admin-top-level"></a>
+### top-level
+
+| route | phi_displayed |
+|-------|---------------|
+| `/admin/some-other-route/` | true |
+
+## Care Manager
+
+## Caregiver
+
+## Client
+
+## Family Member
+EOF
+write_good_delta "$TEST_DIR/xref-missing-route/v1-functionality-delta.md"
+assert_exit "CR-1: route slug not at linked anchor fails" 1 "$STRUCTURE" --dir "$TEST_DIR/xref-missing-route"
+
+# --- Test 8: index cell has 'yes' instead of 'true' → CR-4 fail ---
+mkdir -p "$TEST_DIR/xref-vocab-index"
+write_xref_inventory "$TEST_DIR/xref-vocab-index/v1-pages-inventory.md" "true" "yes"
+write_good_delta "$TEST_DIR/xref-vocab-index/v1-functionality-delta.md"
+assert_exit "CR-4: index phi_displayed='yes' (not in {true,false}) fails" 1 "$STRUCTURE" --dir "$TEST_DIR/xref-vocab-index"
+
+# --- Test 9: canonical cell empty → CR-4 fail ---
+mkdir -p "$TEST_DIR/xref-vocab-canonical"
+write_xref_inventory "$TEST_DIR/xref-vocab-canonical/v1-pages-inventory.md" "" "true"
+write_good_delta "$TEST_DIR/xref-vocab-canonical/v1-functionality-delta.md"
+assert_exit "CR-4: canonical phi_displayed='' (not in {true,false}) fails" 1 "$STRUCTURE" --dir "$TEST_DIR/xref-vocab-canonical"
+
+# --- Test 10: GFM-derived anchor (no explicit <a id>) → pass ---
+mkdir -p "$TEST_DIR/xref-gfm-anchor"
+cat > "$TEST_DIR/xref-gfm-anchor/v1-pages-inventory.md" <<'EOF'
+# v1 Pages Inventory
+
+## Super-Admin
+
+### Cross-reference index
+
+| route | also reachable by | content branches by role | phi_displayed | row location |
+|-------|-------------------|--------------------------|---------------|--------------|
+| `/admin/expenses/review/` | Agency Admin | no | true | [Agency Admin → top level](#some-section) |
+
+## Agency Admin
+
+### Some Section
+
+| route | phi_displayed |
+|-------|---------------|
+| `/admin/expenses/review/` | true |
+
+## Care Manager
+
+## Caregiver
+
+## Client
+
+## Family Member
+EOF
+write_good_delta "$TEST_DIR/xref-gfm-anchor/v1-functionality-delta.md"
+assert_exit "GFM-derived anchor resolution → pass" 0 "$STRUCTURE" --dir "$TEST_DIR/xref-gfm-anchor"
+
+# --- Test 11: explicit <a id> anchor used in link → pass (canonical row resolves
+#              via explicit anchor even though the heading text would also yield
+#              its own GFM anchor) ---
+mkdir -p "$TEST_DIR/xref-explicit-anchor"
+cat > "$TEST_DIR/xref-explicit-anchor/v1-pages-inventory.md" <<'EOF'
+# v1 Pages Inventory
+
+## Super-Admin
+
+### Cross-reference index
+
+| route | also reachable by | content branches by role | phi_displayed | row location |
+|-------|-------------------|--------------------------|---------------|--------------|
+| `/admin/expenses/review/` | Agency Admin | no | true | [Agency Admin → top-level](#agency-admin-top-level) |
+
+## Agency Admin
+
+<a id="agency-admin-top-level"></a>
+### top-level
+
+| route | phi_displayed |
+|-------|---------------|
+| `/admin/expenses/review/` | true |
+
+## Care Manager
+
+## Caregiver
+
+## Client
+
+## Family Member
+EOF
+write_good_delta "$TEST_DIR/xref-explicit-anchor/v1-functionality-delta.md"
+assert_exit "explicit <a id> anchor resolution → pass" 0 "$STRUCTURE" --dir "$TEST_DIR/xref-explicit-anchor"
+
+# --- Test 12: two cross-reference index sub-sections, only the second has a
+#              CR-3 violation → fail (guards against early-exit bug). ---
+mkdir -p "$TEST_DIR/xref-two-indexes"
+cat > "$TEST_DIR/xref-two-indexes/v1-pages-inventory.md" <<'EOF'
+# v1 Pages Inventory
+
+## Super-Admin
+
+### Cross-reference index
+
+| route | also reachable by | content branches by role | phi_displayed | row location |
+|-------|-------------------|--------------------------|---------------|--------------|
+| `/admin/expenses/review/` | Agency Admin | no | true | [Agency Admin → top-level](#agency-admin-top-level) |
+
+## Agency Admin
+
+<a id="agency-admin-top-level"></a>
+### top-level
+
+| route | phi_displayed |
+|-------|---------------|
+| `/admin/expenses/review/` | true |
+| `/charting/proxy/<int:visit_id>/` | true |
+
+## Care Manager
+
+## Caregiver
+
+## Client
+
+## Family Member
+
+## Shared routes
+
+### Cross-reference index
+
+| route | also reachable by | content branches by role | phi_displayed | row location |
+|-------|-------------------|--------------------------|---------------|--------------|
+| `/charting/proxy/<int:visit_id>/` | Care Manager | no | false | [Agency Admin → top-level](#agency-admin-top-level) |
+EOF
+write_good_delta "$TEST_DIR/xref-two-indexes/v1-functionality-delta.md"
+assert_exit "two cross-ref indexes; second has CR-3 violation → fail" 1 "$STRUCTURE" --dir "$TEST_DIR/xref-two-indexes"
+
+# --- Test 13: smoke-check against the actual repo inventory → pass (no false positives) ---
+# This guarantees the new check does not regress against current main content.
+# Locate the repo's docs/migration relative to the test file; bail with a skip
+# if it isn't present (in case the test is run in a degraded checkout).
+REPO_DOCS="$REPO_ROOT/docs/migration"
+if [[ -f "$REPO_DOCS/v1-pages-inventory.md" && -f "$REPO_DOCS/v1-functionality-delta.md" ]]; then
+  assert_exit "smoke: real docs/migration content passes (no false positives)" 0 "$STRUCTURE" --dir "$REPO_DOCS"
+else
+  echo "  SKIP — real docs/migration not found at $REPO_DOCS; smoke test skipped."
+fi
+
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
 [[ "$FAIL" == 0 ]] || exit 1
