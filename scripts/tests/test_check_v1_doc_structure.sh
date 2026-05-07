@@ -227,6 +227,146 @@ EOF
 write_good_delta "$TEST_DIR/shared-populated/v1-functionality-delta.md"
 assert_exit "Shared routes with one row passes" 0 "$STRUCTURE" --dir "$TEST_DIR/shared-populated"
 
+# --- Family Member: section with placeholder rows passes (no real route rows yet) ---
+mkdir -p "$TEST_DIR/family-placeholder"
+cat > "$TEST_DIR/family-placeholder/v1-pages-inventory.md" <<'EOF'
+# v1 Pages Inventory
+
+## Super-Admin
+## Agency Admin
+## Care Manager
+## Caregiver
+## Client
+
+## Family Member
+
+| route | purpose |
+|-------|---------|
+| _(rows pending content authoring)_ | |
+EOF
+write_good_delta "$TEST_DIR/family-placeholder/v1-functionality-delta.md"
+assert_exit "Family Member with placeholder rows only passes" 0 "$STRUCTURE" --dir "$TEST_DIR/family-placeholder"
+
+# --- Family Member: row missing 'linked-client only' fails ---
+mkdir -p "$TEST_DIR/family-missing-scope"
+cat > "$TEST_DIR/family-missing-scope/v1-pages-inventory.md" <<'EOF'
+# v1 Pages Inventory
+
+## Super-Admin
+## Agency Admin
+## Care Manager
+## Caregiver
+## Client
+
+## Family Member
+
+| route | purpose |
+|-------|---------|
+| `/family/dashboard/` | 🔒 PHI · Lists clients linked to user; HIPAA-access-logged in v1. |
+EOF
+write_good_delta "$TEST_DIR/family-missing-scope/v1-functionality-delta.md"
+assert_exit "Family Member row missing 'linked-client only' fails" 1 "$STRUCTURE" --dir "$TEST_DIR/family-missing-scope"
+
+# --- Family Member: row missing audit-posture phrase fails ---
+mkdir -p "$TEST_DIR/family-missing-audit"
+cat > "$TEST_DIR/family-missing-audit/v1-pages-inventory.md" <<'EOF'
+# v1 Pages Inventory
+
+## Super-Admin
+## Agency Admin
+## Care Manager
+## Caregiver
+## Client
+
+## Family Member
+
+| route | purpose |
+|-------|---------|
+| `/family/dashboard/` | 🔒 PHI · Lists clients linked to the user; linked-client only. |
+EOF
+write_good_delta "$TEST_DIR/family-missing-audit/v1-functionality-delta.md"
+assert_exit "Family Member row missing audit-posture phrase fails" 1 "$STRUCTURE" --dir "$TEST_DIR/family-missing-audit"
+
+# --- Family Member: row missing PHI prefix fails ---
+mkdir -p "$TEST_DIR/family-missing-phi"
+cat > "$TEST_DIR/family-missing-phi/v1-pages-inventory.md" <<'EOF'
+# v1 Pages Inventory
+
+## Super-Admin
+## Agency Admin
+## Care Manager
+## Caregiver
+## Client
+
+## Family Member
+
+| route | purpose |
+|-------|---------|
+| `/family/dashboard/` | Lists linked clients; linked-client only; HIPAA-access-logged in v1. |
+EOF
+write_good_delta "$TEST_DIR/family-missing-phi/v1-functionality-delta.md"
+assert_exit "Family Member row missing '🔒 PHI ·' prefix fails" 1 "$STRUCTURE" --dir "$TEST_DIR/family-missing-phi"
+
+# --- Family Member: row containing BOTH audit-posture phrases fails (must be exactly one) ---
+mkdir -p "$TEST_DIR/family-both-audit"
+cat > "$TEST_DIR/family-both-audit/v1-pages-inventory.md" <<'EOF'
+# v1 Pages Inventory
+
+## Super-Admin
+## Agency Admin
+## Care Manager
+## Caregiver
+## Client
+
+## Family Member
+
+| route | purpose |
+|-------|---------|
+| `/family/dashboard/` | 🔒 PHI · Lists linked clients; linked-client only; HIPAA-access-logged in v1; v1 has no audit on this route — v2 design must add. |
+EOF
+write_good_delta "$TEST_DIR/family-both-audit/v1-functionality-delta.md"
+assert_exit "Family Member row containing BOTH audit phrases fails" 1 "$STRUCTURE" --dir "$TEST_DIR/family-both-audit"
+
+# --- Family Member: well-formed PHI row with 'linked-client only' + HIPAA-logged passes ---
+mkdir -p "$TEST_DIR/family-good-logged"
+cat > "$TEST_DIR/family-good-logged/v1-pages-inventory.md" <<'EOF'
+# v1 Pages Inventory
+
+## Super-Admin
+## Agency Admin
+## Care Manager
+## Caregiver
+## Client
+
+## Family Member
+
+| route | purpose |
+|-------|---------|
+| `/family/billing-pdf/` | 🔒 PHI · Family invoice PDF; linked-client only; HIPAA-access-logged in v1. |
+EOF
+write_good_delta "$TEST_DIR/family-good-logged/v1-functionality-delta.md"
+assert_exit "Family Member well-formed row with 'HIPAA-access-logged in v1' passes" 0 "$STRUCTURE" --dir "$TEST_DIR/family-good-logged"
+
+# --- Family Member: well-formed PHI row with 'no audit' phrase passes ---
+mkdir -p "$TEST_DIR/family-good-noaudit"
+cat > "$TEST_DIR/family-good-noaudit/v1-pages-inventory.md" <<'EOF'
+# v1 Pages Inventory
+
+## Super-Admin
+## Agency Admin
+## Care Manager
+## Caregiver
+## Client
+
+## Family Member
+
+| route | purpose |
+|-------|---------|
+| `/family/dashboard/` | 🔒 PHI · Lists linked clients; linked-client only; v1 has no audit on this route — v2 design must add. |
+EOF
+write_good_delta "$TEST_DIR/family-good-noaudit/v1-functionality-delta.md"
+assert_exit "Family Member well-formed row with 'no audit' phrase passes" 0 "$STRUCTURE" --dir "$TEST_DIR/family-good-noaudit"
+
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
 [[ "$FAIL" == 0 ]] || exit 1

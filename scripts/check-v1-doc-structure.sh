@@ -8,6 +8,14 @@
 #      populated — no "_(pending content authoring)_" placeholder, and it
 #      contains at least one route row (markdown table row whose first cell
 #      starts with a backtick — the route slug).
+#   5. v1-pages-inventory.md's "## Family Member" section: every authored
+#      route row (table row whose first cell is a backticked route slug)
+#      must (a) contain the literal substring `linked-client only`, (b)
+#      contain exactly one of the two literal audit-posture phrases —
+#      `HIPAA-access-logged in v1` OR
+#      `v1 has no audit on this route — v2 design must add` — and (c)
+#      begin its `purpose` cell (second cell) with the `🔒 PHI · ` prefix.
+#      Issue #103 visibility-scope discipline.
 #
 # Usage:
 #   scripts/check-v1-doc-structure.sh [--dir <docs-dir>]
@@ -111,6 +119,51 @@ if [[ -f "$DELTA" ]]; then
   if echo "$body_after_first_separator" | grep -niE 'needs confirmation' >/dev/null; then
     fail "$DELTA still contains 'needs confirmation' residue (in body, past intro)"
     echo "$body_after_first_separator" | grep -niE 'needs confirmation' | head -3 | sed 's/^/  /'
+  fi
+fi
+
+# --- Inventory: Family Member rows enforce visibility-scope + audit-posture phrasing (#103) ---
+# Each authored route row under `## Family Member` (a markdown table row whose
+# first cell is a backticked route slug) must:
+#   (a) contain the literal substring `linked-client only`
+#   (b) contain exactly one of the two literal audit-posture phrases:
+#         `HIPAA-access-logged in v1`
+#         `v1 has no audit on this route — v2 design must add`
+#   (c) begin its second cell (purpose) with the `🔒 PHI · ` prefix
+#
+# The two audit-posture phrases are exhaustive — no third option. Forces the
+# author to verify the v1 view's audit posture explicitly per row.
+if [[ -f "$INVENTORY" ]]; then
+  family_section=$(awk '
+    /^## Family Member([[:space:]]|$)/ { in_section = 1; next }
+    in_section && /^## / { in_section = 0 }
+    in_section { print }
+  ' "$INVENTORY")
+  if [[ -n "$family_section" ]]; then
+    # Iterate over each authored row (route slug in backticks as first cell).
+    while IFS= read -r row; do
+      [[ -z "$row" ]] && continue
+      # Extract route slug for error messages: between first pair of backticks.
+      route_slug=$(echo "$row" | sed -n 's/^|[[:space:]]*`\([^`]*\)`.*/\1/p')
+      [[ -z "$route_slug" ]] && route_slug="<unparseable>"
+      # (a) `linked-client only` literal
+      if ! echo "$row" | grep -qF 'linked-client only'; then
+        fail "$INVENTORY '## Family Member' row '$route_slug' missing literal phrase 'linked-client only'"
+      fi
+      # (b) exactly one of the two audit-posture phrases
+      audit_logged=$(echo "$row" | grep -cF 'HIPAA-access-logged in v1')
+      audit_missing=$(echo "$row" | grep -cF 'v1 has no audit on this route — v2 design must add')
+      audit_count=$((audit_logged + audit_missing))
+      if [[ "$audit_count" -ne 1 ]]; then
+        fail "$INVENTORY '## Family Member' row '$route_slug' must contain EXACTLY one of the two audit-posture phrases (found $audit_count: HIPAA-access-logged=$audit_logged, no-audit=$audit_missing)"
+      fi
+      # (c) purpose cell (second cell) begins with `🔒 PHI · `
+      # The first cell is the route; the second is purpose. Extract second cell.
+      purpose_cell=$(echo "$row" | awk -F'|' '{ gsub(/^[[:space:]]+|[[:space:]]+$/, "", $3); print $3 }')
+      if [[ "$purpose_cell" != "🔒 PHI · "* ]]; then
+        fail "$INVENTORY '## Family Member' row '$route_slug' purpose cell must begin with '🔒 PHI · ' prefix (got: '${purpose_cell:0:40}…')"
+      fi
+    done < <(echo "$family_section" | grep -E '^\|[[:space:]]*`')
   fi
 fi
 
