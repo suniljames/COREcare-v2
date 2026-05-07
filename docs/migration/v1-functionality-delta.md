@@ -28,6 +28,24 @@ Read these companion documents in `docs/migration/`:
 
 The four documents above are scaffolded but their content is being authored issue-by-issue. The most current state of each lives in this repo.
 
+### Forward-looking note: v2 adds a Client-as-user surface that v1 lacks
+
+v1 has no Client-as-actor surface — `clients.models.Client` is a Django model
+with no `User` linkage; only `ClientFamilyMember` binds a `User` to a `Client`.
+Family Members log in *about* a Client, not *as* a Client.
+
+v2 adds the Client persona as a first-class authenticated user (issue
+[#125](https://github.com/suniljames/COREcare-v2/issues/125)). A Client with
+an agency-issued invite redeems it, signs in, and reads three views: their
+own care plan, upcoming visits, and a message thread with the agency. RLS
+enforces row-level isolation (a Client sees only their own row, even within
+their agency); the API contract lives at `/api/v1/me/*`. Family-Member access
+is unchanged.
+
+This is a **deliberate divergence** from v1, not a port. Cold-reader questions
+about "what does a Client see?" must distinguish v1 (nothing — no login) from
+v2 (the three views above).
+
 ---
 
 ## 1. Billing & Revenue Operations

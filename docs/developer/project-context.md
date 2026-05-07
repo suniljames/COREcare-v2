@@ -127,7 +127,7 @@ Project-specific persona knowledge and engineering compromises. This extends the
 
 | Expertise | COREcare Application |
 |-----------|---------------------|
-| Personas | Caregiver, family member, care manager, agency admin, super-admin workflows |
+| Personas | Caregiver, family member, care manager, agency admin, super-admin, **client (v2-only — issue #125)** workflows |
 | HIPAA | Privacy-by-default product decisions, minimum necessary data exposure |
 | Multi-tenancy | Agency isolation in product UX, super-admin cross-agency views |
 | Care workflows | Shift handoffs, medication tracking, visit logging, care plan management |
