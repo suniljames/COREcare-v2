@@ -16,7 +16,7 @@ The v2 docs are *customer-facing*, so absence here doesn't always mean "not buil
 
 ## For collaborators without v1 access
 
-If you do not have access to `suniljames/COREcare-access` (the v1 Django repo), this document on its own is **not enough** to rebuild v1's customer-facing surface in v2. It catalogues feature and data-model gaps, but it does not describe v1's pages, user journeys, or integrations.
+If you do not have access to `hcunanan79/COREcare-access` (the v1 Django repo), this document on its own is **not enough** to rebuild v1's customer-facing surface in v2. It catalogues feature and data-model gaps, but it does not describe v1's pages, user journeys, or integrations.
 
 Read these companion documents in `docs/migration/`:
 
@@ -307,4 +307,4 @@ Briefly, things v2 docs commit to that are not in v1:
 
 ---
 
-*Generated 2026-05-06 from press release `[07]-Press-Release.md` + external FAQ `[08]-FAQ-(External).md` against v1 codebase `suniljames/COREcare-access` (commit pinned in [`README.md`](README.md#v1-reference-commit)). The v2 docs are customer-facing; some items below may already be implemented or planned in internal artifacts not surveyed here.*
+*Generated 2026-05-06 from press release `[07]-Press-Release.md` + external FAQ `[08]-FAQ-(External).md` against v1 codebase `hcunanan79/COREcare-access` (commit pinned in [`README.md`](README.md#v1-reference-commit)). The v2 docs are customer-facing; some items below may already be implemented or planned in internal artifacts not surveyed here.*

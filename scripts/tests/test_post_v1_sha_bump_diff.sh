@@ -84,7 +84,7 @@ index abcdef..fedcba 100644
 +++ b/docs/migration/README.md
 @@ -16,7 +16,7 @@ All facts in this docset were reconciled against:
 
- - **Repo:** `suniljames/COREcare-access`
+ - **Repo:** `hcunanan79/COREcare-access`
 -- **Commit SHA:** `9738412a6e41064203fc253d9dd2a5c6a9c2e231`
 +- **Commit SHA:** `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`
  - **Commit subject:** `feat(#1479): January annual mileage-rate verification banner (#1480)`'
@@ -108,7 +108,7 @@ index abcdef..fedcba 100644
 +++ b/docs/migration/README.md
 @@ -16,7 +16,7 @@
 
- - **Repo:** `suniljames/COREcare-access`
+ - **Repo:** `hcunanan79/COREcare-access`
 -- **Commit SHA:** `9738412a6e41064203fc253d9dd2a5c6a9c2e231`
 +- **Commit SHA:** `9738412a6e41064203fc253d9dd2a5c6a9c2e231`
  - **Commit subject:** `feat(#1479)…`'
@@ -308,7 +308,7 @@ index abcdef..fedcba 100644
 --- a/docs/migration/README.md
 +++ b/docs/migration/README.md
 @@ -16,7 +16,7 @@
- - **Repo:** `suniljames/COREcare-access`
+ - **Repo:** `hcunanan79/COREcare-access`
 -- **Commit SHA:** `9738412a6e41064203fc253d9dd2a5c6a9c2e231`
 +- **Commit SHA:** `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`
 diff --git a/scripts/post-v1-sha-bump-diff.sh b/scripts/post-v1-sha-bump-diff.sh

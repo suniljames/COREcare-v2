@@ -1,6 +1,6 @@
 # V1 Reference Documentation Set
 
-This directory holds reference material about COREcare **v1** (`suniljames/COREcare-access`, a Django monolith) for collaborators building **v2** without v1 source access. The docs describe what v1 does so v2's ground-up rebuild does not silently drop customer-facing capability.
+This directory holds reference material about COREcare **v1** (`hcunanan79/COREcare-access`, a Django monolith) for collaborators building **v2** without v1 source access. The docs describe what v1 does so v2's ground-up rebuild does not silently drop customer-facing capability.
 
 **Audience:** engineers contributing to v2, including AI agents acting on their behalf. **Not customer-facing.**
 
@@ -14,7 +14,7 @@ This directory holds reference material about COREcare **v1** (`suniljames/COREc
 
 All facts in this docset were reconciled against:
 
-- **Repo:** `suniljames/COREcare-access`
+- **Repo:** `hcunanan79/COREcare-access`
 - **Commit SHA:** `9738412a6e41064203fc253d9dd2a5c6a9c2e231`
 - **Commit subject:** `feat(#1479): January annual mileage-rate verification banner (#1480)`
 - **Pinned at:** 2026-05-06
@@ -139,7 +139,7 @@ Plain prose is the doc author's voice. Blockquotes are direct v1 strings. **Neve
 
 ### V1 source references
 
-Refer to v1 by GitHub repo slug `suniljames/COREcare-access`. **Never by absolute filesystem path** (`/Users/`, `/home/`, drive letter). The hygiene scanner blocks absolute paths.
+Refer to v1 by GitHub repo slug `hcunanan79/COREcare-access`. **Never by absolute filesystem path** (`/Users/`, `/home/`, drive letter). The hygiene scanner blocks absolute paths.
 
 When citing a specific v1 file, use the form `<app>/<file>:<line>` — for example, `billing/views.py:142`. The repo slug is implied by context.
 
@@ -285,14 +285,14 @@ If any diff is non-empty: re-author affected rows in `v1-pages-inventory.md`. If
 
 ## Workflow secrets
 
-CI workflows that touch the private v1 repo (`suniljames/COREcare-access`) authenticate via repo-level secrets. Maintainer-managed; engineers do not need to action these unless adding a new workflow or rotating an existing token.
+CI workflows that touch the private v1 repo (`hcunanan79/COREcare-access`) authenticate via repo-level secrets. Maintainer-managed; engineers do not need to action these unless adding a new workflow or rotating an existing token.
 
 ### `V1_REPO_READ_TOKEN`
 
 Used by `.github/workflows/v1-sha-bump-diff-report.yml` (#131) to clone v1 and run the three Family Member runbook diffs (per the runbook entry above) when a PR bumps the V1 Reference Commit SHA.
 
 - **Type:** GitHub fine-grained personal access token.
-- **Repository access:** `suniljames/COREcare-access` only — never wildcard.
+- **Repository access:** `hcunanan79/COREcare-access` only — never wildcard.
 - **Repository permissions:** `Contents: Read`. Nothing else.
 - **Expiration:** 1 year. Calendar a rotation reminder when issuing.
 - **Last rotated:** 2026-05-07 (initial issuance).

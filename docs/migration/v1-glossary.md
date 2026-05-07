@@ -2,7 +2,7 @@
 
 > **Read [`README.md`](README.md) first.** It locks the persona vocabulary.
 
-Terms specific to COREcare v1 (`suniljames/COREcare-access`) that appear across this docset. **Persona names** (`Super-Admin`, `Agency Admin`, `Care Manager`, `Caregiver`, `Client`, `Family Member`) and general homecare vocabulary (`Care Plan`, `Visit`, `Shift`, `ADLs`, `PHI`) are defined in [`.claude/pm-context.md`](../../.claude/pm-context.md), not duplicated here.
+Terms specific to COREcare v1 (`hcunanan79/COREcare-access`) that appear across this docset. **Persona names** (`Super-Admin`, `Agency Admin`, `Care Manager`, `Caregiver`, `Client`, `Family Member`) and general homecare vocabulary (`Care Plan`, `Visit`, `Shift`, `ADLs`, `PHI`) are defined in [`.claude/pm-context.md`](../../.claude/pm-context.md), not duplicated here.
 
 This file extends `pm-context.md` with v1-specific terms — model names, internal feature names, and Django app names that come up when reading v1 source.
 

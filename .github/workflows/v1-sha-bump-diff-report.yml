@@ -8,11 +8,11 @@
 #
 # === Setup (maintainer prerequisite, one-time) ===
 #
-# Requires a fine-grained PAT scoped to `suniljames/COREcare-access` only,
+# Requires a fine-grained PAT scoped to `hcunanan79/COREcare-access` only,
 # `Contents: Read`, 1-year expiry. Steps:
 #
 #   1. https://github.com/settings/personal-access-tokens/new
-#   2. Repository access: Only select repositories → suniljames/COREcare-access
+#   2. Repository access: Only select repositories → hcunanan79/COREcare-access
 #   3. Repository permissions: Contents — Read-only (everything else: No access)
 #   4. Expiration: 1 year (calendar a rotation reminder)
 #   5. Generate, copy the token

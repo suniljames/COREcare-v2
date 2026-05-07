@@ -58,7 +58,7 @@ cat > "$FIXTURES/clean.md" <<'EOF'
 # Clean v1 reference doc
 
 This documents `[CLIENT_NAME]` and `[CAREGIVER_NAME]` interactions.
-Reference v1 source: `suniljames/COREcare-access`.
+Reference v1 source: `hcunanan79/COREcare-access`.
 The route `/admin/clients/<id>/` is for `Agency Admin`.
 EOF
 

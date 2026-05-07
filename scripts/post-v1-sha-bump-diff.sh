@@ -12,7 +12,7 @@
 #
 # === Workflow secrets ===
 # Requires repo secret `V1_REPO_READ_TOKEN`: a fine-grained PAT scoped to
-# `suniljames/COREcare-access` only, `Contents: Read`, 1-year expiry.
+# `hcunanan79/COREcare-access` only, `Contents: Read`, 1-year expiry.
 # Rotation: re-issue the PAT, update the repo secret, document the
 # rotation date in docs/migration/README.md ("Workflow secrets" section).
 # Break-glass: if the gate is broken, the engineer manually runs the three
@@ -295,18 +295,18 @@ main() {
   trap 'rm -rf "$v1_dir"' EXIT
 
   echo "Cloning v1 (filter=blob:none, no-checkout) → $v1_dir"
-  echo "  git clone --filter=blob:none --no-checkout https://x-access-token:***@github.com/suniljames/COREcare-access.git"
+  echo "  git clone --filter=blob:none --no-checkout https://x-access-token:***@github.com/hcunanan79/COREcare-access.git"
   git clone --filter=blob:none --no-checkout --quiet \
-    "https://x-access-token:${V1_REPO_READ_TOKEN}@github.com/suniljames/COREcare-access.git" \
+    "https://x-access-token:${V1_REPO_READ_TOKEN}@github.com/hcunanan79/COREcare-access.git" \
     "$v1_dir" \
     || fail_loud "Failed to clone v1 repo. Check V1_REPO_READ_TOKEN scope and validity."
 
   echo "Fetching old SHA $OLD_SHA"
   git -C "$v1_dir" fetch --quiet origin "$OLD_SHA" \
-    || fail_loud "Failed to fetch OLD_SHA ($OLD_SHA) from v1. Verify the SHA exists in suniljames/COREcare-access."
+    || fail_loud "Failed to fetch OLD_SHA ($OLD_SHA) from v1. Verify the SHA exists in hcunanan79/COREcare-access."
   echo "Fetching new SHA $NEW_SHA"
   git -C "$v1_dir" fetch --quiet origin "$NEW_SHA" \
-    || fail_loud "Failed to fetch NEW_SHA ($NEW_SHA) from v1. Verify the SHA exists in suniljames/COREcare-access."
+    || fail_loud "Failed to fetch NEW_SHA ($NEW_SHA) from v1. Verify the SHA exists in hcunanan79/COREcare-access."
 
   local urls_diff clients_diff models_diff
   echo "Diffing '*/urls.py'"
