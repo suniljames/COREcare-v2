@@ -72,10 +72,11 @@ class RotationResult:
     def format_failure(self, failure: RotationFailure) -> str:
         # The model's actual answer is the load-bearing detail when triaging
         # whether a failure is real drift, a fixture-vocabulary mismatch, or
-        # a question the model finds intractable. Without it the docs author
-        # has to dig into Actions logs.
+        # a question the model finds intractable. Scrub through the same
+        # bounded + PHI-deny pass as Pass-B text-block content for parity —
+        # this output lands in the public auto-issue body.
         answer_block = (
-            f"\n  Model answer: {failure.model_answer.strip()[:500]}"
+            f"\n  Model answer: {_truncate_phi_scrub(failure.model_answer.strip())}"
             if failure.model_answer
             else ""
         )

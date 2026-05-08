@@ -487,6 +487,86 @@ def test_dry_run_smoke_loads_every_fixture_against_live_inventory(
     assert summary.errors == []
 
 
+# --- format_failure with model_answer (Security + QA review) ---
+
+
+def test_format_failure_includes_model_answer_when_present(tmp_path: Path) -> None:
+    """The model's answer surfaces in the rendered failure for triage."""
+    from runner import RotationFailure, RotationResult
+
+    failure = RotationFailure(
+        persona="agency-admin",
+        question_id="q1",
+        question_text="What screens does an Agency Admin see for billing?",
+        fact_summary="Billing apps...",
+        message="answer missing 1 of 5 must_mention entries",
+        model_answer="The Agency Admin sees the billing dashboard with invoice management.",
+    )
+    result = RotationResult(persona="agency-admin", failures=[failure])
+    rendered = result.format_failure(failure)
+    assert "Model answer:" in rendered
+    assert "billing dashboard" in rendered
+
+
+def test_format_failure_omits_model_answer_block_when_empty(tmp_path: Path) -> None:
+    """No `Model answer:` line when the field is empty (default)."""
+    from runner import RotationFailure, RotationResult
+
+    failure = RotationFailure(
+        persona="agency-admin",
+        question_id="q1",
+        question_text="?",
+        fact_summary="...",
+        message="empty evidence string",
+        # model_answer defaults to ""
+    )
+    result = RotationResult(persona="agency-admin", failures=[failure])
+    rendered = result.format_failure(failure)
+    assert "Model answer:" not in rendered
+
+
+def test_format_failure_truncates_long_model_answer(tmp_path: Path) -> None:
+    """Long model answers are bounded to TEXT_BLOCK_TRUNCATE_CHARS."""
+    from runner import TEXT_BLOCK_TRUNCATE_CHARS, RotationFailure, RotationResult
+
+    long_answer = "X" * (TEXT_BLOCK_TRUNCATE_CHARS + 200)
+    failure = RotationFailure(
+        persona="x",
+        question_id="q1",
+        question_text="?",
+        fact_summary="...",
+        message="...",
+        model_answer=long_answer,
+    )
+    result = RotationResult(persona="x", failures=[failure])
+    rendered = result.format_failure(failure)
+    # The full untruncated tail must NOT appear.
+    assert "X" * (TEXT_BLOCK_TRUNCATE_CHARS + 50) not in rendered
+
+
+def test_format_failure_phi_scrubs_model_answer(tmp_path: Path) -> None:
+    """PHI-shaped substrings in `model_answer` are scrubbed before rendering.
+
+    Defense-in-depth: PHI-deny is enforced at fixture load, so this should be
+    unreachable in practice. But the rendered output lands in the public
+    auto-issue body, so scrub-on-render mirrors the Pass-B text-block path.
+    """
+    from runner import RotationFailure, RotationResult
+
+    failure = RotationFailure(
+        persona="x",
+        question_id="q1",
+        question_text="?",
+        fact_summary="...",
+        message="...",
+        model_answer="The model would normally cite jane.doe@example.com here.",
+    )
+    result = RotationResult(persona="x", failures=[failure])
+    rendered = result.format_failure(failure)
+    assert "jane.doe@example.com" not in rendered
+    assert "PHI-REDACTED" in rendered
+
+
 # --- YAML round-trip sanity ---
 
 
