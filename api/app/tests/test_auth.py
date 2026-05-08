@@ -53,15 +53,6 @@ def _make_protected_app() -> FastAPI:
 
 
 @pytest.mark.asyncio
-async def test_dev_mode_no_auth_returns_mock_user() -> None:
-    """In dev mode (no Clerk secret), missing auth returns dev mock user."""
-    from app.auth import get_current_user
-
-    assert get_current_user is not None
-    assert callable(get_current_user)
-
-
-@pytest.mark.asyncio
 async def test_missing_auth_header_in_prod_mode() -> None:
     """When Clerk is configured, missing auth header returns 401."""
     test_app = _make_protected_app()
