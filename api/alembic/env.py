@@ -7,17 +7,9 @@ from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 from sqlmodel import SQLModel
 
+import app.models  # noqa: F401 — registers every table on SQLModel.metadata
 from alembic import context
 from app.config import settings
-from app.models import (  # noqa: F401 — register models for autogenerate
-    Agency,
-    AuditEvent,
-    CarePlanVersion,
-    Client,
-    ClientInvite,
-    MessageThread,
-    User,
-)
 
 config = context.config
 if config.config_file_name is not None:

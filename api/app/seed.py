@@ -79,11 +79,19 @@ SEED_USERS = [
 
 
 async def seed() -> None:
-    """Seed the database with test data. Idempotent — skips existing records."""
+    """Seed the database with test data. Idempotent — skips existing records.
+
+    Sets `app.current_tenant_id = ''` on the seed session so the post-0001
+    `tenant_isolation` policy on `users` (and on `email_events`) admits the
+    cross-tenant inserts the seed performs. The post-0008 dual-axis policies
+    coalesce the GUC for us; the post-0001 policy does not, so we set it
+    explicitly. Empty string = "no tenant context" = staff/super-admin path.
+    """
     engine = create_async_engine(settings.database_url)
     async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
     async with async_session() as session:
+        await session.execute(text("SET app.current_tenant_id = ''"))
         for agency in SEED_AGENCIES:
             existing = await session.execute(
                 text("SELECT id FROM agencies WHERE slug = :slug"),

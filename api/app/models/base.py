@@ -3,6 +3,7 @@
 import uuid
 from datetime import UTC, datetime
 
+from sqlalchemy import DateTime
 from sqlmodel import Field, SQLModel
 
 
@@ -14,10 +15,19 @@ class BaseModel(SQLModel):
     """Abstract base with UUID primary key and timestamps."""
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    created_at: datetime = Field(default_factory=_utcnow, nullable=False)
+    # SQLModel's stubs declare sa_type as `type[Any]`, but the runtime accepts
+    # type instances and forwards them to the underlying SQLAlchemy Column.
+    # Passing `DateTime(timezone=True)` is what makes Postgres emit
+    # `TIMESTAMP WITH TIME ZONE`; keeping the instance is intentional.
+    created_at: datetime = Field(
+        default_factory=_utcnow,
+        nullable=False,
+        sa_type=DateTime(timezone=True),  # type: ignore[call-overload]
+    )
     updated_at: datetime = Field(
         default_factory=_utcnow,
         nullable=False,
+        sa_type=DateTime(timezone=True),  # type: ignore[call-overload]
         sa_column_kwargs={"onupdate": _utcnow},
     )
 

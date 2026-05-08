@@ -24,7 +24,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 try:
-    from testcontainers.postgres import PostgresContainer
+    from testcontainers.postgres import PostgresContainer  # type: ignore[import-untyped]
 
     _TESTCONTAINERS_AVAILABLE = True
 except ImportError:  # pragma: no cover — testcontainers may be skipped in CI
