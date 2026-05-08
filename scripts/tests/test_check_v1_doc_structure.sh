@@ -3126,6 +3126,94 @@ else
   FAIL=$((FAIL + 1))
 fi
 
+# ============================================================================
+# Assertion-style discipline meta-test (MT-3) — Issue #201
+# ============================================================================
+# RED scaffold: helpers stubbed as always-success. Real detection lands in
+# the GREEN commit; MT-3.B (synthesized-violation self-test) is expected to
+# FAIL under the stub.
+
+_extract_sl_loose_fixtures() {
+  # STUB — replaced in GREEN commit.
+  return 0
+}
+
+assert_sl_substring_discipline() {
+  local description="$1"
+  local test_path="$2"
+  local expected_exit="$3"
+  local expected_pattern="${4:-}"
+  local out rc
+  out=$(_extract_sl_loose_fixtures "$test_path" 2>&1)
+  rc=$?
+  local pattern_ok=1
+  if [[ -n "$expected_pattern" ]] && ! [[ "$out" =~ $expected_pattern ]]; then
+    pattern_ok=0
+  fi
+  if [[ "$rc" == "$expected_exit" && "$pattern_ok" == 1 ]]; then
+    echo "  PASS — $description (exit $rc)"
+    PASS=$((PASS + 1))
+  else
+    echo "  FAIL — $description (expected exit $expected_exit${expected_pattern:+ matching /$expected_pattern/}, got exit $rc)"
+    echo "    output: $out"
+    FAIL=$((FAIL + 1))
+  fi
+}
+
+# Synthesize code tokens via runtime concatenation so the literals do NOT
+# appear in this file's source. Otherwise MT-1's `_extract_test_codes` grep
+# (anchored on `assert_exit "[A-Z]{2}-[0-9]+`) would treat SL-9 / JL-99 as
+# orphan test-side codes and flip the real-state coverage-parity assertion.
+mt3_sl_code="SL"; mt3_sl_code+="-9"
+mt3_jl_code="JL"; mt3_jl_code+="-99"
+
+# A. Real-state — current test file passes MT-3.
+assert_sl_substring_discipline \
+  "MT-3: real-state assertion-style discipline holds" \
+  "$REPO_ROOT/scripts/tests/test_check_v1_doc_structure.sh" \
+  0
+
+# B. Self-test — synthesized SL-* negative fixture using bare assert_exit fires.
+mkdir -p "$TEST_DIR/mt-3-violation"
+{
+  cat "$REPO_ROOT/scripts/tests/test_check_v1_doc_structure.sh"
+  printf 'assert_exit "%s: synthetic violation" 1 "$STRUCTURE" --dir /nonexistent\n' "$mt3_sl_code"
+} > "$TEST_DIR/mt-3-violation/test.sh"
+assert_sl_substring_discipline \
+  "MT-3 self-test: synthesized SL-* bare-assert_exit negative fixture is detected" \
+  "$TEST_DIR/mt-3-violation/test.sh" \
+  1 \
+  "${mt3_sl_code}: synthetic violation"
+
+# C. Self-test — positive-fixture exemption holds.
+# An appended SL-* fixture with expected exit 0 is correctly exempted. Load-
+# bearing: if MT-3's regex were ever narrowed to drop the exit-code-1 filter,
+# this test would fail and signal the regression.
+mkdir -p "$TEST_DIR/mt-3-positive"
+{
+  cat "$REPO_ROOT/scripts/tests/test_check_v1_doc_structure.sh"
+  printf 'assert_exit "%s: positive sentinel" 0 "$STRUCTURE" --dir /nonexistent\n' "$mt3_sl_code"
+} > "$TEST_DIR/mt-3-positive/test.sh"
+assert_sl_substring_discipline \
+  "MT-3 self-test: positive (exit 0) SL-* fixture is exempted" \
+  "$TEST_DIR/mt-3-positive/test.sh" \
+  0
+
+# D. Self-test — out-of-cohort exemption holds.
+# An appended JL-* fixture using bare assert_exit is correctly exempted (per
+# #174's cohort scope-limit). Load-bearing: if MT-3's regex were ever
+# broadened (cohort prefix dropped or generalized), this test would fail and
+# signal the regression.
+mkdir -p "$TEST_DIR/mt-3-out-of-cohort"
+{
+  cat "$REPO_ROOT/scripts/tests/test_check_v1_doc_structure.sh"
+  printf 'assert_exit "%s: synthetic non-SL fixture" 1 "$STRUCTURE" --dir /nonexistent\n' "$mt3_jl_code"
+} > "$TEST_DIR/mt-3-out-of-cohort/test.sh"
+assert_sl_substring_discipline \
+  "MT-3 self-test: out-of-cohort (JL-*) bare-assert_exit fixture is exempted" \
+  "$TEST_DIR/mt-3-out-of-cohort/test.sh" \
+  0
+
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
 [[ "$FAIL" == 0 ]] || exit 1
