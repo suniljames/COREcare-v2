@@ -337,8 +337,14 @@ def _repo_root_from(start: Path) -> Path:
     raise RuntimeError("Could not locate repo root from runner module location")
 
 
-def check_cost_caps(usage: Usage, *, input_cap: int, output_cap: int) -> str | None:
-    """Return ``None`` if ``usage`` is under both caps; otherwise a reason string.
+def check_cost_caps(
+    *,
+    input_tokens: int,
+    output_tokens: int,
+    input_cap: int,
+    output_cap: int,
+) -> str | None:
+    """Return ``None`` if token totals are under both caps; otherwise a reason string.
 
     Defense-in-depth above the Anthropic-side $5/month organizational cap.
     Input-trip takes precedence over output-trip for deterministic ordering
@@ -346,16 +352,13 @@ def check_cost_caps(usage: Usage, *, input_cap: int, output_cap: int) -> str | N
     callers must NOT branch on its text. The exit-code mapping
     (``EXIT_SETUP_ERROR`` on trip) lives in ``run.py``.
     """
-    if usage.input_tokens > input_cap:
+    if input_tokens > input_cap:
         return (
             f"cost guardrail tripped: total uncached input tokens "
-            f"{usage.input_tokens} exceeds {input_cap}"
+            f"{input_tokens} exceeds {input_cap}"
         )
-    if usage.output_tokens > output_cap:
-        return (
-            f"cost guardrail tripped: total output tokens "
-            f"{usage.output_tokens} exceeds {output_cap}"
-        )
+    if output_tokens > output_cap:
+        return f"cost guardrail tripped: total output tokens {output_tokens} exceeds {output_cap}"
     return None
 
 

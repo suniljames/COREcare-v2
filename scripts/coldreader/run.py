@@ -20,7 +20,7 @@ import os
 import sys
 from pathlib import Path
 
-from client import MODEL, AnthropicRotationClient, Usage
+from client import MODEL, AnthropicRotationClient
 from fixtures import iter_repo_fixtures, load_fixture
 from inventory import PERSONAS, extract_index, extract_section
 from runner import (
@@ -70,12 +70,14 @@ def _print_summary_to_step_summary(markdown: str) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    # WARNING goes to stderr → workflow run log. Without basicConfig the
-    # runner's "low-confidence pass" log line would be silently dropped in CI.
+    # WARNING goes to stderr → workflow run log. force=True ensures we re-apply
+    # our format/level even if a prior caller already configured logging — keeps
+    # the "low-confidence pass" line consistent across CI and programmatic paths.
     logging.basicConfig(
         level=logging.WARNING,
         format="%(levelname)s coldreader: %(message)s",
         stream=sys.stderr,
+        force=True,
     )
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -157,7 +159,8 @@ def main(argv: list[str] | None = None) -> int:
         total_output += result.usage.output_tokens
 
         cap_trip = check_cost_caps(
-            Usage(input_tokens=total_input, output_tokens=total_output),
+            input_tokens=total_input,
+            output_tokens=total_output,
             input_cap=_RUN_TOKEN_INPUT_HARD_CAP,
             output_cap=_RUN_TOKEN_OUTPUT_HARD_CAP,
         )

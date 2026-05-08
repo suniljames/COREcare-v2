@@ -12,7 +12,6 @@ from pathlib import Path
 import pytest
 import yaml
 
-from client import Usage
 from fixtures import Fixture, Question
 from runner import (
     RotationFailure,
@@ -1004,7 +1003,8 @@ def test_render_summary_omits_low_confidence_line_when_zero() -> None:
 def test_check_cost_caps_returns_none_when_under_caps() -> None:
     assert (
         check_cost_caps(
-            Usage(input_tokens=100, output_tokens=200),
+            input_tokens=100,
+            output_tokens=200,
             input_cap=200_000,
             output_cap=30_000,
         )
@@ -1014,7 +1014,8 @@ def test_check_cost_caps_returns_none_when_under_caps() -> None:
 
 def test_check_cost_caps_trips_on_input_overage() -> None:
     reason = check_cost_caps(
-        Usage(input_tokens=300_000, output_tokens=200),
+        input_tokens=300_000,
+        output_tokens=200,
         input_cap=200_000,
         output_cap=30_000,
     )
@@ -1025,7 +1026,8 @@ def test_check_cost_caps_trips_on_input_overage() -> None:
 
 def test_check_cost_caps_trips_on_output_overage() -> None:
     reason = check_cost_caps(
-        Usage(input_tokens=100, output_tokens=50_000),
+        input_tokens=100,
+        output_tokens=50_000,
         input_cap=200_000,
         output_cap=30_000,
     )
@@ -1036,7 +1038,8 @@ def test_check_cost_caps_trips_on_output_overage() -> None:
 def test_check_cost_caps_input_takes_precedence_when_both_trip() -> None:
     """Deterministic ordering: input-trip beats output-trip for log clarity."""
     reason = check_cost_caps(
-        Usage(input_tokens=300_000, output_tokens=50_000),
+        input_tokens=300_000,
+        output_tokens=50_000,
         input_cap=200_000,
         output_cap=30_000,
     )
@@ -1049,7 +1052,8 @@ def test_check_cost_caps_at_boundary_does_not_trip() -> None:
     """Exactly at the cap is acceptable; only > cap trips."""
     assert (
         check_cost_caps(
-            Usage(input_tokens=200_000, output_tokens=30_000),
+            input_tokens=200_000,
+            output_tokens=30_000,
             input_cap=200_000,
             output_cap=30_000,
         )
