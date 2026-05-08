@@ -30,3 +30,9 @@ determinism harness in `tools/v1-screenshot-catalog/crawl.ts`.
 ## Inventory ↔ catalog parity
 
 Run `bash scripts/check-v1-catalog-coverage.sh` from the repo root to verify.
+
+## Partial re-crawls
+
+Subsequent partial re-crawls overwrite a subset of the catalog while keeping the same v1 commit + fixture sha256. Each entry below records what was re-crawled and why.
+
+- **2026-05-08 — family-member section** (4 routes): re-crawled to fix inventory paths. The original crawl (above) recorded these as `/family/...`, but `dashboard.urls` is included under `/dashboard/` in `elitecare/urls.py:186`, so the real paths are `/dashboard/family/...`. Original captures were 404 pages. Inventory updated at `docs/migration/v1-pages-inventory.md:485-488`; re-crawl replaces all 8 family-member WebPs (4 routes × 2 viewports). Operator: suniljames. Tracking: #204, #184 PR 3 amendment.

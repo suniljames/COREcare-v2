@@ -1,15 +1,17 @@
 ---
 canonical_id: family-member/002-client
-route: /family/client/<int:client_id>/
+route: /dashboard/family/client/<int:client_id>/
 persona: Family Member
 lead_viewport: mobile
 seed_state: populated
 v1_commit: 9738412a6e41064203fc253d9dd2a5c6a9c2e231
 generated: 2026-05-08
 ---
-**CTAs visible:** "none" — captured page is a Django `DEBUG=True` 404.
+**CTAs visible:** "Back to List", "Schedule"/"Daily Charts"/"Receipts" tabs, "Request Care", "Consult Concierge", "Send Message", "Download PDF", "Download Report", "Log out".
 
 **Interaction notes:**
-- GET `/family/client/<int:client_id>/` → 404. ⚠ inventory mismatch: real path is `/dashboard/family/client/<int:client_id>/` per `dashboard/urls.py:16`. View is `family_client_detail` (`dashboard/views.py:180`).
-- GET the real URL → renders weekly/daily calendar, today's events, messages, billing summary, visit notes, care team, and family-visibility-approved chart comments. Hydration via `FamilyPortalService` + `CareRequestService`.
-- ⚠ destructive: POST to the real URL → submits a care-request message; gated by `can_message_caregivers`, rate-limited 5/min. Skipped by crawler. Chart-comment family-views logged via `ChartCommentService.log_family_view`; route itself has no audit.
+- Tabs → switch section; hydrated via `FamilyPortalService`.
+- "Send Message" → ⚠ destructive: POSTs a care-request; `can_message_caregivers`-gated, 5/min rate-limited. Skipped by crawler.
+- "Download PDF" / "Download Report" → work-hours PDF + [family-member/004-health-report](004-health-report.md).
+- "Back to List" → [family-member/001-dashboard](001-dashboard.md).
+- Page load → `family_client_detail` (`dashboard/views.py:180`) renders calendar, events, messages, billing, visit notes, care team, family-visibility chart comments (logged via `ChartCommentService.log_family_view`).
