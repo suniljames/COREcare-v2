@@ -56,9 +56,6 @@ write_good_inventory() {
   cat > "$path" <<'EOF'
 # v1 Pages Inventory
 
-## Super-Admin
-| route | v2_status |
-
 ## Agency Admin
 | route | v2_status |
 
@@ -106,7 +103,6 @@ mkdir -p "$TEST_DIR/missing-persona"
 cat > "$TEST_DIR/missing-persona/v1-pages-inventory.md" <<'EOF'
 # v1 Pages Inventory
 
-## Super-Admin
 ## Agency Admin
 ## Care Manager
 ## Caregiver
@@ -195,7 +191,6 @@ mkdir -p "$TEST_DIR/shared-pending"
 cat > "$TEST_DIR/shared-pending/v1-pages-inventory.md" <<'EOF'
 # v1 Pages Inventory
 
-## Super-Admin
 ## Agency Admin
 ## Care Manager
 ## Caregiver
@@ -214,7 +209,6 @@ mkdir -p "$TEST_DIR/shared-empty"
 cat > "$TEST_DIR/shared-empty/v1-pages-inventory.md" <<'EOF'
 # v1 Pages Inventory
 
-## Super-Admin
 ## Agency Admin
 ## Care Manager
 ## Caregiver
@@ -233,7 +227,6 @@ mkdir -p "$TEST_DIR/shared-populated"
 cat > "$TEST_DIR/shared-populated/v1-pages-inventory.md" <<'EOF'
 # v1 Pages Inventory
 
-## Super-Admin
 ## Agency Admin
 ## Care Manager
 ## Caregiver
@@ -255,7 +248,6 @@ mkdir -p "$TEST_DIR/family-placeholder"
 cat > "$TEST_DIR/family-placeholder/v1-pages-inventory.md" <<'EOF'
 # v1 Pages Inventory
 
-## Super-Admin
 ## Agency Admin
 ## Care Manager
 ## Caregiver
@@ -275,7 +267,6 @@ mkdir -p "$TEST_DIR/family-missing-scope"
 cat > "$TEST_DIR/family-missing-scope/v1-pages-inventory.md" <<'EOF'
 # v1 Pages Inventory
 
-## Super-Admin
 ## Agency Admin
 ## Care Manager
 ## Caregiver
@@ -295,7 +286,6 @@ mkdir -p "$TEST_DIR/family-missing-audit"
 cat > "$TEST_DIR/family-missing-audit/v1-pages-inventory.md" <<'EOF'
 # v1 Pages Inventory
 
-## Super-Admin
 ## Agency Admin
 ## Care Manager
 ## Caregiver
@@ -315,7 +305,6 @@ mkdir -p "$TEST_DIR/family-missing-phi"
 cat > "$TEST_DIR/family-missing-phi/v1-pages-inventory.md" <<'EOF'
 # v1 Pages Inventory
 
-## Super-Admin
 ## Agency Admin
 ## Care Manager
 ## Caregiver
@@ -335,7 +324,6 @@ mkdir -p "$TEST_DIR/family-both-audit"
 cat > "$TEST_DIR/family-both-audit/v1-pages-inventory.md" <<'EOF'
 # v1 Pages Inventory
 
-## Super-Admin
 ## Agency Admin
 ## Care Manager
 ## Caregiver
@@ -355,7 +343,6 @@ mkdir -p "$TEST_DIR/family-good-logged"
 cat > "$TEST_DIR/family-good-logged/v1-pages-inventory.md" <<'EOF'
 # v1 Pages Inventory
 
-## Super-Admin
 ## Agency Admin
 ## Care Manager
 ## Caregiver
@@ -375,7 +362,6 @@ mkdir -p "$TEST_DIR/family-good-noaudit"
 cat > "$TEST_DIR/family-good-noaudit/v1-pages-inventory.md" <<'EOF'
 # v1 Pages Inventory
 
-## Super-Admin
 ## Agency Admin
 ## Care Manager
 ## Caregiver
@@ -396,7 +382,6 @@ mkdir -p "$TEST_DIR/family-shared-boundary"
 cat > "$TEST_DIR/family-shared-boundary/v1-pages-inventory.md" <<'EOF'
 # v1 Pages Inventory
 
-## Super-Admin
 ## Agency Admin
 ## Care Manager
 ## Caregiver
@@ -429,7 +414,6 @@ write_integrations_inventory() {
   cat > "$path" <<'EOF'
 # v1 Pages Inventory
 
-## Super-Admin
 ## Agency Admin
 
 ### dashboard
@@ -1093,26 +1077,6 @@ write_good_journeys() {
 
 **Status:** AUTHORED. Last reconciled: 2026-05-07 against v1 commit `9738412`.
 
-## Super-Admin
-
-### Journey 1
-A Super-Admin manages.
-
-**Route trace:**
-1. [a](v1-pages-inventory.md#super-admin-top-level) — does thing.
-
-**Side effects:**
-- DB: writes a row.
-
-### Journey 2
-A Super-Admin investigates.
-
-**Route trace:**
-1. [a](v1-pages-inventory.md#super-admin-top-level) — does thing.
-
-**Side effects:**
-- DB: writes a row.
-
 ## Agency Admin
 
 ### J1
@@ -1281,7 +1245,6 @@ cat > "$TEST_DIR/journeys-scaffolded/v1-user-journeys.md" <<'EOF'
 
 **Status:** SCAFFOLDED.
 
-## Super-Admin
 ## Agency Admin
 ## Care Manager
 ## Caregiver
@@ -1304,7 +1267,6 @@ write_good_delta "$TEST_DIR/jl1-missing/v1-functionality-delta.md"
 cat > "$TEST_DIR/jl1-missing/v1-user-journeys.md" <<'EOF'
 # V1 User Journeys
 
-## Super-Admin
 ## Agency Admin
 ## Care Manager
 ## Caregiver
@@ -1322,7 +1284,6 @@ cat > "$TEST_DIR/jl1-bad/v1-user-journeys.md" <<'EOF'
 
 **Status:** AUTHORED maybe.
 
-## Super-Admin
 ## Agency Admin
 ## Care Manager
 ## Caregiver
@@ -1340,7 +1301,6 @@ cat > "$TEST_DIR/jl2-missing/v1-user-journeys.md" <<'EOF'
 
 **Status:** SCAFFOLDED.
 
-## Super-Admin
 ## Agency Admin
 ## Care Manager
 ## Caregiver
@@ -1401,7 +1361,7 @@ import sys, pathlib
 p = pathlib.Path(sys.argv[1])
 # Strip the **Route trace:** line from the first journey only.
 text = p.read_text()
-text = text.replace("**Route trace:**\n1. [a](v1-pages-inventory.md#super-admin-top-level) — does thing.\n\n", "", 1)
+text = text.replace("**Route trace:**\n1. [a](v1-pages-inventory.md#dashboard) — x.\n\n", "", 1)
 p.write_text(text)
 PY
 assert_exit "JL-6: missing **Route trace:** sub-block fails" 1 "$STRUCTURE" --dir "$TEST_DIR/jl6-route"
@@ -1415,7 +1375,7 @@ python3 - "$TEST_DIR/jl6-side/v1-user-journeys.md" <<'PY'
 import sys, pathlib
 p = pathlib.Path(sys.argv[1])
 text = p.read_text()
-text = text.replace("**Side effects:**\n- DB: writes a row.\n", "", 1)
+text = text.replace("**Side effects:**\n- DB: y.\n", "", 1)
 p.write_text(text)
 PY
 assert_exit "JL-6: missing **Side effects:** sub-block fails" 1 "$STRUCTURE" --dir "$TEST_DIR/jl6-side"
@@ -1429,7 +1389,7 @@ python3 - "$TEST_DIR/jl7/v1-user-journeys.md" <<'PY'
 import sys, pathlib
 p = pathlib.Path(sys.argv[1])
 text = p.read_text()
-text = text.replace("v1-pages-inventory.md#super-admin-top-level", "v1-pages-inventory.md#nonexistent-anchor", 1)
+text = text.replace("v1-pages-inventory.md#dashboard", "v1-pages-inventory.md#nonexistent-anchor", 1)
 p.write_text(text)
 PY
 assert_exit "JL-7: orphan inventory anchor fails" 1 "$STRUCTURE" --dir "$TEST_DIR/jl7"
@@ -1444,7 +1404,7 @@ import sys, pathlib
 p = pathlib.Path(sys.argv[1])
 text = p.read_text()
 text = text.replace(
-    "(v1-pages-inventory.md#super-admin-top-level)",
+    "(v1-pages-inventory.md#dashboard)",
     "(https://github.com/suniljames/COREcare-v2/blob/main/docs/migration/v1-pages-inventory.md#nonexistent-anchor)",
     1,
 )
@@ -1462,8 +1422,8 @@ import sys, pathlib
 p = pathlib.Path(sys.argv[1])
 text = p.read_text()
 text = text.replace(
-    "(v1-pages-inventory.md#super-admin-top-level)",
-    "(https://github.com/suniljames/COREcare-v2/blob/main/docs/migration/v1-pages-inventory.md#super-admin-top-level)",
+    "(v1-pages-inventory.md#dashboard)",
+    "(https://github.com/suniljames/COREcare-v2/blob/main/docs/migration/v1-pages-inventory.md#dashboard)",
     1,
 )
 p.write_text(text)
@@ -1480,7 +1440,7 @@ import sys, pathlib
 p = pathlib.Path(sys.argv[1])
 text = p.read_text()
 text = text.replace(
-    "(v1-pages-inventory.md#super-admin-top-level)",
+    "(v1-pages-inventory.md#dashboard)",
     "(../blob/main/docs/migration/v1-pages-inventory.md#nonexistent-anchor)",
     1,
 )
@@ -1498,8 +1458,8 @@ import sys, pathlib
 p = pathlib.Path(sys.argv[1])
 text = p.read_text()
 text = text.replace(
-    "(v1-pages-inventory.md#super-admin-top-level)",
-    "(../blob/main/docs/migration/v1-pages-inventory.md#super-admin-top-level)",
+    "(v1-pages-inventory.md#dashboard)",
+    "(../blob/main/docs/migration/v1-pages-inventory.md#dashboard)",
     1,
 )
 p.write_text(text)

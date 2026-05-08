@@ -128,7 +128,6 @@ GLOSSARY="$DIR/v1-glossary.md"
 README="$DIR/README.md"
 
 REQUIRED_PERSONAS=(
-  "Super-Admin"
   "Agency Admin"
   "Care Manager"
   "Caregiver"
@@ -458,9 +457,11 @@ fi
 # JL-1: status header is "AUTHORED. Last reconciled: YYYY-MM-DD against
 #       v1 commit `<sha>`." once authoring is complete.
 # JL-2: six persona H2 sections present (always).
-# JL-3: per-persona journey count meets locked minimums (Super-Admin ≥2,
-#       Agency Admin ≥5, Care Manager ≥2, Caregiver ≥4, Client ≥2,
-#       Family Member ≥3) — gated on AUTHORED.
+# JL-3: per-persona journey count meets locked minimums (Agency Admin ≥5,
+#       Care Manager ≥2, Caregiver ≥4, Client ≥2, Family Member ≥3) —
+#       gated on AUTHORED. v1 has no Super-Admin role per #236, so no
+#       Super-Admin journey minimum is enforced; the few `is_superuser`-
+#       gated routes fold into Agency Admin.
 # JL-4: no "_pending content authoring_" placeholder remains — gated on
 #       AUTHORED.
 # JL-5: no "**Failure-mode UX:** None" filler — gated on AUTHORED.
@@ -494,7 +495,6 @@ if [[ -f "$JOURNEYS" ]]; then
     # JL-3: per-persona journey count minimums.
     # Pipe-separated "persona|min" pairs (no associative arrays — bash 3.2).
     JL3_PAIRS=(
-      "Super-Admin|2"
       "Agency Admin|5"
       "Care Manager|2"
       "Caregiver|4"
@@ -528,12 +528,11 @@ if [[ -f "$JOURNEYS" ]]; then
     # JL-6: each H3 inside a persona H2 carries Route trace + Side effects.
     jl6_violations=$(awk '
       BEGIN {
-        personas[1] = "Super-Admin"
-        personas[2] = "Agency Admin"
-        personas[3] = "Care Manager"
-        personas[4] = "Caregiver"
-        personas[5] = "Client"
-        personas[6] = "Family Member"
+        personas[1] = "Agency Admin"
+        personas[2] = "Care Manager"
+        personas[3] = "Caregiver"
+        personas[4] = "Client"
+        personas[5] = "Family Member"
       }
       function flush_block() {
         if (in_h3) {
@@ -549,7 +548,7 @@ if [[ -f "$JOURNEYS" ]]; then
         flush_block()
         in_h3 = 0
         in_persona = 0
-        for (i = 1; i <= 6; i++) {
+        for (i = 1; i <= 5; i++) {
           pat = "^## " personas[i] "([[:space:]]|$)"
           if ($0 ~ pat) { in_persona = 1; break }
         }
