@@ -123,15 +123,14 @@ assert_output_contains "no-sha-in-manifest reports it" "Fixture sha256" \
   --manifest "$TEST_DIR/manifest_no_sha.md"
 
 # --- Bad invocation ---
-assert_exit "no args bails (exit 2)" 2 "$SCRIPT"
+# Note: "no args" outcome is environment-dependent — if the operator has a
+# matching fixture + manifest at the default paths, no-args succeeds (exit 0);
+# if neither default file exists, it bails (exit 2). Skip that case to keep
+# tests environment-independent.
 assert_exit "unknown flag bails (exit 2)" 2 "$SCRIPT" --bogus
 assert_exit "missing arg value bails (exit 2)" 2 "$SCRIPT" --fixture
 
-# --- Defaults ---
-# When run without flags, defaults to expected production paths. We can't fully
-# test the default path (it'd require ~/Code/COREcare-access/...), but the
-# script must at least not error on flag parsing.
-# Instead: confirm --help works.
+# --- --help ---
 assert_exit "--help exits 0" 0 "$SCRIPT" --help
 
 echo ""
