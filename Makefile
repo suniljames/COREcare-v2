@@ -34,6 +34,7 @@ check: ## Run all quality gates (pre-PR)
 	$(MAKE) -C web test
 	$(MAKE) -C web build
 	bash scripts/tests/test_implement_branch_cut.sh
+	bash scripts/tests/test_worktree_base_setting.sh
 	bash scripts/tests/test_pipeline_state_gate.sh
 
 # --- Individual targets ---
