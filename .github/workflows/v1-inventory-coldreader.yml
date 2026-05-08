@@ -61,7 +61,7 @@ jobs:
       - name: Sync coldreader package (frozen)
         working-directory: scripts/coldreader
         run: uv sync --frozen
-      - name: Run rotation (all 7 personas)
+      - name: Run rotation (all 6 personas)
         id: rotation
         working-directory: scripts/coldreader
         env:
