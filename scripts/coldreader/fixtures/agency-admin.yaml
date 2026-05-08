@@ -50,20 +50,34 @@ questions:
     tolerance: 1
 
   - id: q3
-    text: "Which Agency Admin screens display PHI and require special v2 treatment?"
+    text: >-
+      Which Agency Admin screens need bespoke v2 design treatment because
+      they display PHI or sit behind an admin-elevation gate?
     fact_summary: |
-      Rows marked `🔒 PHI · ` and rows with `phi_displayed=true` in the row
-      table — concentrated in `### charting` (clinical surface, 22 routes
-      complete), `### clients` (per-client calendar and events with
-      attachments rendering linked-client data), `### compliance` (the two
-      authenticated PHI file-stream routes mounted at `compliance/files/`),
-      and `### billing` (invoice/payment surfaces). The expense-review routes
-      under top-level admin (`/admin/expenses/review/...`) carry
-      `phi_displayed=true` and surface in the cross-reference index.
+      Two distinct categories surface in this section:
+
+      (a) PHI-displaying rows marked `🔒 PHI · ` or carrying
+      `phi_displayed=true` in the row table — concentrated in `### charting`
+      (clinical surface, 22 routes complete), `### clients` (per-client
+      calendar and events with attachments rendering linked-client data),
+      `### compliance` (the two authenticated PHI file-stream routes mounted
+      at `compliance/files/`), and `### billing` (invoice/payment surfaces).
+      The expense-review routes under top-level admin
+      (`/admin/expenses/review/...`) carry `phi_displayed=true`.
+
+      (b) RLS-bypass / admin-elevation rows folded into Agency Admin per
+      #236 — most notably `/admin/view-as/kill-all/`, the platform-operator
+      kill-switch for runaway impersonation sessions. Gated by
+      `is_superuser` (Django's stock flag) rather than the Agency Admin
+      role grant; audit-logged via the View-As audit trail. v2 must add a
+      comparable platform-operator gate distinct from Agency Admin role
+      authority.
     must_mention:
       - ["phi_displayed", "PHI displayed", "PHI is displayed", "🔒 PHI"]
       - ["charting"]
       - ["clients"]
       - ["compliance"]
       - ["billing"]
+      - ["/admin/view-as/kill-all/", "view-as/kill-all", "kill-all"]
+      - ["is_superuser", "superuser"]
     tolerance: 1
