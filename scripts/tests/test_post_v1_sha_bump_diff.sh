@@ -292,6 +292,28 @@ assert_not_contains \
   "$no_fp_body" \
   "Baseline fingerprint match"
 
+# --- Assertion 13: fixture-refresh callout on urls.py change (#211) ---
+
+# When the SHA bump's v1 */urls.py diff is non-empty, the comment must
+# include the fixture-refresh nudge so the engineer knows to update
+# docs/migration/fixtures/v1-elitecare-urls.txt before CI fails the bump.
+
+fixture_body=$(format_comment "9738412" "aaaaaaa" "$URLS_DIFF" "$EMPTY_DIFF" "$EMPTY_DIFF" "")
+assert_contains \
+  "13a. fixture-refresh callout fires when urls.py diff is non-empty" \
+  "$fixture_body" \
+  "Fixture refresh required (#211)"
+assert_contains \
+  "13b. fixture-refresh callout points at the runbook anchor" \
+  "$fixture_body" \
+  "v1-mount-prefix-fixture-refresh"
+
+no_fixture_body=$(format_comment "9738412" "aaaaaaa" "$EMPTY_DIFF" "$EMPTY_DIFF" "$EMPTY_DIFF" "")
+assert_not_contains \
+  "13c. fixture-refresh callout absent when urls.py diff is empty" \
+  "$no_fixture_body" \
+  "Fixture refresh required"
+
 # --- Assertion 12: slice_pr_diff_to_readme isolates the README section ---
 # Caught a real CI failure: `gh pr diff` does not accept `-- <path>` filtering,
 # so we slice the full PR diff in the script. Regression-protect that.
