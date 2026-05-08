@@ -1917,14 +1917,17 @@ write_authored_glossary "$TEST_DIR/gl3-all-good/v1-glossary.md"
 assert_exit "GL-3: valid anchors across inventory + journeys + integrations passes" 0 "$STRUCTURE" --dir "$TEST_DIR/gl3-all-good"
 
 # =============================================================================
-# Cross-reference index phi_displayed consistency tests (#124)
+# Cross-reference index phi_displayed consistency tests (#124, #212)
 # CR-1: route at index not found at linked anchor (or no anchor link in row location)
 # CR-2: route slug duplicated under linked anchor (canonical lookup ambiguous)
 # CR-3: phi_displayed value disagreement between index row and canonical row
 # CR-4: phi_displayed value outside {true, false} on either side
+# CR-5: xref index header contains a canonical-row column other than route or
+#       phi_displayed — tripwire pointing at #145's deferred generalization.
 #
-# Trigger: only when the cross-reference-index table header contains BOTH
-# `phi_displayed` and `row location` columns (header-intersection rule).
+# Trigger: CR-1..CR-4 fire only when the cross-reference-index table header
+# contains BOTH `phi_displayed` and `row location` columns (header-intersection
+# rule). CR-5 fires independently on header detection alone (#212).
 # =============================================================================
 
 # Helper: write a six-persona inventory with a Super-Admin cross-reference index
@@ -2288,6 +2291,54 @@ assert_exit_and_match \
   "CR-3 (not CR-2) fires when xref index aliases canonical anchor — pass 1 skip is load-bearing" \
   1 'CR-3:' \
   "$STRUCTURE" --dir "$TEST_DIR/xref-anchor-alias-skip"
+
+# --- CR-5 tripwire — Issue #212 -------------------------------------------------
+# What this fixture proves: when a cross-reference index header includes any
+# canonical-row column other than `route` (the join key) or `phi_displayed`
+# (the only currently-handled mirrored column), the precheck fails with the
+# CR-5 tripwire pointing at issue #145's design. Both `CR-5:` and `#145` must
+# appear in the diagnostic so a future contributor adding a second mirrored
+# column lands directly on the design doc.
+#
+# Header here adds `multi_tenant_refactor` (a real canonical column from the
+# inventory schema) to the index. The phi_displayed values agree, so CR-3 and
+# CR-4 are silent and the CR-5 emit is the only failure surface under test.
+mkdir -p "$TEST_DIR/xref-second-column-tripwire"
+cat > "$TEST_DIR/xref-second-column-tripwire/v1-pages-inventory.md" <<'EOF'
+# v1 Pages Inventory
+
+## Super-Admin
+
+### Cross-reference index
+
+| route | also reachable by | content branches by role | phi_displayed | multi_tenant_refactor | row location |
+|-------|-------------------|--------------------------|---------------|-----------------------|--------------|
+| `/admin/expenses/review/` | Agency Admin | no | true | yes | [Agency Admin → top-level](#agency-admin-top-level) |
+
+## Agency Admin
+
+<a id="agency-admin-top-level"></a>
+### top-level
+
+| route | phi_displayed | multi_tenant_refactor |
+|-------|---------------|-----------------------|
+| `/admin/expenses/review/` | true | yes |
+
+## Care Manager
+
+## Caregiver
+
+## Client
+
+## Family Member
+EOF
+write_good_delta "$TEST_DIR/xref-second-column-tripwire/v1-functionality-delta.md"
+# Description on same line as assert_exit_and_match so MT-1's regex picks up
+# the CR-5 code (the regex matches description-after-helper, not across line
+# continuations).
+assert_exit_and_match "CR-5: second canonical column in xref index header → fail with #145 link" \
+  1 'CR-5:.*#145' \
+  "$STRUCTURE" --dir "$TEST_DIR/xref-second-column-tripwire"
 
 # === Refresh-runbook rule group (RR-N) — Issue #132 =========================
 #
