@@ -5,7 +5,7 @@
 #   - tools/v1-screenshot-catalog/crawl.ts (catalog crawler, PR-C)
 #
 # Inventory schema (locked in docs/migration/README.md §Locked conventions):
-#   Each persona is an H2 heading: ## Super-Admin / ## Agency Admin / etc.
+#   Each persona is an H2 heading: ## Agency Admin / ## Care Manager / etc.
 #   Tables under that heading have 10 columns; the route column is col 2
 #   (backtick-wrapped) and screenshot_ref is col 10. Rows in summary tables
 #   (different schema) are excluded by the "route starts with backtick-slash"
@@ -40,8 +40,8 @@ fi
 
 # Locked persona vocabulary (matches docs/migration/README.md §Personas).
 # Order matches the canonical persona section order in the inventory.
+# MUST match scripts/check-v1-doc-structure.sh REQUIRED_PERSONAS — see #236.
 LOCKED_PERSONAS=(
-  "Super-Admin"
   "Agency Admin"
   "Care Manager"
   "Caregiver"
@@ -59,7 +59,7 @@ awk -F'|' -v personas="${LOCKED_PERSONAS[*]}" '
     # Build an associative array of locked persona names. Multi-word personas
     # were space-separated by the IFS join; rejoin them.
     # Rather than guess, hardcode the locked set:
-    locked["Super-Admin"] = 1
+    # MUST match scripts/check-v1-doc-structure.sh REQUIRED_PERSONAS — see #236.
     locked["Agency Admin"] = 1
     locked["Care Manager"] = 1
     locked["Caregiver"] = 1
