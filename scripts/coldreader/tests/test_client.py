@@ -163,9 +163,11 @@ def test_long_raw_value_is_truncated_before_repr(
     records = [r for r in caplog.records if r.name == "coldreader.client"]
     assert len(records) == 1
     formatted = records[0].getMessage()
-    # 64-char slice + repr quoting + format-string overhead → well under 200 chars.
-    # (Concretely ~110 today; the bound exists to catch regressions, not pin exact length.)
-    assert len(formatted) < 200
+    # 64-char slice + repr quoting + format-string overhead → ~110 chars today.
+    # Bound is intentionally tight against the slice constant — catches a
+    # regression that loosens _MALFORMED_CONFIDENCE_LOG_MAX. ~20 chars of
+    # headroom for minor format-string changes.
+    assert len(formatted) < 130
     # The truncated repr should surface 64 x's, not 65.
     assert "x" * 64 in formatted
     assert "x" * 65 not in formatted
