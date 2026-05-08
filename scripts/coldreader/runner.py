@@ -42,6 +42,7 @@ class RotationFailure:
     fact_summary: str
     message: str
     failure_class: str = FAILURE_CLASS_CONTENT
+    model_answer: str = ""
 
 
 @dataclass(frozen=True)
@@ -82,7 +83,7 @@ class RotationResult:
             f"FAILED [{failure.failure_class}] — {failure.persona} / "
             f"{failure.question_id} ({failure.question_text!r})\n"
             f"  Fact summary: {failure.fact_summary.strip()}\n"
-            f"  {failure.message}"
+            f"  {failure.message}{answer_block}"
         )
 
 
@@ -216,6 +217,7 @@ def _evaluate(
                 question_text=q.text,
                 fact_summary=q.fact_summary,
                 message=ev_check.reason,
+                model_answer=response.answer,
             ),
             QuestionTelemetry(question_id=q.id, hits=0, total=len(q.must_mention)),
         )
@@ -232,6 +234,7 @@ def _evaluate(
                 question_text=q.text,
                 fact_summary=q.fact_summary,
                 message=mention_check.reason,
+                model_answer=response.answer,
             ),
             telemetry,
         )
