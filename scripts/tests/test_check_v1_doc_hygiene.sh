@@ -153,6 +153,35 @@ Never use plausible-looking fake names like `Jane Doe` or `Sarah Johnson` — us
 EOF
 assert_exit "code-spanned fake-name examples do not trip name heuristic" 0 "$HYGIENE" "$FIXTURES/code_spanned_examples.md"
 
+# Double-quoted literal CTA labels with bigram-capitalized words don't trip.
+# Caption files quote literal v1 button labels per CAPTION-STYLE.md §CTAs visible,
+# and v1 has buttons like "Submit Expense", "Choose File", "Company Card".
+cat > "$FIXTURES/quoted_cta_labels.md" <<'EOF'
+**CTAs visible:** "Submit Expense", "Choose File", "Company Card", "Logout".
+EOF
+assert_exit "double-quoted CTA labels with bigram-cap words do not trip" 0 "$HYGIENE" "$FIXTURES/quoted_cta_labels.md"
+
+# But unquoted bigram-cap words (real prose) still fail.
+cat > "$FIXTURES/unquoted_real_name.md" <<'EOF'
+The submitter Sarah Johnson reported the receipt.
+EOF
+assert_exit "unquoted Sarah Johnson still trips" 1 "$HYGIENE" "$FIXTURES/unquoted_real_name.md"
+
+# Capitalized words ON EITHER SIDE of a quoted run must NOT become artificially
+# adjacent. Stripping `"..."` to nothing would collapse `Just "x" Worth` into
+# `Just  Worth` (false trip). Replacement with `_` prevents this.
+cat > "$FIXTURES/quote_separator.md" <<'EOF'
+Just "secure login." Worth confirming v2 keeps the role-tuned expirations.
+EOF
+assert_exit "capitalized words flanking a quoted run do not falsely trip" 0 \
+  "$HYGIENE" "$FIXTURES/quote_separator.md"
+
+cat > "$FIXTURES/quote_separator2.md" <<'EOF'
+- **No second person.** Never "you," "your." The catalog reader is generic.
+EOF
+assert_exit "capitalized words flanking quoted runs in a list don't trip" 0 \
+  "$HYGIENE" "$FIXTURES/quote_separator2.md"
+
 # --- Multiple files at once ---
 cat > "$FIXTURES/clean2.md" <<'EOF'
 # Another clean doc

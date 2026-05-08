@@ -83,13 +83,24 @@ scan_caption() {
   fi
 
   # ---- Voice scan ----
+  # Strip `"..."` quoted runs before voice scanning. Per CAPTION-STYLE.md
+  # §CTAs visible, double-quoted strings are reserved for literal v1 button
+  # labels — and v1 buttons can legitimately contain "you/your/we/etc." in
+  # their literal copy (e.g., the "Submit your first expense" empty-state
+  # link). Voice rules apply to authored prose, not to the literal labels
+  # the catalog must reproduce verbatim. Same approach as
+  # check-v1-doc-hygiene.sh §plausible-name heuristic strips backticks +
+  # brackets before its scan.
+  local body_voice
+  body_voice=$(echo "$body" | sed 's/"[^"]*"//g')
+
   scan_pattern() {
     local pattern="$1"
     local label="$2"
     local extra_grep_flags="${3:-}"
     local hits
     # shellcheck disable=SC2086
-    hits=$(echo "$body" | grep -nE $extra_grep_flags "$pattern" || true)
+    hits=$(echo "$body_voice" | grep -nE $extra_grep_flags "$pattern" || true)
     if [[ -n "$hits" ]]; then
       echo "$file: $label"
       echo "$hits" | sed 's/^/  /' | head -3
