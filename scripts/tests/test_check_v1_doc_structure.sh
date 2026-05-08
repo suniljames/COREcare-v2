@@ -2723,13 +2723,13 @@ assert_coverage_parity() {
 # A. Real-state — every coverage code in the structure script has a fixture and vice versa.
 assert_coverage_parity \
   "MT-1: real-state coverage parity holds" \
-  "$REPO_ROOT/scripts/check-v1-doc-structure.sh" \
+  "$STRUCTURE" \
   "$REPO_ROOT/scripts/tests/test_check_v1_doc_structure.sh" \
   0
 
 # B. Self-test — synthesized awk-side gap (all SL-3 references stripped) is detected.
 mkdir -p "$TEST_DIR/mt-1-awk-gap"
-sed '/SL-3/d' "$REPO_ROOT/scripts/check-v1-doc-structure.sh" > "$TEST_DIR/mt-1-awk-gap/check.sh"
+sed '/SL-3/d' "$STRUCTURE" > "$TEST_DIR/mt-1-awk-gap/check.sh"
 assert_coverage_parity \
   "MT-1 self-test: awk-side gap (SL-3 stripped) is detected as orphan fixture" \
   "$TEST_DIR/mt-1-awk-gap/check.sh" \
@@ -2742,7 +2742,7 @@ mkdir -p "$TEST_DIR/mt-1-test-gap"
 sed '/assert_exit.*"SL-2/d' "$REPO_ROOT/scripts/tests/test_check_v1_doc_structure.sh" > "$TEST_DIR/mt-1-test-gap/test.sh"
 assert_coverage_parity \
   "MT-1 self-test: test-side gap (SL-2 fixture stripped) is detected as uncovered awk branch" \
-  "$REPO_ROOT/scripts/check-v1-doc-structure.sh" \
+  "$STRUCTURE" \
   "$TEST_DIR/mt-1-test-gap/test.sh" \
   1 \
   "codes in awk only: SL-2"
