@@ -194,18 +194,19 @@ def test_log_max_constant_matches_readme_documented_value() -> None:
     chars to bound log-line length"; the runtime enforces this via
     `_MALFORMED_CONFIDENCE_LOG_MAX = 64`. This test fails loudly if either
     side is updated without the other (issue #203 security mitigation;
-    issue #209 NIT 4).
+    issue #209 NIT 4; issue #221 hardened encoding + uniqueness check).
     """
     from client import _MALFORMED_CONFIDENCE_LOG_MAX
 
     readme_path = Path(__file__).resolve().parents[1] / "README.md"
-    readme_text = readme_path.read_text()
-    match = re.search(r"capped at (\d+) chars", readme_text)
-    assert match is not None, (
-        "README must document the log-line cap as 'capped at N chars' "
-        "for the constant-vs-doc drift guard to anchor."
+    readme_text = readme_path.read_text(encoding="utf-8")
+    matches = re.findall(r"capped at (\d+) chars", readme_text)
+    assert len(matches) == 1, (
+        f"README must document the log-line cap as 'capped at N chars' "
+        f"exactly once for this drift guard to anchor unambiguously; "
+        f"found {len(matches)} occurrences."
     )
-    assert int(match.group(1)) == _MALFORMED_CONFIDENCE_LOG_MAX, (
-        f"README documents 'capped at {match.group(1)} chars' but "
+    assert int(matches[0]) == _MALFORMED_CONFIDENCE_LOG_MAX, (
+        f"README documents 'capped at {matches[0]} chars' but "
         f"_MALFORMED_CONFIDENCE_LOG_MAX = {_MALFORMED_CONFIDENCE_LOG_MAX}."
     )
