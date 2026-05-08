@@ -10,8 +10,9 @@ on:
       - 'scripts/check-v1-doc-structure.sh'
       - 'scripts/coldreader/**'
       - 'scripts/tests/test_check_v1_doc_*.sh'
-      - '.github/workflows/v1-doc-hygiene.yml'
-      - '.github/workflows/v1-inventory-coldreader.yml'
+      # WF-1 (#169): workflow renames must trigger the structure check so a
+      # rename-only PR cannot silently desync the README's backticked refs.
+      - '.github/workflows/*.yml'
   push:
     branches: [main]
     paths:
@@ -21,6 +22,7 @@ on:
       - 'scripts/check-v1-doc-hygiene.sh'
       - 'scripts/check-v1-doc-structure.sh'
       - 'scripts/coldreader/**'
+      - '.github/workflows/*.yml'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
