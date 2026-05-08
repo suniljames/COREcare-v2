@@ -59,8 +59,7 @@ questions:
       authenticated PHI file-stream routes mounted at `compliance/files/`),
       and `### billing` (invoice/payment surfaces). The expense-review routes
       under top-level admin (`/admin/expenses/review/...`) carry
-      `phi_displayed=true` and surface in the cross-reference index for
-      Super-Admin/Agency Admin parity.
+      `phi_displayed=true` and surface in the cross-reference index.
     must_mention:
       - ["phi_displayed", "PHI displayed", "PHI is displayed", "🔒 PHI"]
       - ["charting"]

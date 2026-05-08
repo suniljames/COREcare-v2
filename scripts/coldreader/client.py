@@ -160,7 +160,7 @@ class AnthropicRotationClient:
         return self._template
 
     def _build_messages(self, call: RotationCall) -> list[dict[str, Any]]:
-        # Two cached blocks: the cross-reference index (reused across all 7
+        # Two cached blocks: the cross-reference index (reused across all 6
         # personas in a single run) and the persona section (reused across
         # the 3 questions for that persona). Question text is the uncached
         # suffix.
