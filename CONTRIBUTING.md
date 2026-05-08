@@ -80,7 +80,9 @@ Tailscale for network access from other devices.
 
 ## Local authentication
 
-The API ships with a **dev fallback** in [`api/app/auth.py`](api/app/auth.py): when `CLERK_SECRET_KEY` is empty *and* the request has no `Authorization` header, every endpoint resolves to a mock `super_admin` user. This lets you exercise API endpoints (via `curl`, the Swagger UI at `/docs`, or unit tests) with no Clerk account.
+The API ships with a **dev fallback** in [`api/app/auth.py`](api/app/auth.py): when `ENVIRONMENT=development` *and* `CLERK_SECRET_KEY` is empty *and* the request has no `Authorization` header, every endpoint resolves to a mock `super_admin` user. This lets you exercise API endpoints (via `curl`, the Swagger UI at `/docs`, or unit tests) with no Clerk account.
+
+In any non-development environment, the API will **refuse to start** without `CLERK_SECRET_KEY` set — see [#241](https://github.com/suniljames/COREcare-v2/issues/241). This prevents a misconfigured production deploy from silently granting unauthenticated requests admin access.
 
 The web app boots with a publicly-known dummy Clerk publishable key (the same one CI uses) so `pnpm dev` and `pnpm build` succeed locally. You **cannot sign in through the web UI with the dummy key** — Clerk's hosted sign-in flow needs a real `pk_test_...` and matching `sk_test_...`.
 
@@ -92,6 +94,7 @@ When to set real Clerk keys:
 | Run web in dev with the layout rendering | No (dummy key boots it) |
 | Sign in via the web UI as a seeded user | Yes — both `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` |
 | Run E2E tests against the full stack | Yes |
+| Run any non-development environment (`ENVIRONMENT != development`) | **Yes — the API refuses to boot without it** |
 
 Get keys from [Clerk's dashboard](https://dashboard.clerk.com/) and put them in `web/.env.local` and `api/.env`.
 

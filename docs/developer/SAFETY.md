@@ -17,6 +17,16 @@ This file covers COREcare project-specific safety only.
 - Test tenant isolation in every data-access service test
 - Log all cross-tenant access attempts
 
+## Auth fail-closed posture
+
+The dev-mode auth fallback (mock `super_admin` user, JWT signature-skip) is gated on `ENVIRONMENT=development` via the `Settings.is_dev_mode` property. The API **refuses to start** in any other environment without `CLERK_SECRET_KEY` set — see [`api/app/main.py`](../../api/app/main.py) `_validate_startup_config()`.
+
+- Do not relax either gate in [`api/app/auth.py`](../../api/app/auth.py).
+- Do not introduce new env-blind dev fallbacks.
+- Any new dev-only behavior must route through `settings.is_dev_mode`.
+
+Issue reference: [#241](https://github.com/suniljames/COREcare-v2/issues/241).
+
 ## Safe Branch-Switching
 
 1. Prefer `git worktree` over stash
