@@ -6,7 +6,7 @@ Multi-tenant SaaS platform for home care agencies — coordinates clients, careg
 
 ## Get started
 
-New contributor? **Run `scripts/setup.sh`** for a guided bootstrap (Docker stack up, test data seeded, login credentials printed). Then read [`CONTRIBUTING.md`](CONTRIBUTING.md) for the development workflow.
+New contributor? **Run `scripts/setup.sh`** for a guided bootstrap — checks tool versions, seeds `.env` files from examples, brings up the Docker stack, and waits for `/healthz`. Then read [`CONTRIBUTING.md`](CONTRIBUTING.md) for the development workflow (including the schema-init caveat tracked in [#240](https://github.com/suniljames/COREcare-v2/issues/240)).
 
 ```bash
 git clone https://github.com/suniljames/COREcare-v2.git
