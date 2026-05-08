@@ -64,6 +64,11 @@ class RotationResult:
     usage: Usage = field(default_factory=Usage)
     telemetry: list[QuestionTelemetry] = field(default_factory=list)
     low_confidence_count: int = 0
+    # Distinct from low_confidence_count — counts questions whose confidence
+    # value violated the schema enum and was coerced to "low" at extraction.
+    # Schema-vs-model drift is a different drift class than genuine low
+    # confidence (issue #203).
+    malformed_confidence_count: int = 0
 
     @property
     def passed(self) -> bool:
@@ -161,6 +166,13 @@ def _score_question(
         )
     )
     failure_b, telemetry_b = _evaluate(fx.persona, q, pass_b, section, index)
+    # `was_confidence_malformed` follows the delivered (Pass-B) response only.
+    # A Pass-A-only malformation that Pass B recovers from is still observable
+    # via the per-extraction WARNING line on stderr — but it does NOT taint the
+    # per-question counter or suppress a Pass-B-genuine low-confidence
+    # breadcrumb. Single semantic load: "this delivered answer's confidence
+    # was coerced." Symmetric with `low_confidence_count`. (Issue #203,
+    # PR #208 round-1 review.)
     combined_response = RotationResponse(
         answer=pass_b.answer,
         verbatim_evidence=pass_b.verbatim_evidence,
@@ -168,6 +180,7 @@ def _score_question(
         usage=pass_a.usage + pass_b.usage,
         used_extended_thinking=True,
         text_block_content=pass_b.text_block_content,
+        was_confidence_malformed=pass_b.was_confidence_malformed,
     )
     return combined_response, failure_b, telemetry_b
 
@@ -274,6 +287,11 @@ def run_rotation(
         )
         result.usage = result.usage + response.usage
         result.telemetry.append(telemetry)
+        # Schema-vs-model drift is an extraction-time event — count it whether
+        # the question passed or failed (issue #203). The extractor itself
+        # emits the per-question WARNING; this counter aggregates per fixture.
+        if response.was_confidence_malformed:
+            result.malformed_confidence_count += 1
         if failure is not None:
             result.failures.append(failure)
             continue
@@ -281,7 +299,10 @@ def run_rotation(
         # signal — observed-not-acted-on (the must_mention check is the
         # objective gate). Log payload bounded to persona + question id +
         # confidence enum value (issue #142): never answer or evidence text.
-        if response.confidence == "low":
+        # Skip the breadcrumb when confidence was coerced from a malformed
+        # value — that's a different drift class, surfaced via
+        # malformed_confidence_count and the extractor's own warning (#203).
+        if response.confidence == "low" and not response.was_confidence_malformed:
             result.low_confidence_count += 1
             _log.warning(
                 "low-confidence pass: persona=%s question=%s confidence=%s",
@@ -400,6 +421,9 @@ def render_summary_markdown(
     total_low_conf = sum(r.low_confidence_count for r in results)
     if total_low_conf > 0:
         lines.append(f"- Low-confidence passes: {total_low_conf}")
+    total_malformed_conf = sum(r.malformed_confidence_count for r in results)
+    if total_malformed_conf > 0:
+        lines.append(f"- Malformed confidence values: {total_malformed_conf}")
     lines.append("")
     # Telemetry section: per-question hit counts across all personas, PASS or FAIL.
     lines.append("### Per-question must_mention coverage")

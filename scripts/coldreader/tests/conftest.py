@@ -8,8 +8,9 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from dataclasses import dataclass
+from typing import cast
 
-from client import RotationCall, RotationResponse, Usage
+from client import ConfidenceLevel, RotationCall, RotationResponse, Usage
 
 
 @dataclass
@@ -25,6 +26,7 @@ class CannedResponse:
     input_tokens: int = 100
     output_tokens: int = 200
     text_block_content: str = ""
+    was_confidence_malformed: bool = False
 
 
 class FakeAnthropicClient:
@@ -52,7 +54,7 @@ class FakeAnthropicClient:
         return RotationResponse(
             answer=canned.answer,
             verbatim_evidence=tuple(canned.verbatim_evidence),
-            confidence=canned.confidence,
+            confidence=cast(ConfidenceLevel, canned.confidence),
             usage=Usage(
                 input_tokens=canned.input_tokens,
                 output_tokens=canned.output_tokens,
@@ -61,6 +63,7 @@ class FakeAnthropicClient:
             ),
             used_extended_thinking=canned.used_extended_thinking,
             text_block_content=canned.text_block_content,
+            was_confidence_malformed=canned.was_confidence_malformed,
         )
 
 
