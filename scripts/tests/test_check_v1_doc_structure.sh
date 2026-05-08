@@ -597,6 +597,9 @@ assert_exit "CL-2: External integrations missing locked H3 fails" 1 "$STRUCTURE"
 #      drops bare X-N when X-N<letter> exists, so umbrella refs in headers/
 #      comments don't pollute parity). MT-2 enforces the canonical regex shape
 #      so non-canonical references (e.g., SL-1.1, SL_1a, SL-1ab) fail loudly.
+#      MT-3 (#201) enforces this assertion-style discipline mechanically: any
+#      SL-* negative fixture (expected exit 1) using bare assert_exit instead
+#      of assert_exit_and_match fails the suite.
 #
 # Negative-fixture (assert_exit_and_match) substrings for renamed codes are
 # locked in issue #196's Test Specification. Positive fixtures (assert_exit
@@ -3125,6 +3128,138 @@ else
   echo "    output: $mt2_out"
   FAIL=$((FAIL + 1))
 fi
+
+# ============================================================================
+# Assertion-style discipline meta-test (MT-3) — Issue #201
+# ============================================================================
+# Asserts that every SL-* negative fixture (expected exit 1) in this test
+# file uses `assert_exit_and_match`, not bare `assert_exit`. The substring-
+# assertion convention was introduced in #174 and previously held by the
+# convention comment block alone (line 577 above); MT-3 enforces it
+# mechanically.
+#
+# Why bare `assert_exit` + SL-* + exit 1 is a regression:
+#   exit-code-only assertions cannot distinguish "the right rule fired" from
+#   "some rule fired" — a regression that swapped two SL-* branches'
+#   conditions would still exit 1 and silently pass a bare-exit fixture. The
+#   convention forces a substring match against the rule-code-anchored emit
+#   string, so a regression that fires the wrong rule is detected.
+#
+# Cohort scope (load-bearing — see #174):
+#   Hard-coded to `SL-` prefix only. JL-*, CR-*, EL-*, CL-*, GL-*, RR-*, WF-*
+#   fixtures using bare `assert_exit` are NOT violations today — those cohorts
+#   have not adopted the substring-assertion convention. When they do, MT-3
+#   expands cohort-by-cohort, not pre-emptively. MT-3.D guards this.
+#
+# Positive-fixture exemption (load-bearing):
+#   Fixtures expecting exit 0 (e.g., line 872, "SL-3a: trailing-space
+#   severity token passes") correctly use bare `assert_exit` because there is
+#   no rule-emit string to substring-match. The detection regex is scoped to
+#   expected-exit-1 lines only. MT-3.C guards this.
+#
+# See: https://github.com/suniljames/COREcare-v2/issues/201 (this rule),
+#      https://github.com/suniljames/COREcare-v2/issues/174 (convention origin),
+#      https://github.com/suniljames/COREcare-v2/issues/196 (per-branch parity).
+
+_extract_sl_loose_fixtures() {
+  # Three-condition filter on each line of $1 (test file):
+  #   1. line starts (after optional whitespace) with `assert_exit ` —
+  #      negative match on `assert_exit_and_match` is achieved via the
+  #      trailing space-quote pattern `assert_exit "`.
+  #   2. description begins `"SL-[0-9]+[a-z]?:`.
+  #   3. expected exit code (the second positional arg) is `1`.
+  # Emits "<line-number>:<line>" for each violation. Exit 1 if any
+  # violations found, exit 0 if clean.
+  local file="$1"
+  local violations
+  violations=$(grep -nE '^[[:space:]]*assert_exit[[:space:]]+"SL-[0-9]+[a-z]?:[^"]*"[[:space:]]+1[[:space:]]+' "$file" || true)
+  if [[ -n "$violations" ]]; then
+    echo "assertion-style discipline (MT-3)"
+    echo "  test file: $file"
+    echo "  SL-* negative fixtures must use assert_exit_and_match (see line ~577 convention block):"
+    while IFS= read -r line; do
+      [[ -n "$line" ]] && echo "    line $line"
+    done <<< "$violations"
+    return 1
+  fi
+  return 0
+}
+
+assert_sl_substring_discipline() {
+  local description="$1"
+  local test_path="$2"
+  local expected_exit="$3"
+  local expected_pattern="${4:-}"
+  local out rc
+  out=$(_extract_sl_loose_fixtures "$test_path" 2>&1)
+  rc=$?
+  local pattern_ok=1
+  if [[ -n "$expected_pattern" ]] && ! [[ "$out" =~ $expected_pattern ]]; then
+    pattern_ok=0
+  fi
+  if [[ "$rc" == "$expected_exit" && "$pattern_ok" == 1 ]]; then
+    echo "  PASS — $description (exit $rc)"
+    PASS=$((PASS + 1))
+  else
+    echo "  FAIL — $description (expected exit $expected_exit${expected_pattern:+ matching /$expected_pattern/}, got exit $rc)"
+    echo "    output: $out"
+    FAIL=$((FAIL + 1))
+  fi
+}
+
+# Synthesize code tokens via runtime concatenation so the literals do NOT
+# appear in this file's source. Otherwise MT-1's `_extract_test_codes` grep
+# (anchored on `assert_exit "[A-Z]{2}-[0-9]+`) would treat SL-9 / JL-99 as
+# orphan test-side codes and flip the real-state coverage-parity assertion.
+mt3_sl_code="SL"; mt3_sl_code+="-9"
+mt3_jl_code="JL"; mt3_jl_code+="-99"
+
+# A. Real-state — current test file passes MT-3.
+assert_sl_substring_discipline \
+  "MT-3: real-state assertion-style discipline holds" \
+  "$REPO_ROOT/scripts/tests/test_check_v1_doc_structure.sh" \
+  0
+
+# B. Self-test — synthesized SL-* negative fixture using bare assert_exit fires.
+mkdir -p "$TEST_DIR/mt-3-violation"
+{
+  cat "$REPO_ROOT/scripts/tests/test_check_v1_doc_structure.sh"
+  printf 'assert_exit "%s: synthetic violation" 1 "$STRUCTURE" --dir /nonexistent\n' "$mt3_sl_code"
+} > "$TEST_DIR/mt-3-violation/test.sh"
+assert_sl_substring_discipline \
+  "MT-3 self-test: synthesized SL-* bare-assert_exit negative fixture is detected" \
+  "$TEST_DIR/mt-3-violation/test.sh" \
+  1 \
+  "${mt3_sl_code}: synthetic violation"
+
+# C. Self-test — positive-fixture exemption holds.
+# An appended SL-* fixture with expected exit 0 is correctly exempted. Load-
+# bearing: if MT-3's regex were ever narrowed to drop the exit-code-1 filter,
+# this test would fail and signal the regression.
+mkdir -p "$TEST_DIR/mt-3-positive"
+{
+  cat "$REPO_ROOT/scripts/tests/test_check_v1_doc_structure.sh"
+  printf 'assert_exit "%s: positive sentinel" 0 "$STRUCTURE" --dir /nonexistent\n' "$mt3_sl_code"
+} > "$TEST_DIR/mt-3-positive/test.sh"
+assert_sl_substring_discipline \
+  "MT-3 self-test: positive (exit 0) SL-* fixture is exempted" \
+  "$TEST_DIR/mt-3-positive/test.sh" \
+  0
+
+# D. Self-test — out-of-cohort exemption holds.
+# An appended JL-* fixture using bare assert_exit is correctly exempted (per
+# #174's cohort scope-limit). Load-bearing: if MT-3's regex were ever
+# broadened (cohort prefix dropped or generalized), this test would fail and
+# signal the regression.
+mkdir -p "$TEST_DIR/mt-3-out-of-cohort"
+{
+  cat "$REPO_ROOT/scripts/tests/test_check_v1_doc_structure.sh"
+  printf 'assert_exit "%s: synthetic non-SL fixture" 1 "$STRUCTURE" --dir /nonexistent\n' "$mt3_jl_code"
+} > "$TEST_DIR/mt-3-out-of-cohort/test.sh"
+assert_sl_substring_discipline \
+  "MT-3 self-test: out-of-cohort (JL-*) bare-assert_exit fixture is exempted" \
+  "$TEST_DIR/mt-3-out-of-cohort/test.sh" \
+  0
 
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
