@@ -15,6 +15,79 @@ Use `--repo "$REPO"` on every `gh` command.
 
 Parse `$ARGUMENTS` for:
 - **Issue number** — a `#`-prefixed or bare number
+- **`--force-on-closed`** — see "Gate: issue state" below
+
+## Gate: issue state
+
+> Mirrors the gate in `define.md` / `design.md` / `implement.md` / `review.md`.
+> When editing this gate, update all four files in lockstep.
+
+This gate **aborts** the skill if the GitHub issue is CLOSED, unless the
+operator passes `--force-on-closed`. It runs **after** argument parsing and
+**before** any side-effecting step — specifically before adding the
+`implementing` label, before `EnterWorktree`, and before the branch base cut.
+
+### Parse `$ARGUMENTS`
+
+```bash
+ARGS=( $ARGUMENTS )
+FORCE_ON_CLOSED=false
+ISSUE_NUMBER=""
+for arg in "${ARGS[@]}"; do
+  case "$arg" in
+    --force-on-closed) FORCE_ON_CLOSED=true ;;
+    *)
+      stripped="${arg##\#}"
+      if [[ "$stripped" =~ ^[0-9]+$ ]]; then
+        ISSUE_NUMBER="$stripped"
+      fi
+      ;;
+  esac
+done
+```
+
+If `ISSUE_NUMBER` is empty after parsing, fall back to the context-inferred
+issue (per "Parse arguments" above).
+
+### State + closed-by lookup (single call)
+
+```bash
+ISSUE_META=$(gh issue view "$ISSUE_NUMBER" --repo "$REPO" \
+  --json state,title,closedByPullRequestsReferences)
+ISSUE_STATE=$(echo "$ISSUE_META" | jq -r '.state')
+ISSUE_TITLE=$(echo "$ISSUE_META" | jq -r '.title')
+CLOSED_BY_PR=$(echo "$ISSUE_META" | jq -r '.closedByPullRequestsReferences[0].number // empty')
+CLOSED_BY_TITLE=$(echo "$ISSUE_META" | jq -r '.closedByPullRequestsReferences[0].title // empty')
+```
+
+### Gate behavior
+
+- If `ISSUE_STATE == "CLOSED"` and `FORCE_ON_CLOSED == false`:
+  - Print the canonical abort message (below).
+  - Perform **no further actions** — do not add the `implementing` label, do
+    not create a worktree, do not cut a branch.
+  - Stop the skill (return non-zero).
+- Else: proceed to the next section.
+
+### Canonical abort message
+
+```
+Issue #<n> "<title>" is CLOSED.
+
+Pipeline commands abort on closed issues by default — this prevents
+post-hoc design or implementation runs (the failure mode that
+surfaced this gate; see issue #213).
+
+  Closed by: PR #<pr> "<pr-title>"        ← shown when discoverable
+
+To proceed:
+  • Reopen the issue:
+        gh issue reopen <n> --repo <repo>
+  • Or override on this run:
+        /<command> <n> --force-on-closed
+```
+
+The `Closed by:` line is shown only when `CLOSED_BY_PR` is non-empty.
 
 ## Lifecycle check: design-complete
 
