@@ -53,6 +53,7 @@ test-e2e: ## Run Playwright E2E tests against full Docker stack
 test-v1-docs: ## Run v1 doc hygiene + structure + catalog scripts self-tests
 	bash scripts/tests/test_check_v1_doc_hygiene.sh
 	bash scripts/tests/test_check_v1_doc_structure.sh
+	bash scripts/tests/test_check_v1_inventory_mount_prefixes.sh
 	bash scripts/tests/test_check_v1_catalog_coverage.sh
 	bash scripts/tests/test_extract_inventory_routes.sh
 	bash scripts/tests/test_post_v1_sha_bump_diff.sh
@@ -88,6 +89,11 @@ scan-v1-docs: ## Run hygiene + structure + catalog-coverage scripts over committ
 		bash scripts/check-v1-catalog-coverage.sh; \
 	else \
 		echo "Pages inventory absent — catalog-coverage check skipped."; \
+	fi
+	@if [ -f docs/migration/v1-pages-inventory.md ] && [ -f docs/migration/fixtures/v1-elitecare-urls.txt ]; then \
+		bash scripts/check-v1-inventory-mount-prefixes.sh; \
+	else \
+		echo "Pages inventory or v1-elitecare-urls.txt fixture absent — mount-prefix check skipped."; \
 	fi
 
 # --- API shortcuts ---
