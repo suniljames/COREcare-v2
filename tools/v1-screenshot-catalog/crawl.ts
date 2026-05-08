@@ -193,6 +193,9 @@ export const SEED_IDS: Record<string, number> = {
   "int:client_id": 1,        // clients.client.pk = 1
   "int:user_id": 4,          // auth.user.pk = 4 (caregiver)
   "int:caregiver_id": 4,     // same caregiver user
+  "int:pk": 1,               // generic int — Care Manager cm_client_focus uses this for client pk (#237)
+  "int:expense_id": 1,       // expenses.expense.pk = 1 (#237 fixture extension)
+  "int:receipt_id": 1,       // expenses.expensereceipt.pk = 1 (#237 fixture extension)
   "id": 1,                   // generic int (default to client)
 };
 
@@ -200,6 +203,22 @@ export interface SubstitutionResult {
   url: string;
   substituted: boolean;       // true if all placeholders resolved
   missing: string[];          // unresolved placeholder names
+}
+
+// Inventory `screenshot_ref` cells are the source of truth for whether a
+// row should be captured or skipped. The taxonomy of skip-reasons lives in
+// docs/legacy/README.md "Skip-reason taxonomy" — see issue #237 for the
+// non_html_response application to cm_serve_receipt.
+export type ScreenshotRefClassification =
+  | { kind: "capture" }
+  | { kind: "skip"; reason: string };
+
+export function classifyScreenshotRef(ref: string): ScreenshotRefClassification {
+  if (ref.startsWith("not_screenshotted:")) {
+    const reason = ref.replace(/^not_screenshotted:\s*/, "").trim();
+    return { kind: "skip", reason };
+  }
+  return { kind: "capture" };
 }
 
 export function substitutePlaceholders(
@@ -607,9 +626,9 @@ interface CaptureResult {
 async function captureRoute(args: CaptureArgs): Promise<CaptureResult> {
   const start = Date.now();
 
-  if (args.row.screenshot_ref.startsWith("not_screenshotted:")) {
-    const reason = args.row.screenshot_ref.replace(/^not_screenshotted:\s*/, "");
-    return { status: "skipped", reason, durationMs: Date.now() - start };
+  const classified = classifyScreenshotRef(args.row.screenshot_ref);
+  if (classified.kind === "skip") {
+    return { status: "skipped", reason: classified.reason, durationMs: Date.now() - start };
   }
 
   // Substitute Django URL-pattern placeholders. Routes whose placeholders

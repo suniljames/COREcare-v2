@@ -257,3 +257,99 @@ Do not proceed to Phase 2D until **every** category is yes/N/A.
 
 - If LFS push hits bandwidth limits mid-push: don't `git lfs prune`; check GitHub Settings → Billing → Git LFS for the v2 repo. May need to wait for the next billing cycle or upgrade.
 - If the PHI-audit-artifacts CI gate fails: confirm both `PHI-AUDIT-PRECRAWL-*.md` and `PHI-AUDIT-POSTCRAWL-*.md` were committed in the same PR.
+
+## Phase 2H — Care Manager fixture extension + targeted re-crawl (#237, ~2 hours)
+
+Closes the Care Manager catalog gap: 3 inventory rows whose `screenshot_ref` was `not_screenshotted: no_seed_data` because the test Care Manager account had no assigned `Client` and no submitted `Expense`. Phase 2D's fixture optimised cross-persona coverage of read-heavy surfaces and under-seeded CM-specific relational state.
+
+### Pre-flight (v1 side)
+
+1. `cd ~/Code/COREcare-access && git status` — clean tree, on commit `9738412a6e41064203fc253d9dd2a5c6a9c2e231`.
+2. Read `care_manager/services.py` for `CareManagerService.get_assigned_client_ids` and `care_manager/models.py` (or wherever `CareManagerProfile` is defined) to confirm the `CareManagerProfile`↔`Client` linkage model. Common shapes: an M2M field on `CareManagerProfile`, an explicit through-table (`CareManagerAssignment`), or a FK on `Client`. The fixture row format follows the linkage model exactly — wrong model = `Http404` persists.
+3. Inspect `expenses/models.py` `Expense` and `ExpenseReceipt` for `full_clean()` validation rules, max_length on text fields, custom `save()` hooks, and `post_save` signals. Loaddata fires signals unless they short-circuit on `kwargs.get("raw")` — confirm no signal will hit network during loaddata.
+4. Confirm env-var hygiene per Phase 2E (line 144): `unset DATABASE_URL SENDGRID_API_KEY EMAIL_HOST_PASSWORD QUICKBOOKS_CLIENT_ID QUICKBOOKS_CLIENT_SECRET SENTRY_DSN`. Critical: `EMAIL_HOST_PASSWORD` must be unset so `loaddata`'s shift-assignment signal hits `console.EmailBackend`, not real SMTP.
+
+### Steps
+
+5. Edit `~/Code/COREcare-access/fixtures/v2_catalog_snapshot.json`:
+   - **Link** the existing `CareManagerProfile` (test CM) to the existing `Client` (PK 1) via the confirmed mechanism. **Do not** add the Client to any caregiver/shift/chart relationships — minimise cross-persona blast radius.
+   - **Enrich** the `Client` row to render rich `cm_client_focus` UI: DNR flag, ≥1 alert flag, `diagnosis = "[DIAGNOSIS]"`, `address = "[ADDRESS]"`, `phone = "[PHONE]"`. Reuse the existing `ClientFamilyMember` link.
+   - **Add** 1 `Expense` row: `pk = 1`, `submitter = <test_cm_user_pk>`, `client = 1`, `status = "REJECTED"`, `description = "[NOTE_TEXT]"`, `amount = 9.99` (deliberately non-realistic — document the convention in `INVESTIGATIONS.md`).
+   - **Add** 1 `ExpenseReceipt` row: `pk = 1`, `expense = 1`, `original_filename = "[REDACTED].png"`, `image = "<MEDIA-relative-path-to-placeholder.png>"`.
+6. Place a synthetic placeholder PNG at `<MEDIA_ROOT>/<image-path>`: ≤2 KB, flat-grey or "RECEIPT [REDACTED]" synthetic, no identifying marks.
+7. Re-validate fixture loads cleanly:
+   ```bash
+   cd ~/Code/COREcare-access
+   rm -f db.sqlite3
+   DJANGO_SETTINGS_MODULE=elitecare.settings.development ./venv/bin/python manage.py migrate
+   DJANGO_SETTINGS_MODULE=elitecare.settings.development ./venv/bin/python manage.py loaddata fixtures/v2_catalog_snapshot.json
+   ```
+   Exit code 0; reported object count matches the new total in `INVESTIGATIONS.md` Records line.
+8. Re-hash fixture: `shasum -a 256 fixtures/v2_catalog_snapshot.json`.
+9. Update `tools/v1-screenshot-catalog/INVESTIGATIONS.md` "Fixture snapshot" table:
+   - `sha256` row → new hash.
+   - `Records` line → updated total (was 20; new total = 20 + linkage + Expense + ExpenseReceipt = 23 if linkage is a single row).
+   - Add a `placeholder_blobs` row listing the placeholder PNG path + sha256.
+   - Add a paragraph in the table caption describing the linkage model and the `9.99` amount-value convention.
+10. Update `tools/v1-screenshot-catalog/.env` (gitignored, operator-side): `V1_FIXTURE_SHA256=<new-hash>`.
+11. Smoke-test the 3 routes manually via `runserver`:
+    ```bash
+    DJANGO_SETTINGS_MODULE=elitecare.settings.development ./venv/bin/python manage.py runserver 0.0.0.0:8000
+    # In another shell, log in as test CM in a browser, then:
+    curl -I -b cookies.txt http://localhost:8000/care-manager/expenses/1/receipt/1/
+    ```
+    Expect: `/care-manager/` populated; `/care-manager/client/1/` HTTP 200 (no 404); `/care-manager/expenses/1/edit/` HTTP 200 with REJECTED status visible; receipt route HTTP 200 with `Content-Disposition: attachment`.
+
+### Re-crawl
+
+12. Full re-crawl all 5 personas (single canonical fixture; replace existing CM captures + capture 2 new ones). The receipt route is now skipped via inventory `non_html_response`.
+    ```bash
+    cd tools/v1-screenshot-catalog
+    pnpm crawl --output-dir ../../docs/legacy/v1-ui-catalog/
+    ```
+13. Verify CM directory contents: `001-care-manager.{desktop,mobile}.webp` (re-captured, populated), `002-client.{desktop,mobile}.webp` (new), `003-expenses.{desktop,mobile}.webp` (re-captured, populated), `004-submit.{desktop,mobile}.webp` (re-captured), `005-edit.{desktop,mobile}.webp` (new). Receipt route produces no files.
+
+### Reproducibility + PHI gates
+
+14. Second crawl to a temp dir, then reproducibility check:
+    ```bash
+    pnpm crawl --output-dir /tmp/catalog-rerun/
+    bash ../../scripts/check-catalog-reproducibility.sh \
+      ../../docs/legacy/v1-ui-catalog/ /tmp/catalog-rerun/ \
+      --output-dir ../../docs/legacy/v1-ui-catalog/reproducibility-report
+    ```
+    Pixel diff ≤ 0.5%.
+15. Pixel-diff existing AA / CG / FM `.webp` files pre/post (operator: `git diff --stat docs/legacy/v1-ui-catalog/`). Any non-empty image diff → re-PHI-audit those captures.
+16. PHI audit on changed CM `.webp` files + new captions per `PHI-CHECKLIST.md`. Author at `tools/v1-screenshot-catalog/PHI-AUDIT-POSTCRAWL-<date>-cm-recrawl.md`. Zero `no` verdicts.
+
+### Captions, inventory, READMEs
+
+17. Rewrite `docs/legacy/v1-ui-catalog/care-manager/001-care-manager.md` body (now populated state — drop the "with assigned clients (not visible at this seed_state)" hedging block).
+18. Author `docs/legacy/v1-ui-catalog/care-manager/002-client.md` per `CAPTION-STYLE.md` (cite `cm_client_focus`).
+19. Rewrite `docs/legacy/v1-ui-catalog/care-manager/003-expenses.md` body (now lists the new REJECTED expense).
+20. Spot-check `004-submit.md`; rewrite only if rendered content actually changed.
+21. Author `docs/legacy/v1-ui-catalog/care-manager/005-edit.md` per `CAPTION-STYLE.md` (cite `ExpenseService.resubmit_expense` for REJECTED + `ExpenseService.edit_expense` otherwise).
+22. **Do not** author a `006-receipt.md` — receipt route's inventory row is the canonical documentation; no caption file for skipped routes.
+23. Update `docs/migration/v1-pages-inventory.md`:
+    - Row 380 (`/care-manager/client/<int:pk>/`): `screenshot_ref` → `care-manager/002-client`.
+    - Row 383 (`/care-manager/expenses/<int:expense_id>/edit/`): `screenshot_ref` → `care-manager/005-edit`.
+    - Row 384 (`/care-manager/expenses/<int:expense_id>/receipt/<int:receipt_id>/`): `screenshot_ref` → `not_screenshotted: non_html_response`.
+24. Update `docs/legacy/v1-ui-catalog/README.md`:
+    - Persona table Care Manager count `3` → `5`.
+    - Per-route index Care Manager subsection: add `care-manager/002-client` and `care-manager/005-edit` bullets in canonical_id-ascending order.
+25. Update `docs/legacy/v1-ui-catalog/RUN-MANIFEST.md`: new fixture sha256, generated date, route counts (`captured`, `skipped`, `errored`).
+
+### Verification (release gates)
+
+26. `make scan-v1-docs` passes (hygiene + structure + coverage).
+27. `cd tools/v1-screenshot-catalog && pnpm test` — 91 tests pass (existing 79 + 12 added by #237 prep).
+28. Reproducibility check ≤ 0.5% pixel diff (step 14).
+29. PHI audit zero `no` verdicts (step 16).
+30. Sunil PHI sign-off on the new captures.
+
+### Remediation
+
+- If `cm_client_focus` still raises `Http404` after fixture extension: the `CareManagerProfile`↔`Client` linkage model was wrong (step 2). Re-read v1 source; rebuild fixture row.
+- If `cm_edit_expense` renders the *edit* form (not *resubmit*): `Expense.status` enum value is wrong. v1's enum is case-sensitive; confirm the literal value (likely `"REJECTED"` but verify).
+- If receipt route returns a non-attachment response (e.g., HTTP 200 with `Content-Type: image/png` and inline disposition): the `non_html_response` reclassification may not apply. Inspect v1's `cm_serve_receipt` view for the actual response shape and re-evaluate; possibly the route IS screenshottable as an inline image.
+- If pixel-diff against AA / CG / FM captures is non-empty: the new fixture row leaked into other personas' views. Narrow the linkage scope (no caregiver assignment, no shifts on the new client) and re-crawl.
