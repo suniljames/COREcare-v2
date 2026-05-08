@@ -30,7 +30,7 @@ fail()   { printf '  %b✗%b %s\n' "$R" "$X" "$*"; exit 1; }
 warnings=0
 
 # --- 1. Prerequisites -------------------------------------------------------
-info "1/5  Checking prerequisites..."
+info "1/4  Checking prerequisites..."
 
 if command -v docker >/dev/null 2>&1; then
   if docker info >/dev/null 2>&1; then
@@ -77,7 +77,7 @@ else
 fi
 
 # --- 2. Git LFS -------------------------------------------------------------
-info "2/5  Initializing git LFS..."
+info "2/4  Initializing git LFS..."
 if command -v git-lfs >/dev/null 2>&1; then
   git lfs install --local >/dev/null
   ok "LFS hooks installed for this clone"
@@ -86,7 +86,7 @@ else
 fi
 
 # --- 3. Seed .env files -----------------------------------------------------
-info "3/5  Seeding .env files (preserving any that already exist)..."
+info "3/4  Seeding .env files (preserving any that already exist)..."
 
 seed_env() {
   local target="$1" example="$2"
@@ -106,7 +106,7 @@ seed_env api/.env       api/.env.example
 seed_env web/.env.local web/.env.local.example
 
 # --- 4. Docker stack --------------------------------------------------------
-info "4/5  Starting Docker stack (this may take a few minutes on first run)..."
+info "4/4  Starting Docker stack (this may take a few minutes on first run)..."
 docker compose up -d
 ok "Containers started"
 
@@ -120,14 +120,9 @@ while ! curl -sf http://localhost:8000/healthz >/dev/null 2>&1; do
 done
 ok "API healthy at http://localhost:8000"
 
-# --- 5. Seed test accounts --------------------------------------------------
-info "5/5  Seeding test accounts..."
-make api-seed
-ok "Test accounts seeded"
-
 # --- Done -------------------------------------------------------------------
 echo
-printf '%b✅ COREcare v2 is ready.%b\n' "$G$B" "$X"
+printf '%b✅ COREcare v2 stack is up.%b\n' "$G$B" "$X"
 echo
 info "Next steps"
 cat <<'EOF'
@@ -137,15 +132,17 @@ cat <<'EOF'
   • Run tests:                            make test
   • Stop containers:                      make down
 
+Database schema and seed data are NOT applied automatically — the schema
+init / migration sequence has a known issue (no migration creates the
+initial tables; SQLModel.metadata.create_all is only used in tests). Once
+that's fixed, the next steps will be:
+
+  make api-migrate    # apply migrations
+  make api-seed       # seed test accounts
+
 Local auth: by default the API uses a dev fallback — requests sent without
 an Authorization header receive a mock super_admin user (api/app/auth.py).
-Seeded test accounts (require real Clerk keys to sign in via the web UI):
-
-  superadmin@test.com / TestSuper123!
-  admin@test.com      / TestAdmin123!
-  manager1@test.com   / TestManager123!
-  caregiver1@test.com / TestCare123!
-  family1@test.com    / TestFamily123!
+That works against an empty schema for endpoints that don't query a table.
 
 See CONTRIBUTING.md for the full contributor workflow.
 EOF
