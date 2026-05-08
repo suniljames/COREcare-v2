@@ -1,0 +1,110 @@
+name: V1 Catalog Gate
+
+# Per-PR caption-quality gates for issue #184 (Phase 3 of #107 — caption
+# authoring). Triggers when caption files or the gate scripts/tests change.
+# Authored captions must pass:
+#   - voice + format lint (scripts/check-v1-caption-voice.sh)
+#   - body-scoped placeholder check (scripts/check-v1-caption-phi.sh)
+# AND, on push to main + on the final acceptance PR:
+#   - whole-catalog no-TODO gate (scripts/check-v1-captions-authored.sh)
+
+on:
+  pull_request:
+    paths:
+      - 'docs/legacy/v1-ui-catalog/**/*.md'
+      - 'scripts/check-v1-caption-phi.sh'
+      - 'scripts/check-v1-caption-voice.sh'
+      - 'scripts/check-v1-captions-authored.sh'
+      - 'scripts/v1-author-precheck.sh'
+      - 'scripts/tests/test_check_v1_caption_phi.sh'
+      - 'scripts/tests/test_check_v1_caption_voice.sh'
+      - 'scripts/tests/test_check_v1_captions_authored.sh'
+      - 'scripts/tests/test_v1_author_precheck.sh'
+      - '.github/workflows/v1-catalog-gate.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/legacy/v1-ui-catalog/**/*.md'
+      - 'scripts/check-v1-caption-phi.sh'
+      - 'scripts/check-v1-caption-voice.sh'
+      - 'scripts/check-v1-captions-authored.sh'
+      - 'scripts/v1-author-precheck.sh'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scripts-self-test:
+    name: Caption-tooling scripts self-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - name: captions-authored tests
+        run: bash scripts/tests/test_check_v1_captions_authored.sh
+      - name: caption-voice tests
+        run: bash scripts/tests/test_check_v1_caption_voice.sh
+      - name: caption-phi tests
+        run: bash scripts/tests/test_check_v1_caption_phi.sh
+      - name: v1-author-precheck tests
+        run: bash scripts/tests/test_v1_author_precheck.sh
+
+  scan-changed-captions:
+    name: Voice + PHI lint over PR-changed captions
+    runs-on: ubuntu-latest
+    needs: scripts-self-test
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: false
+      - name: Detect changed caption files
+        id: detect
+        run: |
+          BASE="origin/${{ github.base_ref }}"
+          # Files added or modified vs base ref, restricted to caption files
+          # (depth-2 .md files under docs/legacy/v1-ui-catalog/<persona>/).
+          mapfile -t CHANGED < <(git diff --name-only --diff-filter=AM "$BASE"...HEAD \
+            | grep -E '^docs/legacy/v1-ui-catalog/[a-z-]+/[0-9]{3}-[a-z0-9-]+(\.[a-z])?\.md$' || true)
+          if [[ ${#CHANGED[@]} -eq 0 ]]; then
+            echo "No caption files changed in this PR — skipping body lints."
+            echo "any=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "Changed caption files (${#CHANGED[@]}):"
+          printf '  %s\n' "${CHANGED[@]}"
+          {
+            echo "any=true"
+            echo "files<<EOF"
+            printf '%s\n' "${CHANGED[@]}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+      - name: Caption-PHI lint over changed captions
+        if: steps.detect.outputs.any == 'true'
+        run: |
+          mapfile -t FILES <<< "${{ steps.detect.outputs.files }}"
+          bash scripts/check-v1-caption-phi.sh "${FILES[@]}"
+      - name: Caption-voice lint over changed captions
+        if: steps.detect.outputs.any == 'true'
+        run: |
+          mapfile -t FILES <<< "${{ steps.detect.outputs.files }}"
+          bash scripts/check-v1-caption-voice.sh "${FILES[@]}"
+
+  no-todo-on-main:
+    name: Whole-catalog no-TODO gate (main only)
+    runs-on: ubuntu-latest
+    needs: scripts-self-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - name: Run captions-authored gate
+        # NOTE: until the final acceptance PR (PR 6 of #184) lands, this job
+        # is expected to fail on main. Treat as informational until then.
+        # Keep `continue-on-error: true` for now; remove when PR 6 merges.
+        continue-on-error: true
+        run: bash scripts/check-v1-captions-authored.sh

@@ -25,3 +25,23 @@ repos:
         # README (RR-N rule group, #132).
         files: '^docs/migration/(v1-.+|README)\.md$'
         pass_filenames: false
+
+      - id: v1-caption-phi
+        name: V1 caption body-scoped placeholder check (CAPTION-STYLE.md §PHI references)
+        entry: bash scripts/check-v1-caption-phi.sh
+        language: system
+        files: '^docs/legacy/v1-ui-catalog/[a-z-]+/[0-9]{3}-.+\.md$'
+        pass_filenames: true
+
+      - id: v1-caption-voice
+        name: V1 caption voice + format lint (CAPTION-STYLE.md §Voice / §CTAs / §Interaction notes)
+        entry: bash scripts/check-v1-caption-voice.sh
+        language: system
+        files: '^docs/legacy/v1-ui-catalog/[a-z-]+/[0-9]{3}-.+\.md$'
+        pass_filenames: true
+
+      # NOTE: check-v1-captions-authored.sh is a whole-catalog gate that
+      # cannot run as a pre-commit hook during incremental authoring (it
+      # would fail on every commit until the very last TODO is replaced).
+      # That gate runs in CI only on the final-acceptance PR and on push to
+      # main; locally invoke via `make test-v1-captions-authored`.
