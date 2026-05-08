@@ -1059,3 +1059,183 @@ def test_check_cost_caps_at_boundary_does_not_trip() -> None:
         )
         is None
     )
+
+
+# --- Issue #203: malformed-confidence aggregation at the runner ---
+
+
+def _all_three_pass_with_malformation_flags(
+    client: FakeAnthropicClient,
+    *,
+    q1: tuple[str, bool],
+    q2: tuple[str, bool],
+    q3: tuple[str, bool],
+) -> None:
+    """Queue 3 canned answers, each with (confidence, was_confidence_malformed).
+
+    Mirrors `_all_three_pass_with_confidence`. The flag simulates the extractor
+    having coerced a malformed value to `confidence` for that question.
+    """
+    payloads = {
+        "q1": (
+            "They see Y on the dashboard, per linked client.",
+            "X sees Y on the dashboard",
+        ),
+        "q2": (
+            "No, gated linked-client only.",
+            "linked-client only via ClientFamilyMember",
+        ),
+        "q3": (
+            "v1 has no active-flag; v2 needs soft-revoke.",
+            "no active-flag on the link",
+        ),
+    }
+    for qid, (conf, malformed) in (("q1", q1), ("q2", q2), ("q3", q3)):
+        ans, ev = payloads[qid]
+        client.add_response(
+            "family-member",
+            qid,
+            CannedResponse(
+                answer=ans,
+                verbatim_evidence=(ev,),
+                confidence=conf,
+                was_confidence_malformed=malformed,
+            ),
+        )
+
+
+def test_malformed_confidence_increments_dedicated_counter(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Counter increments per malformed question; low_confidence_count does NOT."""
+    fx = _fixture()
+    client = FakeAnthropicClient()
+    # q2 is "low" but coerced from a malformed raw value (was_confidence_malformed=True).
+    # q3 is genuinely "low" (was_confidence_malformed=False).
+    _all_three_pass_with_malformation_flags(
+        client,
+        q1=("high", False),
+        q2=("low", True),
+        q3=("low", False),
+    )
+
+    with caplog.at_level(logging.WARNING, logger="coldreader"):
+        result = run_rotation(
+            fx, section=_section(), index=_index(), client=client, allow_retry=True
+        )
+
+    assert result.passed
+    # Two-counters-stay-distinct invariant: malformed q2 lands in malformed_confidence_count
+    # only; genuine-low q3 lands in low_confidence_count only.
+    assert result.malformed_confidence_count == 1
+    assert result.low_confidence_count == 1
+    # Only the genuine-low q3 fires the existing low-confidence-pass warning.
+    low_conf_warnings = [
+        r
+        for r in caplog.records
+        if r.name == "coldreader"
+        and r.levelno == logging.WARNING
+        and "low-confidence pass" in r.getMessage()
+    ]
+    assert len(low_conf_warnings) == 1
+    assert "q3" in low_conf_warnings[0].getMessage()
+
+
+def test_malformed_confidence_on_failure_does_not_double_log(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A failing question with was_confidence_malformed=True must NOT emit the
+    `low-confidence pass` warning at the runner — that breadcrumb is for passing
+    answers only. (The malformation warning fires at extraction; this test
+    guards the runner-level breadcrumb.)
+    """
+    fx = _fixture()
+    client = FakeAnthropicClient()
+    # q1 fails Pass A on evidence, retries Pass B (still bad), with malformed flag set.
+    client.add_response(
+        "family-member",
+        "q1",
+        CannedResponse(
+            answer="They see Y on the dashboard.",
+            verbatim_evidence=("UNFINDABLE_PHRASE_A",),
+            confidence="low",
+            was_confidence_malformed=True,
+        ),
+    )
+    client.add_response(
+        "family-member",
+        "q1",
+        CannedResponse(
+            answer="They see Y on the dashboard.",
+            verbatim_evidence=("UNFINDABLE_PHRASE_B",),
+            confidence="low",
+            was_confidence_malformed=True,
+            used_extended_thinking=True,
+        ),
+    )
+    # q2/q3 pass cleanly with high confidence and no malformation.
+    client.add_response(
+        "family-member",
+        "q2",
+        CannedResponse(
+            answer="No, gated linked-client only.",
+            verbatim_evidence=("linked-client only via ClientFamilyMember",),
+            confidence="high",
+        ),
+    )
+    client.add_response(
+        "family-member",
+        "q3",
+        CannedResponse(
+            answer="v1 has no active-flag; v2 needs soft-revoke.",
+            verbatim_evidence=("no active-flag on the link",),
+            confidence="high",
+        ),
+    )
+
+    with caplog.at_level(logging.WARNING, logger="coldreader"):
+        result = run_rotation(
+            fx, section=_section(), index=_index(), client=client, allow_retry=True
+        )
+
+    assert not result.passed
+    # The runner does NOT fire the low-confidence-pass warning on a failing question,
+    # regardless of malformation state.
+    low_conf_warnings = [
+        r
+        for r in caplog.records
+        if r.name == "coldreader"
+        and r.levelno == logging.WARNING
+        and "low-confidence pass" in r.getMessage()
+    ]
+    assert low_conf_warnings == []
+    # And low_confidence_count stays zero — the question failed; not a low-confidence pass.
+    assert result.low_confidence_count == 0
+
+
+def test_render_summary_includes_malformed_confidence_count_when_nonzero() -> None:
+    fx = _fixture()
+    client = FakeAnthropicClient()
+    _all_three_pass_with_malformation_flags(
+        client,
+        q1=("low", True),
+        q2=("low", True),
+        q3=("high", False),
+    )
+    result = run_rotation(fx, section=_section(), index=_index(), client=client, allow_retry=False)
+    md = render_summary_markdown([result], model="claude-haiku-4-5-20251001")
+    assert "Malformed confidence values: 2" in md
+
+
+def test_render_summary_omits_malformed_confidence_line_when_zero() -> None:
+    fx = _fixture()
+    client = FakeAnthropicClient()
+    _all_three_pass_with_malformation_flags(
+        client,
+        q1=("high", False),
+        q2=("high", False),
+        q3=("high", False),
+    )
+    result = run_rotation(fx, section=_section(), index=_index(), client=client, allow_retry=False)
+    md = render_summary_markdown([result], model="claude-haiku-4-5-20251001")
+    assert "Malformed confidence" not in md
