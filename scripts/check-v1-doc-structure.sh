@@ -66,11 +66,26 @@
 #      Issue #132 — extends the structure check to cover the README itself,
 #      replacing the standalone `scripts/tests/test_readme_runbook_entries.sh`
 #      prototype added in PR #130.
+#  10. docs/migration/README.md `.github/workflows/*.yml` path resolution.
+#      Locks the workflow filename references in the README so a rename in
+#      `.github/workflows/` cannot silently desync the runbook. Violation code:
+#        WF-1  Backticked reference of the form `.github/workflows/<name>.yml`
+#              in `docs/migration/README.md` does not point to a file on disk
+#              (resolved relative to --repo-root, default CWD). One violation
+#              emitted per cite-site so multiple stale references in the same
+#              README all surface in one CI run.
+#      Issue #169 — generalizes the path-drift check QA flagged on #146 beyond
+#      a single sentence; fires for every backticked workflow citation.
 #
 # Usage:
-#   scripts/check-v1-doc-structure.sh [--dir <docs-dir>]
+#   scripts/check-v1-doc-structure.sh [--dir <docs-dir>] [--repo-root <path>]
 #
 # Default --dir is `docs/migration/` (relative to current working directory).
+# Default --repo-root is `.` (current working directory) — the production
+# invocation runs from the repo root, so workflow paths cited as
+# `.github/workflows/<name>.yml` in the README resolve against the real
+# `.github/workflows/` directory. Tests override --repo-root to isolate
+# fixture-tree resolution.
 #
 # Exit codes:
 #   0  all structural invariants hold
@@ -79,9 +94,11 @@
 set -u
 
 DIR="docs/migration"
+REPO_ROOT="."
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --dir) DIR="$2"; shift 2 ;;
+    --repo-root) REPO_ROOT="$2"; shift 2 ;;
     *) echo "unknown arg: $1" >&2; exit 2 ;;
   esac
 done
@@ -1107,6 +1124,44 @@ if [[ -f "$README" ]]; then
   ' "$README" "$README")
   if [[ -n "$rr5_violations" ]]; then
     while IFS= read -r line; do fail "$line"; done <<< "$rr5_violations"
+  fi
+fi
+
+# --- WF-1: workflow path resolution from README — Issue #169 ---
+# Every backticked reference in `docs/migration/README.md` matching the form
+# `.github/workflows/<name>.yml` must point to a file that exists on disk.
+# Resolution is relative to $REPO_ROOT (default CWD).
+#
+# Character class `[A-Za-z0-9._-]` (no `/`, no shell metacharacters): excludes
+# nested-subdir paths and shell-injection vectors by construction. If a future
+# workflow lives at `.github/workflows/<subdir>/foo.yml`, the regex must be
+# updated deliberately — a hard trip-wire, not a silent miss.
+#
+# Backtick-fenced match: prose mentions, markdown link forms, and HTML comments
+# are out of scope per the issue's "only backticked refs count" rule.
+#
+# One violation emitted per cite-site (no dedup) so multiple stale references
+# in the same README all surface in one CI run.
+if [[ -f "$README" ]]; then
+  wf1_paths=$(awk '
+    {
+      line = $0
+      while (match(line, /`\.github\/workflows\/[A-Za-z0-9._-]+\.yml`/)) {
+        token = substr(line, RSTART, RLENGTH)
+        # Strip the leading and trailing backticks.
+        path = substr(token, 2, length(token) - 2)
+        print FNR "\t" path
+        line = substr(line, RSTART + RLENGTH)
+      }
+    }
+  ' "$README")
+  if [[ -n "$wf1_paths" ]]; then
+    while IFS=$'\t' read -r wf_line wf_path; do
+      [[ -z "$wf_line" ]] && continue
+      if [[ ! -f "$REPO_ROOT/$wf_path" ]]; then
+        fail "$README:$wf_line: WF-1: workflow path '$wf_path' not found on disk"
+      fi
+    done <<< "$wf1_paths"
   fi
 fi
 
