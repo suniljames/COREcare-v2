@@ -57,8 +57,9 @@ async def _get_clerk_user_id(request: Request) -> str:
 
     token = auth_header[7:]
 
-    # Dev mode: skip verification when no Clerk secret configured
-    if not settings.clerk_secret_key:
+    # Dev mode: skip verification when no Clerk secret configured.
+    # Env-gated to fail closed in any non-development deploy — see #241.
+    if settings.is_dev_mode and not settings.clerk_secret_key:
         try:
             claims = jwt.decode(
                 token,
@@ -110,8 +111,14 @@ async def get_current_user(
     """
     auth_header = request.headers.get("Authorization", "")
 
-    # Dev fallback: no Clerk configured and no auth header → mock user
-    if not settings.clerk_secret_key and not auth_header:
+    # Dev fallback: ENVIRONMENT=development AND no Clerk secret AND no auth header → mock user.
+    # See #241 — env-gated to fail closed in any non-development deploy.
+    if settings.is_dev_mode and not settings.clerk_secret_key and not auth_header:
+        await logger.awarning(
+            "auth.dev_fallback_used",
+            environment=settings.environment,
+            path=request.url.path,
+        )
         await clear_tenant_context(session)
         return User(
             id=uuid.UUID("00000000-0000-0000-0000-000000000099"),

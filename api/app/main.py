@@ -104,4 +104,19 @@ def create_app() -> FastAPI:
     return app
 
 
+def _validate_startup_config() -> None:
+    """Refuse to boot in fail-open auth configuration.
+
+    See #241 — without a Clerk secret, the only legitimate environment
+    is development. Any other environment with an empty CLERK_SECRET_KEY
+    would silently grant unauthenticated requests admin access.
+    """
+    if not settings.is_dev_mode and not settings.clerk_secret_key:
+        raise RuntimeError(
+            "CLERK_SECRET_KEY must be set when ENVIRONMENT != 'development'. "
+            "Refusing to start in fail-open auth configuration."
+        )
+
+
+_validate_startup_config()
 app = create_app()

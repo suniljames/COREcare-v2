@@ -29,5 +29,10 @@ class Settings(BaseSettings):
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
+    @property
+    def is_dev_mode(self) -> bool:
+        """Single source of truth for dev-mode behavior gates — see #241."""
+        return self.environment == "development"
+
 
 settings = Settings()
