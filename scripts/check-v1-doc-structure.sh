@@ -18,10 +18,21 @@
 #      Issue #103 visibility-scope discipline.
 #   6. v1-integrations-and-exports.md, if present, has the locked five-H2 set
 #      and the locked six-H3 set under "## External integrations" (CL-1, CL-2),
-#      every entry-table header matches the locked schema (SL-1), every
-#      v2_status / severity / direction_and_sync cell carries a valid token
-#      (SL-2, SL-3, SL-4), and every surfaces_at_routes inventory link
-#      resolves against an existing inventory anchor (EL-1, EL-2). Issue #98.
+#      every entry-table is well-formed (SL-1a header, SL-1b cell-count),
+#      every v2_status / severity / direction_and_sync cell carries a valid
+#      token (SL-2, SL-3a/b/c, SL-4), and every surfaces_at_routes resolves
+#      via an inventory link (EL-1) or carries a marker (EL-2a empty / EL-2b
+#      no link no marker). Issue #98.
+#        SL-1a  entry-table header does not match the locked schema
+#        SL-1b  entry-table data row has wrong cell count
+#        SL-2   v2_status not in {implemented, scaffolded, missing}
+#        SL-3a  severity token not in {H, M, L, D, empty}
+#        SL-3b  severity empty when v2_status='missing' (severity required)
+#        SL-3c  severity set when v2_status != 'missing' (severity disallowed)
+#        SL-4   direction_and_sync does not match the (in|out|bi)bound; (a)sync regex
+#        EL-1   surfaces_at_routes anchor not found in inventory
+#        EL-2a  surfaces_at_routes cell empty
+#        EL-2b  surfaces_at_routes has no inventory link and no '_no UI surface_' marker
 #   7. v1-user-journeys.md, if present, has the **Status:** header form, the
 #      six persona H2s, and (when AUTHORED) the per-persona journey-count
 #      minimums, the Route trace + Side effects sub-blocks under each H3, and
@@ -36,8 +47,8 @@
 #      `row location` columns (header-intersection rule — the same machinery
 #      picks up future mirrored columns automatically when they appear in
 #      both headers). Violation codes:
-#        CR-1  route from index not found at the linked anchor (or the row
-#              location cell carries no `(#anchor)` link).
+#        CR-1a row location cell has no `(#anchor)` link — cannot resolve.
+#        CR-1b anchor is present but the route slug is not found at it.
 #        CR-2  route slug is duplicated under the linked anchor — canonical
 #              lookup is ambiguous.
 #        CR-3  `phi_displayed` value disagreement between index row and
@@ -246,9 +257,11 @@ fi
 
 # --- Integrations-and-exports doc: structure + cell-token + anchor checks (#98) ---
 # CL-1 locks the H2 set; CL-2 locks the H3 set under "## External integrations".
-# SL-1..SL-4 lock entry-table column order and per-cell token validity.
-# EL-1..EL-2 confirm every surfaces_at_routes inventory link resolves to a real
-# heading anchor in v1-pages-inventory.md (or a literal "no UI surface" marker).
+# SL-1a/b, SL-2, SL-3a/b/c, SL-4 lock entry-table shape, column order, and
+# per-cell token validity (header drift, cell-count, v2_status, severity,
+# direction_and_sync). EL-1, EL-2a/b confirm every surfaces_at_routes inventory
+# link resolves to a real heading anchor in v1-pages-inventory.md (or a literal
+# "no UI surface" marker).
 INTEGRATIONS_REQUIRED_H2S=(
   "## Schema"
   "## External integrations"
@@ -288,7 +301,7 @@ if [[ -f "$INTEGRATIONS" ]]; then
     diff <(echo "$expected_h3s") <(echo "$external_h3s") | sed 's/^/  /'
   fi
 
-  # SL-1, SL-2, SL-3, SL-4, EL-1, EL-2 — single awk pass that
+  # SL-1a/b, SL-2, SL-3a/b/c, SL-4, EL-1, EL-2a/b — single awk pass that
   # (1) builds an anchor-set from the inventory file, then
   # (2) walks entry tables in the integrations doc and emits a violation per
   #     bad cell, prefixed with file:line.
@@ -330,7 +343,7 @@ if [[ -f "$INTEGRATIONS" ]]; then
           in_entry_table = 1
           entry_row_seen = 0
           if ($0 != EXPECTED_HEADER) {
-            print FILENAME ":" FNR ": SL-1: entry-table header does not match locked schema"
+            print FILENAME ":" FNR ": SL-1a: entry-table header does not match locked schema"
             print "  expected: " EXPECTED_HEADER
             print "  actual:   " $0
           }
@@ -352,7 +365,7 @@ if [[ -f "$INTEGRATIONS" ]]; then
           # cells[1] is empty (before first pipe); cells[n] is empty (after last).
           # Real cells live in cells[2..n-1]. Locked schema has 8 columns.
           if (n - 2 != 8) {
-            print FILENAME ":" FNR ": SL-1: data row has " (n - 2) " cells, expected 8"
+            print FILENAME ":" FNR ": SL-1b: data row has " (n - 2) " cells, expected 8"
             next
           }
           name      = trim(cells[2])
@@ -368,23 +381,27 @@ if [[ -f "$INTEGRATIONS" ]]; then
           if (v2_status !~ /^(implemented|scaffolded|missing)$/) {
             print FILENAME ":" FNR ": SL-2: v2_status='\''" v2_status "'\'' not in {implemented, scaffolded, missing}"
           }
-          # SL-3: severity token validity, conditional on v2_status.
+          # SL-3a / SL-3b / SL-3c: severity token validity + conditional rules.
+          # SL-3a: severity token must be in {H, M, L, D} (or empty when v2_status != missing).
           if (severity != "" && severity !~ /^(H|M|L|D)$/) {
-            print FILENAME ":" FNR ": SL-3: severity='\''" severity "'\'' not in {H, M, L, D, empty}"
+            print FILENAME ":" FNR ": SL-3a: severity='\''" severity "'\'' not in {H, M, L, D, empty}"
           }
+          # SL-3b: severity required when v2_status is missing.
           if (severity == "" && v2_status == "missing") {
-            print FILENAME ":" FNR ": SL-3: severity is empty but v2_status='\''missing'\'' (severity required)"
+            print FILENAME ":" FNR ": SL-3b: severity is empty but v2_status='\''missing'\'' (severity required)"
           }
+          # SL-3c: severity disallowed when v2_status is not missing.
           if (severity != "" && v2_status != "missing") {
-            print FILENAME ":" FNR ": SL-3: severity='\''" severity "'\'' set but v2_status='\''" v2_status "'\'' (severity allowed only when v2_status=missing)"
+            print FILENAME ":" FNR ": SL-3c: severity='\''" severity "'\'' set but v2_status='\''" v2_status "'\'' (severity allowed only when v2_status=missing)"
           }
           # SL-4: direction_and_sync regex.
           if (direction !~ /^(inbound|outbound|bidirectional);[ \t]*(sync|async)$/) {
             print FILENAME ":" FNR ": SL-4: direction_and_sync='\''" direction "'\'' does not match (inbound|outbound|bidirectional); (sync|async)"
           }
-          # EL-2: surfaces_at_routes content rule.
+          # EL-2a / EL-2b: surfaces_at_routes content rule.
           if (surfaces == "") {
-            print FILENAME ":" FNR ": EL-2: surfaces_at_routes is empty"
+            # EL-2a: cell has no content at all.
+            print FILENAME ":" FNR ": EL-2a: surfaces_at_routes is empty"
           } else if (surfaces ~ /_no UI surface/) {
             # Operator-only / orphan marker; pass.
           } else {
@@ -401,7 +418,8 @@ if [[ -f "$INTEGRATIONS" ]]; then
               tmp = substr(tmp, RSTART + RLENGTH)
             }
             if (!found_link) {
-              print FILENAME ":" FNR ": EL-2: surfaces_at_routes has no inventory link and no '\''_no UI surface_'\'' marker"
+              # EL-2b: cell has content but no inventory link and no operator-only marker.
+              print FILENAME ":" FNR ": EL-2b: surfaces_at_routes has no inventory link and no '\''_no UI surface_'\'' marker"
             }
           }
         }
@@ -620,12 +638,15 @@ fi
 #       `_(definitions pending)_`, `_(definitions pending content authoring`,
 #       `_(pending content authoring)_`. Anything that announces itself
 #       as not-yet-authored.
-# GL-3: every link from the glossary to v1-pages-inventory.md#anchor,
+# GL-3a/b/c: every link from the glossary to v1-pages-inventory.md#anchor,
 #       v1-user-journeys.md#anchor, or v1-integrations-and-exports.md#anchor
 #       resolves against an existing heading or explicit <a id> in the
 #       target doc. Always-on. If a target doc is absent on disk, links
 #       into it are reported as orphan (the glossary cannot point at a
-#       doc the docset omits).
+#       doc the docset omits). Sub-letter splits the emit by target file:
+#         GL-3a  link to v1-pages-inventory.md anchor that does not resolve.
+#         GL-3b  link to v1-user-journeys.md anchor that does not resolve.
+#         GL-3c  link to v1-integrations-and-exports.md anchor that does not resolve.
 if [[ -f "$GLOSSARY" ]]; then
   # GL-1: status header form (always enforced).
   glossary_status_line=$(grep -E '^\*\*Status:\*\*' "$GLOSSARY" | head -1)
@@ -706,7 +727,8 @@ if [[ -f "$GLOSSARY" ]]; then
         link = substr(line, RSTART, RLENGTH)
         anchor = substr(link, 24, length(link) - 24)
         if (!(("INV", anchor) in ANCHORS)) {
-          print FILENAME ":" FNR ": GL-3: anchor \"" anchor "\" not found in v1-pages-inventory.md"
+          # GL-3a: glossary link to inventory anchor that does not resolve.
+          print FILENAME ":" FNR ": GL-3a: anchor \"" anchor "\" not found in v1-pages-inventory.md"
         }
         line = substr(line, RSTART + RLENGTH)
       }
@@ -716,7 +738,8 @@ if [[ -f "$GLOSSARY" ]]; then
         # "(v1-user-journeys.md#" is 21 chars; anchor starts at char 22.
         anchor = substr(link, 22, length(link) - 22)
         if (!(("JRN", anchor) in ANCHORS)) {
-          print FILENAME ":" FNR ": GL-3: anchor \"" anchor "\" not found in v1-user-journeys.md"
+          # GL-3b: glossary link to journeys anchor that does not resolve.
+          print FILENAME ":" FNR ": GL-3b: anchor \"" anchor "\" not found in v1-user-journeys.md"
         }
         line = substr(line, RSTART + RLENGTH)
       }
@@ -726,7 +749,8 @@ if [[ -f "$GLOSSARY" ]]; then
         # "(v1-integrations-and-exports.md#" is 32 chars; anchor starts at char 33.
         anchor = substr(link, 33, length(link) - 33)
         if (!(("ITG", anchor) in ANCHORS)) {
-          print FILENAME ":" FNR ": GL-3: anchor \"" anchor "\" not found in v1-integrations-and-exports.md"
+          # GL-3c: glossary link to integrations anchor that does not resolve.
+          print FILENAME ":" FNR ": GL-3c: anchor \"" anchor "\" not found in v1-integrations-and-exports.md"
         }
         line = substr(line, RSTART + RLENGTH)
       }
@@ -915,13 +939,15 @@ if [[ -f "$INVENTORY" ]]; then
       if (match(loc_cell, /\(#[^)]+\)/)) {
         anchor = substr(loc_cell, RSTART + 2, RLENGTH - 3)
       } else {
-        print FILENAME ":" FNR ": CR-1: route '\''" slug "'\'' from cross-reference index has no anchor link in row location cell"
+        # CR-1a: row location cell has no `(#anchor)` markup at all.
+        print FILENAME ":" FNR ": CR-1a: route '\''" slug "'\'' from cross-reference index has no anchor link in row location cell"
         next
       }
 
       key = anchor SUBSEP slug
       if (!(key in CANONICAL)) {
-        print FILENAME ":" FNR ": CR-1: route '\''" slug "'\'' from cross-reference index not found at anchor '\''" anchor "'\''"
+        # CR-1b: anchor present but route slug not found at that anchor.
+        print FILENAME ":" FNR ": CR-1b: route '\''" slug "'\'' from cross-reference index not found at anchor '\''" anchor "'\''"
         next
       }
       if (key in CANONICAL_DUP) {
