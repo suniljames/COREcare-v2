@@ -305,6 +305,15 @@ if [[ -f "$INTEGRATIONS" ]]; then
   # (1) builds an anchor-set from the inventory file, then
   # (2) walks entry tables in the integrations doc and emits a violation per
   #     bad cell, prefixed with file:line.
+  #
+  # AWK-AUTHORING GOTCHA: the awk script below is enclosed in BASH single
+  # quotes. Comments and strings INSIDE the awk block must NOT contain a
+  # literal `'` character — it would terminate the bash single-quote scope
+  # and surface as `awk: syntax error` at runtime (caught the hard way during
+  # PR #215). To include a literal apostrophe inside a string, use the
+  # bash-escaped form `'\''` (closing single-quote, escaped single-quote,
+  # reopening single-quote — see existing emit lines for the pattern).
+  # For COMMENTS, the cleanest fix is to rephrase without apostrophes.
   if [[ -f "$INVENTORY" ]]; then
     awk_violations=$(awk -v EXPECTED_HEADER="$INTEGRATIONS_SCHEMA_HEADER" '
       function trim(s) { sub(/^[ \t]+/, "", s); sub(/[ \t]+$/, "", s); return s }
