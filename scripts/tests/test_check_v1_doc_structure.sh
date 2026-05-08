@@ -2631,7 +2631,7 @@ fi
 # See: https://github.com/suniljames/COREcare-v2/issues/173 (this issue),
 #      https://github.com/suniljames/COREcare-v2/issues/128 (architectural source).
 
-_extract_src_codes() {
+_extract_source_codes() {
   # Distinct two-letter-prefix codes referenced anywhere in the source script.
   grep -hoE '[A-Z]{2}-[0-9]+[a-z]*' "$1" | sort -u
 }
@@ -2664,7 +2664,7 @@ _compute_coverage_parity() {
   local awk_path="$1"
   local test_path="$2"
   local src_codes test_codes
-  src_codes=$(_filter_umbrellas "$(_extract_src_codes "$awk_path")")
+  src_codes=$(_filter_umbrellas "$(_extract_source_codes "$awk_path")")
   test_codes=$(_filter_umbrellas "$(_extract_test_codes "$test_path")")
 
   local prefixes
@@ -2672,7 +2672,8 @@ _compute_coverage_parity() {
 
   local violations=""
   local prefix
-  for prefix in $prefixes; do
+  while IFS= read -r prefix; do
+    [[ -z "$prefix" ]] && continue
     local src_prefix test_prefix src_only test_only
     src_prefix=$(echo "$src_codes" | grep -E "^${prefix}-" || true)
     test_prefix=$(echo "$test_codes" | grep -E "^${prefix}-" || true)
@@ -2684,7 +2685,7 @@ _compute_coverage_parity() {
       violations+="  ${prefix}: codes in awk only: ${src_only}"$'\n'
       violations+="      codes in tests only: ${test_only}"$'\n'
     fi
-  done
+  done <<< "$prefixes"
 
   if [[ -n "$violations" ]]; then
     echo "coverage parity (MT-1)"
@@ -2728,6 +2729,22 @@ assert_coverage_parity \
   0
 
 # B. Self-test — synthesized awk-side gap (all SL-3 references stripped) is detected.
+# `sed '/SL-3/d'` removes every SL-3 mention (emit lines, dedicated comment
+# lines, AND the multi-code header at line 285). This works because:
+# 1. _extract_source_codes is a line-anywhere grep that picks up codes from
+#    comments AND emit lines indistinguishably — so for the gap to register,
+#    BOTH must go.
+# 2. The line-285 multi-code header (`# SL-1, SL-2, SL-3, SL-4 ...`) gets
+#    removed too, but SL-1/SL-2/SL-4 each have their own dedicated emit and
+#    comment lines elsewhere; they survive.
+#
+# A future refactor that consolidates ALL code mentions onto fewer multi-code
+# comment lines could mask gaps. Two options when that becomes a real concern:
+# (a) tighten this sed to emit-line-only AND tighten _extract_source_codes
+#     to match (handles 3 emit styles in the structure script — awk-print,
+#     fail-with-code-suffix, fail-without-code), or (b) construct the
+#     synthesized fixture from scratch instead of stripping. Either is a
+#     bigger lift than this self-test warrants today.
 mkdir -p "$TEST_DIR/mt-1-awk-gap"
 sed '/SL-3/d' "$STRUCTURE" > "$TEST_DIR/mt-1-awk-gap/check.sh"
 assert_coverage_parity \
