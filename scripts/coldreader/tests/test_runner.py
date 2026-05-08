@@ -6,15 +6,19 @@ two-pass retry path on synthetic responses.
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import pytest
 import yaml
 
+from client import Usage
 from fixtures import Fixture, Question
 from runner import (
     RotationFailure,
     RotationResult,
+    check_cost_caps,
+    render_summary_markdown,
     run_rotation,
 )
 from tests.conftest import CannedResponse, FakeAnthropicClient
@@ -829,3 +833,225 @@ def test_yaml_round_trip_smoke(tmp_path: Path) -> None:
     p = tmp_path / "family-member.yaml"
     p.write_text(yaml.safe_dump(body), encoding="utf-8")
     assert yaml.safe_load(p.read_text(encoding="utf-8"))["persona"] == "family-member"
+
+
+# --- NIT 1 (issue #142): low-confidence telemetry ---
+
+
+def _all_three_pass_with_confidence(
+    client: FakeAnthropicClient, *, q1: str, q2: str, q3: str
+) -> None:
+    """Queue 3 canned answers that satisfy the default fixture's must_mention.
+
+    Confidence values per question come from the kwargs.
+    """
+    payloads = {
+        "q1": (
+            "They see Y on the dashboard, per linked client.",
+            "X sees Y on the dashboard",
+        ),
+        "q2": (
+            "No, gated linked-client only.",
+            "linked-client only via ClientFamilyMember",
+        ),
+        "q3": (
+            "v1 has no active-flag; v2 needs soft-revoke.",
+            "no active-flag on the link",
+        ),
+    }
+    for qid, conf in (("q1", q1), ("q2", q2), ("q3", q3)):
+        ans, ev = payloads[qid]
+        client.add_response(
+            "family-member",
+            qid,
+            CannedResponse(answer=ans, verbatim_evidence=(ev,), confidence=conf),
+        )
+
+
+def test_low_confidence_pass_emits_warning_log(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    fx = _fixture()
+    client = FakeAnthropicClient()
+    _all_three_pass_with_confidence(client, q1="high", q2="low", q3="high")
+
+    with caplog.at_level(logging.WARNING, logger="coldreader"):
+        result = run_rotation(
+            fx, section=_section(), index=_index(), client=client, allow_retry=True
+        )
+
+    assert result.passed
+    assert result.failures == []
+    assert result.low_confidence_count == 1
+
+    warnings = [
+        r for r in caplog.records if r.name == "coldreader" and r.levelno == logging.WARNING
+    ]
+    assert len(warnings) == 1
+    msg = warnings[0].getMessage()
+    assert "family-member" in msg
+    assert "q2" in msg
+    assert "low" in msg.lower()
+    # Security MUST-FIX (#142): never log answer/evidence text.
+    assert "linked-client only via ClientFamilyMember" not in msg
+    assert "No, gated linked-client only" not in msg
+
+
+def test_high_confidence_pass_emits_no_warning_log(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    fx = _fixture()
+    client = FakeAnthropicClient()
+    _all_three_pass_with_confidence(client, q1="high", q2="high", q3="high")
+
+    with caplog.at_level(logging.WARNING, logger="coldreader"):
+        result = run_rotation(
+            fx, section=_section(), index=_index(), client=client, allow_retry=True
+        )
+
+    assert result.passed
+    assert result.low_confidence_count == 0
+    warnings = [
+        r for r in caplog.records if r.name == "coldreader" and r.levelno == logging.WARNING
+    ]
+    assert warnings == []
+
+
+def test_low_confidence_failure_does_not_double_log(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A failing question with confidence='low' must NOT emit the warning.
+
+    The warning is for *passing* low-confidence answers — a failure already
+    speaks for itself via the failure path, no need to double-log.
+    """
+    fx = _fixture()
+    client = FakeAnthropicClient()
+    # q1 fails Pass A on evidence, retries on Pass B (still bad), confidence=low.
+    client.add_response(
+        "family-member",
+        "q1",
+        CannedResponse(
+            answer="They see Y on the dashboard.",
+            verbatim_evidence=("UNFINDABLE_PHRASE_A",),
+            confidence="low",
+        ),
+    )
+    client.add_response(
+        "family-member",
+        "q1",
+        CannedResponse(
+            answer="They see Y on the dashboard.",
+            verbatim_evidence=("UNFINDABLE_PHRASE_B",),
+            confidence="low",
+            used_extended_thinking=True,
+        ),
+    )
+    # q2/q3 pass with confidence=high.
+    client.add_response(
+        "family-member",
+        "q2",
+        CannedResponse(
+            answer="No, gated linked-client only.",
+            verbatim_evidence=("linked-client only via ClientFamilyMember",),
+            confidence="high",
+        ),
+    )
+    client.add_response(
+        "family-member",
+        "q3",
+        CannedResponse(
+            answer="v1 has no active-flag; v2 needs soft-revoke.",
+            verbatim_evidence=("no active-flag on the link",),
+            confidence="high",
+        ),
+    )
+
+    with caplog.at_level(logging.WARNING, logger="coldreader"):
+        result = run_rotation(
+            fx, section=_section(), index=_index(), client=client, allow_retry=True
+        )
+
+    assert not result.passed
+    assert result.low_confidence_count == 0
+    warnings = [
+        r for r in caplog.records if r.name == "coldreader" and r.levelno == logging.WARNING
+    ]
+    assert warnings == []
+
+
+def test_render_summary_includes_low_confidence_count_when_nonzero() -> None:
+    fx = _fixture()
+    client = FakeAnthropicClient()
+    _all_three_pass_with_confidence(client, q1="low", q2="low", q3="high")
+    result = run_rotation(fx, section=_section(), index=_index(), client=client, allow_retry=False)
+    md = render_summary_markdown([result], model="claude-haiku-4-5-20251001")
+    assert "Low-confidence passes: 2" in md
+
+
+def test_render_summary_omits_low_confidence_line_when_zero() -> None:
+    fx = _fixture()
+    client = FakeAnthropicClient()
+    _all_three_pass_with_confidence(client, q1="high", q2="high", q3="high")
+    result = run_rotation(fx, section=_section(), index=_index(), client=client, allow_retry=False)
+    md = render_summary_markdown([result], model="claude-haiku-4-5-20251001")
+    assert "Low-confidence" not in md
+
+
+# --- NIT 2 (issue #142): cost-cap helper testability ---
+
+
+def test_check_cost_caps_returns_none_when_under_caps() -> None:
+    assert (
+        check_cost_caps(
+            Usage(input_tokens=100, output_tokens=200),
+            input_cap=200_000,
+            output_cap=30_000,
+        )
+        is None
+    )
+
+
+def test_check_cost_caps_trips_on_input_overage() -> None:
+    reason = check_cost_caps(
+        Usage(input_tokens=300_000, output_tokens=200),
+        input_cap=200_000,
+        output_cap=30_000,
+    )
+    assert reason is not None
+    assert "input" in reason.lower()
+    assert "300000" in reason or "300,000" in reason
+
+
+def test_check_cost_caps_trips_on_output_overage() -> None:
+    reason = check_cost_caps(
+        Usage(input_tokens=100, output_tokens=50_000),
+        input_cap=200_000,
+        output_cap=30_000,
+    )
+    assert reason is not None
+    assert "output" in reason.lower()
+
+
+def test_check_cost_caps_input_takes_precedence_when_both_trip() -> None:
+    """Deterministic ordering: input-trip beats output-trip for log clarity."""
+    reason = check_cost_caps(
+        Usage(input_tokens=300_000, output_tokens=50_000),
+        input_cap=200_000,
+        output_cap=30_000,
+    )
+    assert reason is not None
+    assert "input" in reason.lower()
+    assert "output" not in reason.lower()
+
+
+def test_check_cost_caps_at_boundary_does_not_trip() -> None:
+    """Exactly at the cap is acceptable; only > cap trips."""
+    assert (
+        check_cost_caps(
+            Usage(input_tokens=200_000, output_tokens=30_000),
+            input_cap=200_000,
+            output_cap=30_000,
+        )
+        is None
+    )
