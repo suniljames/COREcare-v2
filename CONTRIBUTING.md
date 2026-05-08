@@ -62,6 +62,10 @@ named remote ref (e.g., `origin/main`) — never from an implicit local branch.
 See [`#176`](https://github.com/suniljames/COREcare-v2/issues/176) and the
 regression test at `scripts/tests/test_implement_branch_cut.sh`.
 
+Pipeline commands (`/define`, `/design`, `/implement`, `/review`) abort on
+closed issues by default. Pass `--force-on-closed` to override on a single
+run. See [`#213`](https://github.com/suniljames/COREcare-v2/issues/213).
+
 ## Project Docs
 
 | Topic | File |

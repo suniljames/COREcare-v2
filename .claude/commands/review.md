@@ -19,6 +19,85 @@ Use `--repo "$REPO"` on every `gh` command.
 
 Find the linked issue from progress file, branch name, or commit messages.
 
+Also parse `$ARGUMENTS` for the `--force-on-closed` flag:
+
+```bash
+ARGS=( $ARGUMENTS )
+FORCE_ON_CLOSED=false
+PARSED_ISSUE=""
+for arg in "${ARGS[@]}"; do
+  case "$arg" in
+    --force-on-closed) FORCE_ON_CLOSED=true ;;
+    *)
+      stripped="${arg##\#}"
+      if [[ "$stripped" =~ ^[0-9]+$ ]]; then
+        PARSED_ISSUE="$stripped"
+      fi
+      ;;
+  esac
+done
+ISSUE_NUMBER="${PARSED_ISSUE:-$DERIVED_ISSUE_NUMBER}"  # context-derived takes second place
+```
+
+## 0.1a: Gate: issue state
+
+> Mirrors the gate in `define.md` / `design.md` / `implement.md` / `review.md`.
+> When editing this gate, update all four files in lockstep.
+
+This gate **aborts** the skill if the linked GitHub issue is CLOSED, unless
+the operator passes `--force-on-closed`. It runs **after** issue-context
+detection (0.1) and **before** any side-effecting step (0.2 onward — make
+check, branch cuts, push, PR creation, label changes, merge).
+
+### `/review`-specific clause: skip silently when no issue is derivable
+
+If 0.1 produced no `ISSUE_NUMBER` (no progress file, no `Closes #N` in PR
+body, no inferable issue from branch/commits), **skip this gate silently** —
+no abort, no warning. This preserves today's behavior for issue-less
+reviews. Proceed directly to 0.2.
+
+### State + closed-by lookup (single call)
+
+When `ISSUE_NUMBER` is non-empty:
+
+```bash
+ISSUE_META=$(gh issue view "$ISSUE_NUMBER" --repo "$REPO" \
+  --json state,title,closedByPullRequestsReferences)
+ISSUE_STATE=$(echo "$ISSUE_META" | jq -r '.state')
+ISSUE_TITLE=$(echo "$ISSUE_META" | jq -r '.title')
+CLOSED_BY_PR=$(echo "$ISSUE_META" | jq -r '.closedByPullRequestsReferences[0].number // empty')
+CLOSED_BY_TITLE=$(echo "$ISSUE_META" | jq -r '.closedByPullRequestsReferences[0].title // empty')
+```
+
+### Gate behavior
+
+- If `ISSUE_STATE == "CLOSED"` and `FORCE_ON_CLOSED == false`:
+  - Print the canonical abort message (below).
+  - Perform **no further actions** — do not run `make check`, do not push,
+    do not create a PR, do not change labels, do not merge.
+  - Stop the skill (return non-zero).
+- Else: proceed to 0.2.
+
+### Canonical abort message
+
+```
+Issue #<n> "<title>" is CLOSED.
+
+Pipeline commands abort on closed issues by default — this prevents
+post-hoc design or implementation runs (the failure mode that
+surfaced this gate; see issue #213).
+
+  Closed by: PR #<pr> "<pr-title>"        ← shown when discoverable
+
+To proceed:
+  • Reopen the issue:
+        gh issue reopen <n> --repo <repo>
+  • Or override on this run:
+        /<command> <n> --force-on-closed
+```
+
+The `Closed by:` line is shown only when `CLOSED_BY_PR` is non-empty.
+
 ## 0.2: Verify pre-PR gate
 
 ```bash

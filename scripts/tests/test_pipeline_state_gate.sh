@@ -205,7 +205,9 @@ assert_skill_contains_gate() {
   local file="$2"
   local missing=0
   local needles=(
-    "## Gate: issue state"
+    # Heading may be prefixed (e.g. review.md uses phase-numbered headings),
+    # so we don't anchor to '## ' — substring is enough to catch drift.
+    "Gate: issue state"
     "Mirrors the gate in"
     "FORCE_ON_CLOSED"
     "ISSUE_NUMBER"
