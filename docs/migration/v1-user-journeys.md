@@ -15,60 +15,9 @@ Each journey **cites pages-inventory anchors** rather than redefining route fact
 - **Route trace:** numbered list of routes the user passes through, each linked to the corresponding pages-inventory row.
 - **Side effects:** DB writes / notifications / emails / external-service calls described qualitatively (`creates a Visit record`, `fires a caregiver-assignment notification`), not at schema level. Audit-log writes called out as a separate bullet on every journey traversing an `rls_bypass_by_design=true` row.
 - **Failure-mode UX:** one line describing what the user sees when the path fails. Examples: `If clock-in fails offline, v1 queues locally and replays on reconnect.` Omitted entirely when v1 has no notable failure handling on the path.
-- **Tenant context:** included only where ambiguous — Super-Admin cross-tenant work, Family Member invite redemption (no-tenant → scoped-tenant transition), View-As impersonation (audit-log identity ≠ active context).
+- **Tenant context:** included only where ambiguous — platform-operator (`is_superuser`) work, Family Member invite redemption (no-tenant → scoped-tenant transition), View-As impersonation (audit-log identity ≠ active context).
 - **Quoted v1 UI strings:** blockquoted with `> v1 displays:` attribution. PHI placeholders only — quote the template, never a rendered example.
 - **Sub-block label order is fixed:** `**Route trace:**` → `**Side effects:**` → `**Failure-mode UX:**` (or omitted) → optional inline `> v1 displays:` blocks. Labels exact for parser stability.
-
----
-
-## Super-Admin
-
-_last reconciled: 2026-05-07 against v1 commit `9738412`_
-
-v1 runs single-tenant per install — "Super-Admin" is any Django superuser inside one agency's deployment. The two journeys below are the cross-cutting platform-operator surfaces v2 must preserve as multi-tenant by design: capability administration with audit-trail, and the View-As impersonation suite. Tenant context is implicit single-tenant in v1; in v2 these flows cross tenant boundaries by design and the operator's audit-log identity must remain distinct from the impersonated user's session context.
-
-### Agency management — capability administration and View-As kill switch
-
-A Super-Admin manages the platform install by reviewing the role × capability matrix, toggling individual capability grants, monitoring the View-As audit log, and using the emergency kill switch when an active impersonation session must be terminated.
-
-**Route trace:**
-1. [`/admin/role-permissions/`](v1-pages-inventory.md#agency-admin-top-level) — review the role × capability matrix with current grants.
-2. [`/admin/role-permissions/toggle/`](v1-pages-inventory.md#agency-admin-top-level) — flip a single capability bit for a role.
-3. [`/admin/view-as/audit-log/`](v1-pages-inventory.md#agency-admin-top-level) — review chronological View-As entries with filters by initiator, target, and date.
-4. [`/admin/view-as/kill-all/`](v1-pages-inventory.md#agency-admin-top-level) — confirm and terminate every active View-As session immediately.
-
-**Side effects:**
-- DB: each capability toggle writes a capability-grant change record on the affected role; the kill switch closes every active ViewAsSession row in one transaction.
-- Audit: every capability toggle and the kill action are audit-logged in v1 with actor, target role/session, and timestamp.
-- Notifications/email: none on the toggle and audit-review surfaces; the kill switch does not fan out a notification in v1.
-
-**Failure-mode UX:** If the kill switch runs with zero active sessions, v1 still records the operator action but reports "0 sessions terminated" on the confirmation page.
-
-**Tenant context:** v1 single-tenant; v2 elevates these to genuinely cross-tenant operator surfaces — the audit log must continue to capture the operator identity distinct from any impersonated context.
-
-### View-As impersonation with audit trail
-
-A Super-Admin starts a View-As session to reproduce a caregiver- or family-member-specific issue, every step under impersonation written to the v1 audit log.
-
-**Route trace:**
-1. [`/admin/view-as/hub/`](v1-pages-inventory.md#agency-admin-top-level) — entry hub listing recent View-As sessions and a search to start a new one.
-2. [`/admin/view-as/search/`](v1-pages-inventory.md#agency-admin-top-level) — live search for the target user by name or email.
-3. [`/admin/view-as/caregiver/select/`](v1-pages-inventory.md#agency-admin-top-level) or [`/admin/view-as/family/select/`](v1-pages-inventory.md#agency-admin-top-level) — narrow to the caregiver or family-member account to impersonate.
-4. [`/admin/view-as/<int:user_id>/`](v1-pages-inventory.md#agency-admin-top-level) — step-up confirmation with target identity and session duration.
-5. _(active session — operator now sees the target's portal; every action audit-logged via middleware.)_
-6. [`/admin/view-as/status/`](v1-pages-inventory.md#agency-admin-top-level) — banner-driven status check during the session.
-7. [`/admin/view-as/end/`](v1-pages-inventory.md#agency-admin-top-level) — explicit end, returning the staff user to their own context.
-
-**Side effects:**
-- DB: creates a ViewAsSession row at step-up; appends impersonated-action records throughout the session; closes the session row at end.
-- Audit: every step-up, every action under impersonation, every termination, and every forbidden-action attempt is audit-logged with IP, action, target, and timestamp.
-- External: none.
-
-**Failure-mode UX:** If the target user is `is_staff` or `is_superuser`, v1 forbids impersonation at the step-up gate and records the forbidden-action attempt to the audit log even though no session was created.
-
-**Tenant context:** v1 single-tenant; in v2 the operator's audit-log identity must remain distinct from the active impersonation context, and the session itself crosses tenant boundaries by design.
-
-> v1 displays: "View As session active — impersonating [CAREGIVER_NAME]. End session."
 
 ---
 
@@ -76,7 +25,7 @@ A Super-Admin starts a View-As session to reproduce a caregiver- or family-membe
 
 _last reconciled: 2026-05-07 against v1 commit `9738412`_
 
-Agency Admin is v1's largest persona surface and v2's highest-volume rebuild target. The five journeys below cover the operational spine: client onboarding, caregiver onboarding, weekly payroll, billing, and credential expiry handling.
+Agency Admin is v1's largest persona surface and v2's highest-volume rebuild target. The first five journeys below cover the operational spine: client onboarding, caregiver onboarding, weekly payroll, billing, and credential expiry handling. Two additional journeys are folded here per #236 — they describe the v1 platform-operator surfaces (capability administration with the View-As kill switch, and the View-As impersonation suite). Those routes are gated on Django's stock `is_staff` flag (and `is_superuser` exclusively for the kill-switch backstop) rather than the Agency Admin role grant; v1 has no separate platform-operator role. v2 design is expected to elevate these to genuinely cross-tenant surfaces with a dedicated platform-operator boundary.
 
 ### Client intake — onboarding a new client into operations
 
@@ -167,6 +116,50 @@ A scheduled job emails caregivers whose credentials are nearing expiry, the care
 - External: SendGrid SMTP for the reminder email.
 
 **Failure-mode UX:** If the caregiver uploads a document that fails the allowed-extension list (e.g., `.heic` instead of `.pdf`/`.jpg`), v1 surfaces an inline validation error and retains other entered fields so the caregiver does not lose work.
+
+### Capability administration and View-As kill switch — `is_superuser`-gated platform-operator surface
+
+An `is_superuser` operator manages the platform install by reviewing the role × capability matrix, toggling individual capability grants, monitoring the View-As audit log, and using the emergency kill switch when an active impersonation session must be terminated. v1 has no separate platform-operator role; this journey is folded under Agency Admin per #236, gated on Django's `is_superuser` flag (with the kill-switch route exclusively `is_superuser`-only via `@user_passes_test(lambda u: u.is_superuser)`).
+
+**Route trace:**
+1. [`/admin/role-permissions/`](v1-pages-inventory.md#agency-admin-top-level) — review the role × capability matrix with current grants.
+2. [`/admin/role-permissions/toggle/`](v1-pages-inventory.md#agency-admin-top-level) — flip a single capability bit for a role.
+3. [`/admin/view-as/audit-log/`](v1-pages-inventory.md#agency-admin-top-level) — review chronological View-As entries with filters by initiator, target, and date.
+4. [`/admin/view-as/kill-all/`](v1-pages-inventory.md#agency-admin-top-level) — confirm and terminate every active View-As session immediately.
+
+**Side effects:**
+- DB: each capability toggle writes a capability-grant change record on the affected role; the kill switch closes every active ViewAsSession row in one transaction.
+- Audit: every capability toggle and the kill action are audit-logged in v1 with actor, target role/session, and timestamp.
+- Notifications/email: none on the toggle and audit-review surfaces; the kill switch does not fan out a notification in v1.
+
+**Failure-mode UX:** If the kill switch runs with zero active sessions, v1 still records the operator action but reports "0 sessions terminated" on the confirmation page.
+
+**Tenant context:** v1 single-tenant; v2 elevates these to genuinely cross-tenant operator surfaces — the audit log must continue to capture the operator identity distinct from any impersonated context.
+
+<a id="view-as-impersonation-with-audit-trail"></a>
+### View-As impersonation with audit trail — `is_staff`-gated reproduction surface
+
+An `is_staff` operator starts a View-As session to reproduce a caregiver- or family-member-specific issue, every step under impersonation written to the v1 audit log. The broader View-As suite is gated on `is_staff`; only the kill-switch route in the journey above is exclusively `is_superuser`.
+
+**Route trace:**
+1. [`/admin/view-as/hub/`](v1-pages-inventory.md#agency-admin-top-level) — entry hub listing recent View-As sessions and a search to start a new one.
+2. [`/admin/view-as/search/`](v1-pages-inventory.md#agency-admin-top-level) — live search for the target user by name or email.
+3. [`/admin/view-as/caregiver/select/`](v1-pages-inventory.md#agency-admin-top-level) or [`/admin/view-as/family/select/`](v1-pages-inventory.md#agency-admin-top-level) — narrow to the caregiver or family-member account to impersonate.
+4. [`/admin/view-as/<int:user_id>/`](v1-pages-inventory.md#agency-admin-top-level) — step-up confirmation with target identity and session duration.
+5. _(active session — operator now sees the target's portal; every action audit-logged via middleware.)_
+6. [`/admin/view-as/status/`](v1-pages-inventory.md#agency-admin-top-level) — banner-driven status check during the session.
+7. [`/admin/view-as/end/`](v1-pages-inventory.md#agency-admin-top-level) — explicit end, returning the staff user to their own context.
+
+**Side effects:**
+- DB: creates a ViewAsSession row at step-up; appends impersonated-action records throughout the session; closes the session row at end.
+- Audit: every step-up, every action under impersonation, every termination, and every forbidden-action attempt is audit-logged with IP, action, target, and timestamp.
+- External: none.
+
+**Failure-mode UX:** If the target user is `is_staff` or `is_superuser`, v1 forbids impersonation at the step-up gate and records the forbidden-action attempt to the audit log even though no session was created.
+
+**Tenant context:** v1 single-tenant; in v2 the operator's audit-log identity must remain distinct from the active impersonation context, and the session itself crosses tenant boundaries by design.
+
+> v1 displays: "View As session active — impersonating [CAREGIVER_NAME]. End session."
 
 ---
 
