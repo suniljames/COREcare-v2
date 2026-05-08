@@ -574,38 +574,92 @@ sed -i.bak '/^### Payroll$/d' "$TEST_DIR/integrations-cl2/v1-integrations-and-ex
 rm "$TEST_DIR/integrations-cl2/v1-integrations-and-exports.md.bak"
 assert_exit "CL-2: External integrations missing locked H3 fails" 1 "$STRUCTURE" --dir "$TEST_DIR/integrations-cl2"
 
-# SL-* substring-assertion convention (#174)
+# Sub-letter + substring-assertion convention (#196, evolves #174)
 #
-# Each SL-* fixture below uses assert_exit_and_match instead of bare assert_exit.
-# Rationale: exit-code-only assertions cannot distinguish "the right rule fired"
-# from "some rule fired" — a regression that swapped which rule trips first
-# would still produce exit 1 and silently pass the fixture.
+# Cohort-wide rule, no opt-in, no per-prefix exception:
 #
-# Pattern grain: rule code only ('SL-1:', 'SL-2:', 'SL-4:') for mono-emit rules;
-# rule code plus shortest-unique-substring of the sub-branch ('SL-3:.*set but…',
-# etc.) for SL-3, which has three distinct emit branches. See the architect's
-# review on issue #174 for the discipline.
+#   1. Any code with ≥2 emit branches in scripts/check-v1-doc-structure.sh is
+#      sub-lettered at the awk emit (e.g., SL-1a / SL-1b, SL-3a / SL-3b / SL-3c,
+#      EL-2a / EL-2b, CR-1a / CR-1b, GL-3a / GL-3b / GL-3c). At most one
+#      sub-letter; canonical regex `^[A-Z]{2}-[0-9]+[a-z]?$`. RR-4a..d follows
+#      the same shape. Single-emit codes (SL-2, SL-4, EL-1, etc.) stay bare.
 #
-# This convention applies to the SL-* cohort only. Whether to extend to JL-*,
-# CR-*, EL-*, CL-*, GL-*, RR-*, WF-* is a separate per-cohort decision.
+#   2. Each sub-lettered code's fixture uses assert_exit_and_match (not bare
+#      assert_exit) with the shortest-unique substring of the emit message
+#      that distinguishes its branch from siblings. Rationale: exit-code-only
+#      assertions cannot tell "right rule fired" from "some rule fired" — a
+#      regression that swapped two branches' conditions would still exit 1 and
+#      silently pass a bare-exit fixture.
+#
+#   3. The MT-1 coverage-parity meta-test asserts the set of distinct codes in
+#      the awk equals the set referenced as fixture description tokens. Sub-
+#      lettered codes are first-class members of those sets (the umbrella-filter
+#      drops bare X-N when X-N<letter> exists, so umbrella refs in headers/
+#      comments don't pollute parity). MT-2 enforces the canonical regex shape
+#      so non-canonical references (e.g., SL-1.1, SL_1a, SL-1ab) fail loudly.
+#
+# Negative-fixture (assert_exit_and_match) substrings for renamed codes are
+# locked in issue #196's Test Specification. Positive fixtures (assert_exit
+# expecting exit 0) need no substring; their description token still uses the
+# sub-letter so MT-1 sees the branch as covered.
 
-# --- SL-1: entry-table header column drift ---
-mkdir -p "$TEST_DIR/integrations-sl1"
-write_integrations_inventory "$TEST_DIR/integrations-sl1/v1-pages-inventory.md"
-write_good_delta "$TEST_DIR/integrations-sl1/v1-functionality-delta.md"
-write_good_integrations "$TEST_DIR/integrations-sl1/v1-integrations-and-exports.md"
+# --- SL-1a: entry-table header column drift ---
+mkdir -p "$TEST_DIR/integrations-sl1a"
+write_integrations_inventory "$TEST_DIR/integrations-sl1a/v1-pages-inventory.md"
+write_good_delta "$TEST_DIR/integrations-sl1a/v1-functionality-delta.md"
+write_good_integrations "$TEST_DIR/integrations-sl1a/v1-integrations-and-exports.md"
 # Replace the locked header with a drifted one (e.g. swap order).
 DRIFTED_HEADER='| name | vendor_or_internal | trigger | direction_and_sync | surfaces_at_routes | customer_visibility | severity | v2_status |'
 sed -i.bak "s|^| name | vendor_or_internal | trigger | direction_and_sync | surfaces_at_routes | customer_visibility | v2_status | severity |\$|$DRIFTED_HEADER|" \
-  "$TEST_DIR/integrations-sl1/v1-integrations-and-exports.md" 2>/dev/null || true
+  "$TEST_DIR/integrations-sl1a/v1-integrations-and-exports.md" 2>/dev/null || true
 # More portable: rewrite via python-free in-place edit using awk.
 awk -v drift="$DRIFTED_HEADER" '
   /^\| name \| vendor_or_internal \|/ && !done { print drift; done=1; next }
   { print }
-' "$TEST_DIR/integrations-sl1/v1-integrations-and-exports.md" > "$TEST_DIR/integrations-sl1/_tmp" && \
-  mv "$TEST_DIR/integrations-sl1/_tmp" "$TEST_DIR/integrations-sl1/v1-integrations-and-exports.md"
-rm -f "$TEST_DIR/integrations-sl1/v1-integrations-and-exports.md.bak"
-assert_exit_and_match "SL-1: drifted entry-table header fails" 1 'SL-1:' "$STRUCTURE" --dir "$TEST_DIR/integrations-sl1"
+' "$TEST_DIR/integrations-sl1a/v1-integrations-and-exports.md" > "$TEST_DIR/integrations-sl1a/_tmp" && \
+  mv "$TEST_DIR/integrations-sl1a/_tmp" "$TEST_DIR/integrations-sl1a/v1-integrations-and-exports.md"
+rm -f "$TEST_DIR/integrations-sl1a/v1-integrations-and-exports.md.bak"
+assert_exit_and_match "SL-1a: drifted entry-table header fails" 1 'SL-1a:.*header does not match' "$STRUCTURE" --dir "$TEST_DIR/integrations-sl1a"
+
+# --- SL-1b: data row with wrong cell count ---
+# Realistic shape: a row that's missing the trailing `severity` cell entirely
+# (drops to 7 cells). Per issue #196 Security Engineer review, this exercises
+# the cell-count check with a regression scenario (column accidentally elided),
+# not a synthetic 99-cell strawman. If a future refactor inverts `n - 2 != 8`
+# to `n - 2 == 8`, this fixture detects the regression; without it, malformed
+# rows would slip past per-cell SL-2/SL-3/SL-4 token validators (those run only
+# AFTER the cell-count guard at scripts/check-v1-doc-structure.sh:348).
+mkdir -p "$TEST_DIR/integrations-sl1b"
+write_integrations_inventory "$TEST_DIR/integrations-sl1b/v1-pages-inventory.md"
+write_good_delta "$TEST_DIR/integrations-sl1b/v1-functionality-delta.md"
+cat > "$TEST_DIR/integrations-sl1b/v1-integrations-and-exports.md" <<EOF
+# V1 Integrations and Exports
+
+## Schema
+
+table.
+
+## External integrations
+
+### Billing and payments
+
+$INTEGRATIONS_HEADER
+$INTEGRATIONS_SEP
+| Bad row | Vendor | Trigger | outbound; sync | [/quickbooks/](v1-pages-inventory.md#quickbooks_integration) | Sees: thing. | missing |
+
+### Payroll
+### Accounting
+### Messaging and notifications (third-party)
+### Identity, auth, and SSO (third-party)
+### Other
+
+## Internal notification and email backend
+
+## Customer-facing exports
+
+## Cross-references
+EOF
+assert_exit_and_match "SL-1b: data row with 7 cells fails" 1 'SL-1b:.*cells, expected 8' "$STRUCTURE" --dir "$TEST_DIR/integrations-sl1b"
 
 # --- SL-2: invalid v2_status token ---
 # Fixture purity (#174): the bad row's severity cell is intentionally empty.
@@ -644,7 +698,7 @@ $INTEGRATIONS_SEP
 EOF
 assert_exit_and_match "SL-2: invalid v2_status token fails" 1 'SL-2:' "$STRUCTURE" --dir "$TEST_DIR/integrations-sl2"
 
-# --- SL-3 (set): severity set but v2_status is not "missing" ---
+# --- SL-3c (set): severity set but v2_status is not "missing" ---
 mkdir -p "$TEST_DIR/integrations-sl3-set"
 write_integrations_inventory "$TEST_DIR/integrations-sl3-set/v1-pages-inventory.md"
 write_good_delta "$TEST_DIR/integrations-sl3-set/v1-functionality-delta.md"
@@ -675,9 +729,9 @@ $INTEGRATIONS_SEP
 
 ## Cross-references
 EOF
-assert_exit_and_match "SL-3: severity set when v2_status != missing fails" 1 'SL-3:.*set but v2_status' "$STRUCTURE" --dir "$TEST_DIR/integrations-sl3-set"
+assert_exit_and_match "SL-3c: severity set when v2_status != missing fails" 1 'SL-3c:.*set but v2_status' "$STRUCTURE" --dir "$TEST_DIR/integrations-sl3-set"
 
-# --- SL-3 (empty): severity empty but v2_status is "missing" ---
+# --- SL-3b (empty): severity empty but v2_status is "missing" ---
 mkdir -p "$TEST_DIR/integrations-sl3-empty"
 write_integrations_inventory "$TEST_DIR/integrations-sl3-empty/v1-pages-inventory.md"
 write_good_delta "$TEST_DIR/integrations-sl3-empty/v1-functionality-delta.md"
@@ -708,9 +762,9 @@ $INTEGRATIONS_SEP
 
 ## Cross-references
 EOF
-assert_exit_and_match "SL-3: severity empty when v2_status=missing fails" 1 'SL-3:.*severity is empty' "$STRUCTURE" --dir "$TEST_DIR/integrations-sl3-empty"
+assert_exit_and_match "SL-3b: severity empty when v2_status=missing fails" 1 'SL-3b:.*severity is empty' "$STRUCTURE" --dir "$TEST_DIR/integrations-sl3-empty"
 
-# --- SL-3 (bad-token): invalid severity token in {H, M, L, D} set ---
+# --- SL-3a (bad-token): invalid severity token in {H, M, L, D} set ---
 mkdir -p "$TEST_DIR/integrations-sl3-bad-token"
 write_integrations_inventory "$TEST_DIR/integrations-sl3-bad-token/v1-pages-inventory.md"
 write_good_delta "$TEST_DIR/integrations-sl3-bad-token/v1-functionality-delta.md"
@@ -741,7 +795,7 @@ $INTEGRATIONS_SEP
 
 ## Cross-references
 EOF
-assert_exit_and_match "SL-3: invalid severity token fails" 1 'SL-3:.*not in \{H, M, L, D' "$STRUCTURE" --dir "$TEST_DIR/integrations-sl3-bad-token"
+assert_exit_and_match "SL-3a: invalid severity token fails" 1 'SL-3a:.*not in \{H, M, L, D' "$STRUCTURE" --dir "$TEST_DIR/integrations-sl3-bad-token"
 
 # --- SL-3a (lowercase): regex is case-sensitive — 'h' rejected ---
 mkdir -p "$TEST_DIR/integrations-sl3-lowercase"
@@ -774,7 +828,7 @@ $INTEGRATIONS_SEP
 
 ## Cross-references
 EOF
-assert_exit_and_match "SL-3: lowercase severity token fails (case-sensitive regex)" 1 'SL-3:.*not in \{H, M, L, D' "$STRUCTURE" --dir "$TEST_DIR/integrations-sl3-lowercase"
+assert_exit_and_match "SL-3a: lowercase severity token fails (case-sensitive regex)" 1 'SL-3a:.*not in \{H, M, L, D' "$STRUCTURE" --dir "$TEST_DIR/integrations-sl3-lowercase"
 
 # --- SL-3a (padded): trim() runs before regex — abnormal trailing whitespace accepted ---
 # The data row's severity cell has TWO spaces between 'H' and the closing '|' — extra,
@@ -812,7 +866,7 @@ $INTEGRATIONS_SEP
 
 ## Cross-references
 EOF
-assert_exit "SL-3: trailing-space severity token passes (trim-then-validate)" 0 "$STRUCTURE" --dir "$TEST_DIR/integrations-sl3-padded"
+assert_exit "SL-3a: trailing-space severity token passes (trim-then-validate)" 0 "$STRUCTURE" --dir "$TEST_DIR/integrations-sl3-padded"
 
 # --- SL-4: invalid direction_and_sync token ---
 mkdir -p "$TEST_DIR/integrations-sl4"
@@ -880,11 +934,11 @@ $INTEGRATIONS_SEP
 EOF
 assert_exit "EL-1: anchor not in inventory fails" 1 "$STRUCTURE" --dir "$TEST_DIR/integrations-el1"
 
-# --- EL-2: surfaces_at_routes empty (no link, no marker) ---
-mkdir -p "$TEST_DIR/integrations-el2"
-write_integrations_inventory "$TEST_DIR/integrations-el2/v1-pages-inventory.md"
-write_good_delta "$TEST_DIR/integrations-el2/v1-functionality-delta.md"
-cat > "$TEST_DIR/integrations-el2/v1-integrations-and-exports.md" <<EOF
+# --- EL-2a: surfaces_at_routes empty (cell has no content) ---
+mkdir -p "$TEST_DIR/integrations-el2a"
+write_integrations_inventory "$TEST_DIR/integrations-el2a/v1-pages-inventory.md"
+write_good_delta "$TEST_DIR/integrations-el2a/v1-functionality-delta.md"
+cat > "$TEST_DIR/integrations-el2a/v1-integrations-and-exports.md" <<EOF
 # V1 Integrations and Exports
 
 ## Schema
@@ -911,9 +965,45 @@ $INTEGRATIONS_SEP
 
 ## Cross-references
 EOF
-assert_exit "EL-2: empty surfaces_at_routes fails" 1 "$STRUCTURE" --dir "$TEST_DIR/integrations-el2"
+assert_exit_and_match "EL-2a: empty surfaces_at_routes fails" 1 'EL-2a:.*surfaces_at_routes is empty' "$STRUCTURE" --dir "$TEST_DIR/integrations-el2a"
 
-# --- EL-2: "_no UI surface_" marker is allowed ---
+# --- EL-2b: surfaces_at_routes non-empty but has no inventory link and no marker ---
+# Cell content is a plain prose phrase — no `(v1-pages-inventory.md#...)` link
+# and no `_no UI surface_` marker. Exercises the third branch of EL-2's
+# decision tree at scripts/check-v1-doc-structure.sh:397-399.
+mkdir -p "$TEST_DIR/integrations-el2b"
+write_integrations_inventory "$TEST_DIR/integrations-el2b/v1-pages-inventory.md"
+write_good_delta "$TEST_DIR/integrations-el2b/v1-functionality-delta.md"
+cat > "$TEST_DIR/integrations-el2b/v1-integrations-and-exports.md" <<EOF
+# V1 Integrations and Exports
+
+## Schema
+
+table.
+
+## External integrations
+
+### Billing and payments
+
+$INTEGRATIONS_HEADER
+$INTEGRATIONS_SEP
+| Bad row | Vendor | Trigger | outbound; sync | see the dashboard somewhere | Sees: thing. | missing | H |
+
+### Payroll
+### Accounting
+### Messaging and notifications (third-party)
+### Identity, auth, and SSO (third-party)
+### Other
+
+## Internal notification and email backend
+
+## Customer-facing exports
+
+## Cross-references
+EOF
+assert_exit_and_match "EL-2b: surfaces with no link and no marker fails" 1 'EL-2b:.*no inventory link and no' "$STRUCTURE" --dir "$TEST_DIR/integrations-el2b"
+
+# --- EL-2 positive: "_no UI surface_" marker is allowed ---
 mkdir -p "$TEST_DIR/integrations-el2-marker"
 write_integrations_inventory "$TEST_DIR/integrations-el2-marker/v1-pages-inventory.md"
 write_good_delta "$TEST_DIR/integrations-el2-marker/v1-functionality-delta.md"
@@ -1855,7 +1945,7 @@ _(pending content authoring)_
 EOF
 assert_exit "GL-2: AUTHORED with '_(pending content authoring)_' marker fails" 1 "$STRUCTURE" --dir "$TEST_DIR/gl2-pending-authoring"
 
-# --- GL-3: AUTHORED with link to nonexistent inventory anchor fails ---
+# --- GL-3a: AUTHORED with link to nonexistent inventory anchor fails ---
 mkdir -p "$TEST_DIR/gl3-bad-inventory"
 write_glossary_inventory "$TEST_DIR/gl3-bad-inventory/v1-pages-inventory.md"
 write_good_delta "$TEST_DIR/gl3-bad-inventory/v1-functionality-delta.md"
@@ -1870,9 +1960,9 @@ cat > "$TEST_DIR/gl3-bad-inventory/v1-glossary.md" <<'EOF'
 
 - **`elitecare`** — v1 Django project root. See [a section](v1-pages-inventory.md#nonexistent-anchor).
 EOF
-assert_exit "GL-3: orphan inventory anchor fails" 1 "$STRUCTURE" --dir "$TEST_DIR/gl3-bad-inventory"
+assert_exit_and_match "GL-3a: orphan inventory anchor fails" 1 'GL-3a:.*not found in v1-pages-inventory' "$STRUCTURE" --dir "$TEST_DIR/gl3-bad-inventory"
 
-# --- GL-3: AUTHORED with link to nonexistent journeys anchor fails ---
+# --- GL-3b: AUTHORED with link to nonexistent journeys anchor fails ---
 mkdir -p "$TEST_DIR/gl3-bad-journeys"
 write_glossary_inventory "$TEST_DIR/gl3-bad-journeys/v1-pages-inventory.md"
 write_good_delta "$TEST_DIR/gl3-bad-journeys/v1-functionality-delta.md"
@@ -1887,9 +1977,9 @@ cat > "$TEST_DIR/gl3-bad-journeys/v1-glossary.md" <<'EOF'
 
 - **View-As impersonation** — v1 platform-operator surface. See [the View-As journey](v1-user-journeys.md#nonexistent-journey).
 EOF
-assert_exit "GL-3: orphan journeys anchor fails" 1 "$STRUCTURE" --dir "$TEST_DIR/gl3-bad-journeys"
+assert_exit_and_match "GL-3b: orphan journeys anchor fails" 1 'GL-3b:.*not found in v1-user-journeys' "$STRUCTURE" --dir "$TEST_DIR/gl3-bad-journeys"
 
-# --- GL-3: AUTHORED with link to nonexistent integrations anchor fails ---
+# --- GL-3c: AUTHORED with link to nonexistent integrations anchor fails ---
 mkdir -p "$TEST_DIR/gl3-bad-integrations"
 write_glossary_inventory "$TEST_DIR/gl3-bad-integrations/v1-pages-inventory.md"
 write_good_delta "$TEST_DIR/gl3-bad-integrations/v1-functionality-delta.md"
@@ -1904,9 +1994,9 @@ cat > "$TEST_DIR/gl3-bad-integrations/v1-glossary.md" <<'EOF'
 
 - **`MagicLinkToken`** — v1 model. See [the magic-link login email entry](v1-integrations-and-exports.md#nonexistent-section).
 EOF
-assert_exit "GL-3: orphan integrations anchor fails" 1 "$STRUCTURE" --dir "$TEST_DIR/gl3-bad-integrations"
+assert_exit_and_match "GL-3c: orphan integrations anchor fails" 1 'GL-3c:.*not found in v1-integrations-and-exports' "$STRUCTURE" --dir "$TEST_DIR/gl3-bad-integrations"
 
-# --- GL-3: AUTHORED with valid anchors across all three docs passes ---
+# --- GL-3 positive: AUTHORED with valid anchors across all three docs passes ---
 # (Already covered by glossary-good above; listed for symmetry.)
 mkdir -p "$TEST_DIR/gl3-all-good"
 write_glossary_inventory "$TEST_DIR/gl3-all-good/v1-pages-inventory.md"
@@ -1914,7 +2004,7 @@ write_good_delta "$TEST_DIR/gl3-all-good/v1-functionality-delta.md"
 write_glossary_journeys "$TEST_DIR/gl3-all-good/v1-user-journeys.md"
 write_glossary_integrations "$TEST_DIR/gl3-all-good/v1-integrations-and-exports.md"
 write_authored_glossary "$TEST_DIR/gl3-all-good/v1-glossary.md"
-assert_exit "GL-3: valid anchors across inventory + journeys + integrations passes" 0 "$STRUCTURE" --dir "$TEST_DIR/gl3-all-good"
+assert_exit "GL-3 valid anchors across inventory + journeys + integrations passes" 0 "$STRUCTURE" --dir "$TEST_DIR/gl3-all-good"
 
 # =============================================================================
 # Cross-reference index phi_displayed consistency tests (#124)
@@ -2023,7 +2113,7 @@ EOF
 write_good_delta "$TEST_DIR/xref-no-phi-col/v1-functionality-delta.md"
 assert_exit "header-intersection: index without phi_displayed column → no-op pass" 0 "$STRUCTURE" --dir "$TEST_DIR/xref-no-phi-col"
 
-# --- Test 5: anchor in row location does not exist in inventory → CR-1 fail ---
+# --- Test 5: anchor in row location does not exist in inventory → CR-1b fail ---
 mkdir -p "$TEST_DIR/xref-bad-anchor"
 cat > "$TEST_DIR/xref-bad-anchor/v1-pages-inventory.md" <<'EOF'
 # v1 Pages Inventory
@@ -2054,7 +2144,7 @@ cat > "$TEST_DIR/xref-bad-anchor/v1-pages-inventory.md" <<'EOF'
 ## Family Member
 EOF
 write_good_delta "$TEST_DIR/xref-bad-anchor/v1-functionality-delta.md"
-assert_exit "CR-1: anchor in row location does not exist fails" 1 "$STRUCTURE" --dir "$TEST_DIR/xref-bad-anchor"
+assert_exit_and_match "CR-1b: anchor in row location does not exist fails" 1 'CR-1b:.*not found at anchor' "$STRUCTURE" --dir "$TEST_DIR/xref-bad-anchor"
 
 # --- Test 6: route slug duplicated under linked anchor → CR-2 fail ---
 mkdir -p "$TEST_DIR/xref-dup-canonical"
@@ -2090,7 +2180,7 @@ EOF
 write_good_delta "$TEST_DIR/xref-dup-canonical/v1-functionality-delta.md"
 assert_exit "CR-2: duplicate canonical row under anchor fails" 1 "$STRUCTURE" --dir "$TEST_DIR/xref-dup-canonical"
 
-# --- Test 7: route slug not present at the linked anchor → CR-1 fail ---
+# --- Test 7: route slug not present at the linked anchor → CR-1b fail ---
 mkdir -p "$TEST_DIR/xref-missing-route"
 cat > "$TEST_DIR/xref-missing-route/v1-pages-inventory.md" <<'EOF'
 # v1 Pages Inventory
@@ -2121,7 +2211,44 @@ cat > "$TEST_DIR/xref-missing-route/v1-pages-inventory.md" <<'EOF'
 ## Family Member
 EOF
 write_good_delta "$TEST_DIR/xref-missing-route/v1-functionality-delta.md"
-assert_exit "CR-1: route slug not at linked anchor fails" 1 "$STRUCTURE" --dir "$TEST_DIR/xref-missing-route"
+assert_exit_and_match "CR-1b: route slug not at linked anchor fails" 1 'CR-1b:.*not found at anchor' "$STRUCTURE" --dir "$TEST_DIR/xref-missing-route"
+
+# --- Test 7a: row location cell has NO anchor link (plain prose) → CR-1a fail ---
+# Per issue #196, the no-anchor-link branch at scripts/check-v1-doc-structure.sh:893
+# was previously unfixtured — both Test 5 and Test 7 above exercise the
+# "anchor present but not found" branch (line 899). This fixture's row location
+# cell is plain prose with no `(#anchor)` markup, exercising the first emit.
+mkdir -p "$TEST_DIR/xref-no-anchor-link"
+cat > "$TEST_DIR/xref-no-anchor-link/v1-pages-inventory.md" <<'EOF'
+# v1 Pages Inventory
+
+## Super-Admin
+
+### Cross-reference index
+
+| route | also reachable by | content branches by role | phi_displayed | row location |
+|-------|-------------------|--------------------------|---------------|--------------|
+| `/admin/expenses/review/` | Agency Admin | no | true | Agency Admin → top-level (no link) |
+
+## Agency Admin
+
+<a id="agency-admin-top-level"></a>
+### top-level
+
+| route | phi_displayed |
+|-------|---------------|
+| `/admin/expenses/review/` | true |
+
+## Care Manager
+
+## Caregiver
+
+## Client
+
+## Family Member
+EOF
+write_good_delta "$TEST_DIR/xref-no-anchor-link/v1-functionality-delta.md"
+assert_exit_and_match "CR-1a: row location cell has no anchor link fails" 1 'CR-1a:.*has no anchor link in row location cell' "$STRUCTURE" --dir "$TEST_DIR/xref-no-anchor-link"
 
 # --- Test 8: index cell has 'yes' instead of 'true' → CR-4 fail ---
 mkdir -p "$TEST_DIR/xref-vocab-index"
@@ -2706,19 +2833,24 @@ fi
 #   a new assertion helper lands, the prefix scheme grows beyond two letters —
 #   these regexes must be updated in lockstep.
 #
-# Granularity (known limitation):
-#   Parity is asserted at the *distinct-code* level, not the *per-emit-branch*
-#   level. The awk emits SL-1 from two distinct branches (header drift at
-#   line 327, cell-count at line 349) but the fixtures only exercise the
-#   header-drift branch. Distinct-code parity marks this "covered"; per-branch
-#   parity is a possible later tightening, not this issue's contract.
+# Granularity (per-emit-branch — issue #196):
+#   Parity is asserted at the *per-emit-branch* level. Any code with ≥2 emit
+#   branches is sub-lettered in the awk (SL-1a / SL-1b, SL-3a / SL-3b / SL-3c,
+#   EL-2a / EL-2b, CR-1a / CR-1b, GL-3a / GL-3b / GL-3c, RR-4a / RR-4b / RR-4c
+#   / RR-4d). The cohort-wide convention is documented at the SL-* convention
+#   comment near line 577. MT-2 (below) enforces the canonical code shape
+#   `^[A-Z]{2}-[0-9]+[a-z]?$` so a future contributor who introduces a
+#   non-canonical reference (SL-1.1, SL_1a, SL-1ab) trips a hard error rather
+#   than a silent miss.
 #
-# Umbrella codes (e.g., RR-4) are filtered out when sub-letter codes
-# (RR-4a..d) exist for the same prefix-and-number. The structure script's
-# header documents RR-4 as a family heading but the actual rule contracts
-# are RR-4a..d.
+# Umbrella codes (e.g., RR-4, SL-1) are filtered out by `_filter_umbrellas`
+# when sub-letter codes (RR-4a..d, SL-1a..b) exist for the same prefix-and-
+# number. Header doc-blocks and prose comments may mention umbrella codes for
+# discoverability ("the SL-1 family checks the entry-table shape"); the filter
+# keeps those references from polluting parity.
 #
-# See: https://github.com/suniljames/COREcare-v2/issues/173 (this issue),
+# See: https://github.com/suniljames/COREcare-v2/issues/196 (per-branch parity),
+#      https://github.com/suniljames/COREcare-v2/issues/173 (distinct-code parity, predecessor),
 #      https://github.com/suniljames/COREcare-v2/issues/128 (architectural source).
 
 _extract_source_codes() {
@@ -2853,6 +2985,91 @@ assert_coverage_parity \
   "$TEST_DIR/mt-1-test-gap/test.sh" \
   1 \
   "codes in awk only: SL-2"
+
+# D. Self-test — synthesized awk-side per-branch gap (SL-1b stripped) is detected.
+# Strips every line containing "SL-1b" from a copy of the awk; tests still
+# reference SL-1b as a fixture description token. MT-1 must report the
+# branch-level gap. This guards the per-branch parity contract from #196:
+# without sub-letters, this gap would be invisible to MT-1.
+mkdir -p "$TEST_DIR/mt-1-sl1b-gap"
+sed '/SL-1b/d' "$STRUCTURE" > "$TEST_DIR/mt-1-sl1b-gap/check.sh"
+assert_coverage_parity \
+  "MT-1 self-test: per-branch gap (SL-1b stripped) is detected as orphan fixture" \
+  "$TEST_DIR/mt-1-sl1b-gap/check.sh" \
+  "$REPO_ROOT/scripts/tests/test_check_v1_doc_structure.sh" \
+  1 \
+  "codes in tests only: SL-1b"
+
+# ============================================================================
+# Code-shape lint (MT-2) — Issue #196
+# ============================================================================
+# Asserts that every code reference in scripts/check-v1-doc-structure.sh
+# matches the canonical regex `^[A-Z]{2}-[0-9]+[a-z]?$`. Hard trip-wire on
+# labeling drift: SL-1.1, SL_1a, SL-1ab all fail.
+#
+# Detection regex `[A-Z]{2}[-_][0-9]+[A-Za-z0-9_]*` is broader than canonical
+# so it captures plausible drift forms. Period is excluded from the trailing
+# class so prose punctuation ("CR-3.") doesn't false-positive.
+
+_assert_canonical_code_shape() {
+  local file="$1"
+  local non_canonical
+  non_canonical=$(grep -hoE '[A-Z]{2}[-_][0-9]+[A-Za-z0-9_]*' "$file" \
+                   | grep -vE '^[A-Z]{2}-[0-9]+[a-z]?$' \
+                   | sort -u || true)
+  if [[ -n "$non_canonical" ]]; then
+    echo "code-shape lint (MT-2)"
+    echo "  file: $file"
+    echo "  non-canonical code references (must match ^[A-Z]{2}-[0-9]+[a-z]?\$):"
+    while IFS= read -r ref; do
+      [[ -n "$ref" ]] && echo "    $ref"
+    done <<< "$non_canonical"
+    return 1
+  fi
+  return 0
+}
+
+assert_canonical_code_shape() {
+  local description="$1"
+  local file="$2"
+  local out rc
+  out=$(_assert_canonical_code_shape "$file" 2>&1)
+  rc=$?
+  if [[ "$rc" == 0 ]]; then
+    echo "  PASS — $description"
+    PASS=$((PASS + 1))
+  else
+    echo "  FAIL — $description"
+    echo "    output: $out"
+    FAIL=$((FAIL + 1))
+  fi
+}
+
+# E. Real-state — every code reference in the structure script is canonical-shape.
+assert_canonical_code_shape \
+  "MT-2: real-state code-shape lint holds" \
+  "$STRUCTURE"
+
+# F. Self-test — synthesized non-canonical reference is detected.
+# Constructs a faux awk by appending a comment with a multi-letter sub-letter
+# (intentionally broken — represents the drift form `SL-1ab` or similar).
+mkdir -p "$TEST_DIR/mt-2-bad-shape"
+{
+  cat "$STRUCTURE"
+  # Use a sentinel inside a literal multi-letter form. The exact string here
+  # IS non-canonical by design — it's the regression we want MT-2 to catch.
+  printf '# drift test: %s should fail the shape lint.\n' 'SL-1ab'
+} > "$TEST_DIR/mt-2-bad-shape/check.sh"
+mt2_out=$(_assert_canonical_code_shape "$TEST_DIR/mt-2-bad-shape/check.sh" 2>&1)
+mt2_rc=$?
+if [[ "$mt2_rc" == 1 && "$mt2_out" =~ SL-1ab ]]; then
+  echo "  PASS — MT-2 self-test: non-canonical reference is detected"
+  PASS=$((PASS + 1))
+else
+  echo "  FAIL — MT-2 self-test: expected exit 1 with non-canonical ref in output, got exit $mt2_rc"
+  echo "    output: $mt2_out"
+  FAIL=$((FAIL + 1))
+fi
 
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
