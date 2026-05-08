@@ -3133,12 +3133,12 @@ fi
 # Assertion-style discipline meta-test (MT-3) — Issue #201
 # ============================================================================
 # Asserts that every SL-* negative fixture (expected exit 1) in this test
-# file uses assert_exit_and_match, not bare assert_exit. The substring-
+# file uses `assert_exit_and_match`, not bare `assert_exit`. The substring-
 # assertion convention was introduced in #174 and previously held by the
 # convention comment block alone (line 577 above); MT-3 enforces it
 # mechanically.
 #
-# Why bare assert_exit + SL-* + exit 1 is a regression:
+# Why bare `assert_exit` + SL-* + exit 1 is a regression:
 #   exit-code-only assertions cannot distinguish "the right rule fired" from
 #   "some rule fired" — a regression that swapped two SL-* branches'
 #   conditions would still exit 1 and silently pass a bare-exit fixture. The
@@ -3146,14 +3146,14 @@ fi
 #   string, so a regression that fires the wrong rule is detected.
 #
 # Cohort scope (load-bearing — see #174):
-#   Hard-coded to SL- prefix only. JL-*, CR-*, EL-*, CL-*, GL-*, RR-*, WF-*
-#   fixtures using bare assert_exit are NOT violations today — those cohorts
+#   Hard-coded to `SL-` prefix only. JL-*, CR-*, EL-*, CL-*, GL-*, RR-*, WF-*
+#   fixtures using bare `assert_exit` are NOT violations today — those cohorts
 #   have not adopted the substring-assertion convention. When they do, MT-3
 #   expands cohort-by-cohort, not pre-emptively. MT-3.D guards this.
 #
 # Positive-fixture exemption (load-bearing):
-#   Fixtures expecting exit 0 (e.g., line 869, "SL-3a: trailing-space
-#   severity token passes") correctly use bare assert_exit because there is
+#   Fixtures expecting exit 0 (e.g., line 872, "SL-3a: trailing-space
+#   severity token passes") correctly use bare `assert_exit` because there is
 #   no rule-emit string to substring-match. The detection regex is scoped to
 #   expected-exit-1 lines only. MT-3.C guards this.
 #
