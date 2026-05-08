@@ -574,6 +574,21 @@ sed -i.bak '/^### Payroll$/d' "$TEST_DIR/integrations-cl2/v1-integrations-and-ex
 rm "$TEST_DIR/integrations-cl2/v1-integrations-and-exports.md.bak"
 assert_exit "CL-2: External integrations missing locked H3 fails" 1 "$STRUCTURE" --dir "$TEST_DIR/integrations-cl2"
 
+# SL-* substring-assertion convention (#174)
+#
+# Each SL-* fixture below uses assert_exit_and_match instead of bare assert_exit.
+# Rationale: exit-code-only assertions cannot distinguish "the right rule fired"
+# from "some rule fired" — a regression that swapped which rule trips first
+# would still produce exit 1 and silently pass the fixture.
+#
+# Pattern grain: rule code only ('SL-1:', 'SL-2:', 'SL-4:') for mono-emit rules;
+# rule code plus shortest-unique-substring of the sub-branch ('SL-3:.*set but…',
+# etc.) for SL-3, which has three distinct emit branches. See the architect's
+# review on issue #174 for the discipline.
+#
+# This convention applies to the SL-* cohort only. Whether to extend to JL-*,
+# CR-*, EL-*, CL-*, GL-*, RR-*, WF-* is a separate per-cohort decision.
+
 # --- SL-1: entry-table header column drift ---
 mkdir -p "$TEST_DIR/integrations-sl1"
 write_integrations_inventory "$TEST_DIR/integrations-sl1/v1-pages-inventory.md"
@@ -590,9 +605,13 @@ awk -v drift="$DRIFTED_HEADER" '
 ' "$TEST_DIR/integrations-sl1/v1-integrations-and-exports.md" > "$TEST_DIR/integrations-sl1/_tmp" && \
   mv "$TEST_DIR/integrations-sl1/_tmp" "$TEST_DIR/integrations-sl1/v1-integrations-and-exports.md"
 rm -f "$TEST_DIR/integrations-sl1/v1-integrations-and-exports.md.bak"
-assert_exit "SL-1: drifted entry-table header fails" 1 "$STRUCTURE" --dir "$TEST_DIR/integrations-sl1"
+assert_exit_and_match "SL-1: drifted entry-table header fails" 1 'SL-1:' "$STRUCTURE" --dir "$TEST_DIR/integrations-sl1"
 
 # --- SL-2: invalid v2_status token ---
+# Fixture purity (#174): the bad row's severity cell is intentionally empty.
+# v2_status='partial' (invalid) trips SL-2 alone. If severity were set, SL-3
+# ("severity set but v2_status != missing") would also fire, masking SL-2
+# regressions under exit-code-only assertions.
 mkdir -p "$TEST_DIR/integrations-sl2"
 write_integrations_inventory "$TEST_DIR/integrations-sl2/v1-pages-inventory.md"
 write_good_delta "$TEST_DIR/integrations-sl2/v1-functionality-delta.md"
@@ -609,7 +628,7 @@ table.
 
 $INTEGRATIONS_HEADER
 $INTEGRATIONS_SEP
-| Bad row | Vendor | Trigger | outbound; sync | [/quickbooks/](v1-pages-inventory.md#quickbooks_integration) | Sees: thing. | partial | H |
+| Bad row | Vendor | Trigger | outbound; sync | [/quickbooks/](v1-pages-inventory.md#quickbooks_integration) | Sees: thing. | partial |  |
 
 ### Payroll
 ### Accounting
@@ -623,7 +642,7 @@ $INTEGRATIONS_SEP
 
 ## Cross-references
 EOF
-assert_exit "SL-2: invalid v2_status token fails" 1 "$STRUCTURE" --dir "$TEST_DIR/integrations-sl2"
+assert_exit_and_match "SL-2: invalid v2_status token fails" 1 'SL-2:' "$STRUCTURE" --dir "$TEST_DIR/integrations-sl2"
 
 # --- SL-3 (set): severity set but v2_status is not "missing" ---
 mkdir -p "$TEST_DIR/integrations-sl3-set"
@@ -656,7 +675,7 @@ $INTEGRATIONS_SEP
 
 ## Cross-references
 EOF
-assert_exit "SL-3: severity set when v2_status != missing fails" 1 "$STRUCTURE" --dir "$TEST_DIR/integrations-sl3-set"
+assert_exit_and_match "SL-3: severity set when v2_status != missing fails" 1 'SL-3:.*set but v2_status' "$STRUCTURE" --dir "$TEST_DIR/integrations-sl3-set"
 
 # --- SL-3 (empty): severity empty but v2_status is "missing" ---
 mkdir -p "$TEST_DIR/integrations-sl3-empty"
@@ -689,7 +708,7 @@ $INTEGRATIONS_SEP
 
 ## Cross-references
 EOF
-assert_exit "SL-3: severity empty when v2_status=missing fails" 1 "$STRUCTURE" --dir "$TEST_DIR/integrations-sl3-empty"
+assert_exit_and_match "SL-3: severity empty when v2_status=missing fails" 1 'SL-3:.*severity is empty' "$STRUCTURE" --dir "$TEST_DIR/integrations-sl3-empty"
 
 # --- SL-3 (bad-token): invalid severity token in {H, M, L, D} set ---
 mkdir -p "$TEST_DIR/integrations-sl3-bad-token"
@@ -722,7 +741,7 @@ $INTEGRATIONS_SEP
 
 ## Cross-references
 EOF
-assert_exit "SL-3: invalid severity token fails" 1 "$STRUCTURE" --dir "$TEST_DIR/integrations-sl3-bad-token"
+assert_exit_and_match "SL-3: invalid severity token fails" 1 'SL-3:.*not in \{H, M, L, D' "$STRUCTURE" --dir "$TEST_DIR/integrations-sl3-bad-token"
 
 # --- SL-4: invalid direction_and_sync token ---
 mkdir -p "$TEST_DIR/integrations-sl4"
@@ -755,7 +774,7 @@ $INTEGRATIONS_SEP
 
 ## Cross-references
 EOF
-assert_exit "SL-4: invalid direction_and_sync fails" 1 "$STRUCTURE" --dir "$TEST_DIR/integrations-sl4"
+assert_exit_and_match "SL-4: invalid direction_and_sync fails" 1 'SL-4:' "$STRUCTURE" --dir "$TEST_DIR/integrations-sl4"
 
 # --- EL-1: surfaces_at_routes points at a non-existent inventory anchor ---
 mkdir -p "$TEST_DIR/integrations-el1"
