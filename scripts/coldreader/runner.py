@@ -23,7 +23,7 @@ from fixtures import Fixture, Question, anchor_must_mention, iter_repo_fixtures
 from inventory import extract_index, extract_section
 from verifier import check_must_mention, verify_evidence
 
-_log = logging.getLogger("coldreader")
+_log = logging.getLogger("coldreader.runner")
 
 # Failure-class tags. `CONTENT` failures mean the answer is wrong (drift).
 # `SETUP` failures mean the validator could not score this question at all

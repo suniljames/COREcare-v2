@@ -17,6 +17,8 @@ from __future__ import annotations
 
 import logging
 import os
+import re
+from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -149,7 +151,9 @@ def test_crlf_in_raw_value_is_escaped(caplog: pytest.LogCaptureFixture) -> None:
     assert "\\r\\n" in formatted
 
 
-def test_long_raw_value_is_truncated_before_repr(caplog: pytest.LogCaptureFixture) -> None:
+def test_long_raw_value_is_truncated_before_repr(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     """A multi-megabyte malformed value must not produce a multi-megabyte log line."""
     raw = "x" * 200
     create_mock = MagicMock(return_value=_stub_message(raw))
@@ -159,9 +163,11 @@ def test_long_raw_value_is_truncated_before_repr(caplog: pytest.LogCaptureFixtur
     records = [r for r in caplog.records if r.name == "coldreader.client"]
     assert len(records) == 1
     formatted = records[0].getMessage()
-    # 64-char slice + repr quoting + format-string overhead → well under 200 chars.
-    # (Concretely ~110 today; the bound exists to catch regressions, not pin exact length.)
-    assert len(formatted) < 200
+    # 64-char slice + repr quoting + format-string overhead → ~110 chars today.
+    # Bound is intentionally tight against the slice constant — catches a
+    # regression that loosens _MALFORMED_CONFIDENCE_LOG_MAX. ~20 chars of
+    # headroom for minor format-string changes.
+    assert len(formatted) < 130
     # The truncated repr should surface 64 x's, not 65.
     assert "x" * 64 in formatted
     assert "x" * 65 not in formatted
@@ -179,3 +185,27 @@ def test_allowed_confidence_constant_drives_schema_enum() -> None:
     properties = cast(dict[str, dict[str, Any]], _TOOL_SCHEMA["properties"])
     schema_enum = properties["confidence"]["enum"]
     assert schema_enum == list(ALLOWED_CONFIDENCE)
+
+
+def test_log_max_constant_matches_readme_documented_value() -> None:
+    """Pin the security bound: README's documented cap matches the runtime constant.
+
+    The README documents the malformed-confidence log line as "capped at 64
+    chars to bound log-line length"; the runtime enforces this via
+    `_MALFORMED_CONFIDENCE_LOG_MAX = 64`. This test fails loudly if either
+    side is updated without the other (issue #203 security mitigation;
+    issue #209 NIT 4).
+    """
+    from client import _MALFORMED_CONFIDENCE_LOG_MAX
+
+    readme_path = Path(__file__).resolve().parents[1] / "README.md"
+    readme_text = readme_path.read_text()
+    match = re.search(r"capped at (\d+) chars", readme_text)
+    assert match is not None, (
+        "README must document the log-line cap as 'capped at N chars' "
+        "for the constant-vs-doc drift guard to anchor."
+    )
+    assert int(match.group(1)) == _MALFORMED_CONFIDENCE_LOG_MAX, (
+        f"README documents 'capped at {match.group(1)} chars' but "
+        f"_MALFORMED_CONFIDENCE_LOG_MAX = {_MALFORMED_CONFIDENCE_LOG_MAX}."
+    )

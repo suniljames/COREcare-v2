@@ -54,6 +54,9 @@ class FakeAnthropicClient:
         return RotationResponse(
             answer=canned.answer,
             verbatim_evidence=tuple(canned.verbatim_evidence),
+            # CannedResponse.confidence is intentionally typed `str` so test
+            # fixtures can feed malformed values through the fake client;
+            # RotationResponse closes to ConfidenceLevel.
             confidence=cast(ConfidenceLevel, canned.confidence),
             usage=Usage(
                 input_tokens=canned.input_tokens,
