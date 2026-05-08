@@ -33,6 +33,7 @@ check: ## Run all quality gates (pre-PR)
 	$(MAKE) -C web typecheck
 	$(MAKE) -C web test
 	$(MAKE) -C web build
+	bash scripts/tests/test_implement_branch_cut.sh
 
 # --- Individual targets ---
 

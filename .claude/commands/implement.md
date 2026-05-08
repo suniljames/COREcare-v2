@@ -27,9 +27,38 @@ gh label create "implementing" --color "fbca04" --description "Implementation in
 gh issue edit <number> --repo "$REPO" --add-label "implementing"
 ```
 
+## Branch base — cut from freshly-fetched origin/main
+
+Before creating the feature branch (whether via `EnterWorktree` or manually
+inside an existing worktree), ensure the cut is from a freshly-fetched
+`origin/main`, not stale local `main`.
+
+```bash
+# Cut from origin/main, not local main — see issue #176.
+git fetch origin main
+BASE_SHA=$(git rev-parse origin/main)
+if [[ -z "$BASE_SHA" || ! "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+  echo "ERROR: could not resolve origin/main to a SHA. Aborting." >&2
+  exit 1
+fi
+echo "Cutting from origin/main @ ${BASE_SHA:0:8}"
+LOCAL_BEHIND=$(git rev-list --count "main..origin/main" 2>/dev/null || echo 0)
+if [[ "$LOCAL_BEHIND" -gt 0 ]]; then
+  echo "Local main was $LOCAL_BEHIND commits behind origin/main; using origin/main as the base."
+fi
+git checkout -b "<feature-branch-name>" "$BASE_SHA"
+```
+
+Rules:
+- Do **not** silence stderr from `git fetch`. Failure must be loud and abort.
+- Do **not** fall back to local `main` under any condition.
+- Do **not** auto-delete an existing local branch — fail clearly if the target name already exists.
+
 ## Worktree isolation
 
 Use `EnterWorktree` to create an isolated worktree under `.claude/worktrees/`.
+After the worktree exists, apply the **Branch base** block above before any
+other branching/checkout work.
 
 ## Test-first scaffolding (RED)
 
