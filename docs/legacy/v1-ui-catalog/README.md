@@ -49,8 +49,7 @@ Persona section order matches [`../../migration/README.md` §Personas](../../mig
 
 | Persona | Directory | Captures | Lead viewport |
 |---------|-----------|---------:|---------------|
-| Super-Admin | [`super-admin/`](super-admin/) | 1 | desktop |
-| Agency Admin | [`agency-admin/`](agency-admin/) | 61 | desktop |
+| Agency Admin | [`agency-admin/`](agency-admin/) | 62 | desktop |
 | Care Manager | [`care-manager/`](care-manager/) | 5 | desktop |
 | Caregiver | [`caregiver/`](caregiver/) | 15 | **mobile** |
 | Client | [`client/`](client/) | 0 (no v1 portal) | n/a |
@@ -63,10 +62,6 @@ The Client persona has no captures because v1 has no Client login portal — Cli
 ## Per-route index
 
 Quick scan of every captured route by persona, with the inventory's one-line purpose. Click a canonical_id to open its caption file. Routes not captured (intentionally or pending fixture expansion) are listed under [Skipped routes](#skipped-routes) below.
-
-### Super-Admin
-
-- [`super-admin/001-kill-all`](super-admin/001-kill-all.md) — `/admin/view-as/kill-all/` — Emergency kill switch for all active View As sessions; audit-logged in v1.
 
 ### Agency Admin
 
@@ -131,6 +126,7 @@ Quick scan of every captured route by persona, with the inventory's one-line pur
 - [`agency-admin/086-password-reset`](agency-admin/086-password-reset.md) — `/password-reset/` — Renders the password-reset request form; rate-limited at 3/hour/IP and timing-safe to defeat email enumeration; audit-logged in v1 with e...
 - [`agency-admin/087-sent`](agency-admin/087-sent.md) — `/password-reset/sent/` — Renders the post-submit confirmation page after a reset request; intentionally generic copy to avoid revealing whether the email exists.
 - [`agency-admin/089-complete`](agency-admin/089-complete.md) — `/password-reset/complete/` — Renders the success page after a completed password reset; admin password changes also trigger an admin-notification email in v1.
+- [`agency-admin/100-kill-all`](agency-admin/100-kill-all.md) — `/admin/view-as/kill-all/` — `is_superuser`-gated emergency termination of every active View-As session; audit-logged in v1.
 
 ### Care Manager
 

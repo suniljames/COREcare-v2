@@ -17,7 +17,7 @@ determinism harness in `tools/v1-screenshot-catalog/crawl.ts`.
 
 ## Personas
 
-**Active:** Super-Admin, Agency Admin, Care Manager, Caregiver, Family Member
+**Active:** Agency Admin, Care Manager, Caregiver, Family Member
 **Skipped (no credentials):** (none)
 
 ## Counts
