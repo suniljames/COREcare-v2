@@ -19,6 +19,18 @@
 # depth guard); this one tests the harness contract surface we depend on.
 #
 # Run from repo root: bash scripts/tests/test_worktree_base_setting.sh
+#
+# Negative-mutation smoke test (run before any PR that touches this file or
+# .claude/settings.json):
+#
+#   cp .claude/settings.json /tmp/settings.bak
+#   jq 'del(.worktree, ._comment_worktree)' .claude/settings.json > /tmp/m.json
+#   cp /tmp/m.json .claude/settings.json
+#   bash scripts/tests/test_worktree_base_setting.sh; echo "EXIT=$?"
+#   # → expect EXIT=1 with two FAILs
+#   cp /tmp/settings.bak .claude/settings.json
+#   bash scripts/tests/test_worktree_base_setting.sh; echo "EXIT=$?"
+#   # → expect EXIT=0 with all 8 PASS
 
 set -u
 
@@ -31,6 +43,17 @@ FAIL=0
 
 pass() { echo "  PASS — $1"; PASS=$((PASS + 1)); }
 fail() { echo "  FAIL — $1"; FAIL=$((FAIL + 1)); }
+
+# Defensive cleanup: per-test bodies do `rm -rf "$SANDBOX"` on the success
+# path, but if a test is interrupted (Ctrl-C, SIGTERM) the in-flight sandbox
+# would otherwise survive until the OS reaper. This trap backstops that by
+# removing whatever $SANDBOX currently points at on any script exit.
+cleanup_sandbox() {
+  if [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]]; then
+    rm -rf "$SANDBOX" 2>/dev/null || true
+  fi
+}
+trap cleanup_sandbox EXIT INT TERM
 
 if ! command -v jq >/dev/null 2>&1; then
   echo "SKIP — jq not installed; tests require jq for JSON assertions"

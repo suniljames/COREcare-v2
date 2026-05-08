@@ -23,6 +23,17 @@ FAIL=0
 pass() { echo "  PASS — $1"; PASS=$((PASS + 1)); }
 fail() { echo "  FAIL — $1"; FAIL=$((FAIL + 1)); }
 
+# Defensive cleanup: per-test bodies do `rm -rf "$SANDBOX"` on the success
+# path, but if a test is interrupted (Ctrl-C, SIGTERM) the in-flight sandbox
+# would otherwise survive until the OS reaper. This trap backstops that by
+# removing whatever $SANDBOX currently points at on any script exit.
+cleanup_sandbox() {
+  if [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]]; then
+    rm -rf "$SANDBOX" 2>/dev/null || true
+  fi
+}
+trap cleanup_sandbox EXIT INT TERM
+
 # ---------------------------------------------------------------------------
 # The function under test mirrors the bash block embedded in implement.md /
 # review.md. The sync tests below assert the markdown files contain the same
