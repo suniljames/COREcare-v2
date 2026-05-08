@@ -319,6 +319,39 @@ assert_exit_and_match \
   'caregiver_dashboard.*leading slash' \
   bash "$SCRIPT" --inventory "$case8_dir/inv.md" --fixture "$case8_dir/fixture.txt" --readme "$case8_dir/README.md"
 
+# ---- Case 8b: Prefix without trailing slash (contract violation) ------
+# Locked rule 2 has two halves — leading AND trailing slash. Case 8 covers
+# the leading-slash branch; this covers trailing. Without this case the
+# trailing-slash enforcement is dead code from a coverage standpoint.
+
+setup_case_8b() {
+  local d="$TEST_DIR/case-8b"
+  mkdir -p "$d"
+  write_readme "$d/README.md" "$TEST_SHA"
+  write_fixture "$d/fixture.txt" "$TEST_SHA" \
+    'path("caregiver/", include("caregiver_dashboard.urls"))'
+  cat > "$d/inv.md" <<'EOF'
+# Inventory
+
+## Caregiver
+
+### caregiver_dashboard
+_clock-in/out and schedule view; mounted at `/caregiver` (no trailing slash — contract violation)_
+
+| route | purpose |
+|-------|---------|
+| `/caregiver/dashboard/` | Caregiver home |
+EOF
+  echo "$d"
+}
+
+case8b_dir=$(setup_case_8b)
+assert_exit_and_match \
+  "Case 8b: prefix without trailing slash exits 1 with contract-violation message" \
+  1 \
+  'caregiver_dashboard.*trailing slash' \
+  bash "$SCRIPT" --inventory "$case8b_dir/inv.md" --fixture "$case8b_dir/fixture.txt" --readme "$case8b_dir/README.md"
+
 # ---- Case 9: Fixture header SHA != README V1 Reference Commit SHA -----
 
 setup_case_9() {
