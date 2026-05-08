@@ -197,7 +197,11 @@ async def test_staging_env_no_secret_no_header_returns_401(
 async def test_dev_env_with_secret_no_header_returns_401(
     session: AsyncSession,
 ) -> None:
-    """environment=development + secret set + no header → 401 (real Clerk in dev still demands a token)."""
+    """environment=development + secret set + no header → 401.
+
+    Real Clerk in dev still demands a token; the env gate alone does not
+    re-enable the mock-user fallback when CLERK_SECRET_KEY is configured.
+    """
     test_app = _make_protected_app()
     _attach_session_override(test_app, session)
     with (
