@@ -33,17 +33,20 @@ def _fixture(
             Question(
                 id="q1",
                 text="What does X see?",
-                expected_fact_summary="They see Y on the dashboard.",
+                fact_summary="They see Y on the dashboard.",
+                must_mention=(("dashboard",),),
             ),
             Question(
                 id="q2",
                 text="Can X access Z?",
-                expected_fact_summary="No — gated by linked-client only.",
+                fact_summary="No — gated by linked-client only.",
+                must_mention=(("linked-client",),),
             ),
             Question(
                 id="q3",
                 text="Why must v2 handle revoke?",
-                expected_fact_summary="No active-flag in v1; soft-revoke needed.",
+                fact_summary="No active-flag in v1; soft-revoke needed.",
+                must_mention=(("active-flag",), ("soft-revoke",)),
             ),
         ),
         source_path=Path("/tmp/fake.yaml"),
@@ -110,9 +113,24 @@ def test_rotation_passes_when_evidence_grounded(tmp_path: Path) -> None:
 def test_rotation_fails_when_verbatim_evidence_not_in_section(tmp_path: Path) -> None:
     fx = _fixture(
         questions=(
-            Question(id="q1", text="?", expected_fact_summary="X sees Y."),
-            Question(id="q2", text="?", expected_fact_summary="Y sees Z."),
-            Question(id="q3", text="?", expected_fact_summary="A sees B."),
+            Question(
+                id="q1",
+                text="?",
+                fact_summary="X sees Y.",
+                must_mention=(("dashboard",),),
+            ),
+            Question(
+                id="q2",
+                text="?",
+                fact_summary="Y sees Z.",
+                must_mention=(("Z",),),
+            ),
+            Question(
+                id="q3",
+                text="?",
+                fact_summary="A sees B.",
+                must_mention=(("active-flag",),),
+            ),
         )
     )
     client = FakeAnthropicClient()
@@ -146,7 +164,7 @@ def test_rotation_fails_when_verbatim_evidence_not_in_section(tmp_path: Path) ->
         "family-member",
         "q3",
         CannedResponse(
-            answer="They see B.",
+            answer="They see B because v1 has no active-flag on the link.",
             verbatim_evidence=("v1 has no active-flag",),
         ),
     )
@@ -469,6 +487,86 @@ def test_dry_run_smoke_loads_every_fixture_against_live_inventory(
     assert summary.errors == []
 
 
+# --- format_failure with model_answer (Security + QA review) ---
+
+
+def test_format_failure_includes_model_answer_when_present(tmp_path: Path) -> None:
+    """The model's answer surfaces in the rendered failure for triage."""
+    from runner import RotationFailure, RotationResult
+
+    failure = RotationFailure(
+        persona="agency-admin",
+        question_id="q1",
+        question_text="What screens does an Agency Admin see for billing?",
+        fact_summary="Billing apps...",
+        message="answer missing 1 of 5 must_mention entries",
+        model_answer="The Agency Admin sees the billing dashboard with invoice management.",
+    )
+    result = RotationResult(persona="agency-admin", failures=[failure])
+    rendered = result.format_failure(failure)
+    assert "Model answer:" in rendered
+    assert "billing dashboard" in rendered
+
+
+def test_format_failure_omits_model_answer_block_when_empty(tmp_path: Path) -> None:
+    """No `Model answer:` line when the field is empty (default)."""
+    from runner import RotationFailure, RotationResult
+
+    failure = RotationFailure(
+        persona="agency-admin",
+        question_id="q1",
+        question_text="?",
+        fact_summary="...",
+        message="empty evidence string",
+        # model_answer defaults to ""
+    )
+    result = RotationResult(persona="agency-admin", failures=[failure])
+    rendered = result.format_failure(failure)
+    assert "Model answer:" not in rendered
+
+
+def test_format_failure_truncates_long_model_answer(tmp_path: Path) -> None:
+    """Long model answers are bounded to TEXT_BLOCK_TRUNCATE_CHARS."""
+    from runner import TEXT_BLOCK_TRUNCATE_CHARS, RotationFailure, RotationResult
+
+    long_answer = "X" * (TEXT_BLOCK_TRUNCATE_CHARS + 200)
+    failure = RotationFailure(
+        persona="x",
+        question_id="q1",
+        question_text="?",
+        fact_summary="...",
+        message="...",
+        model_answer=long_answer,
+    )
+    result = RotationResult(persona="x", failures=[failure])
+    rendered = result.format_failure(failure)
+    # The full untruncated tail must NOT appear.
+    assert "X" * (TEXT_BLOCK_TRUNCATE_CHARS + 50) not in rendered
+
+
+def test_format_failure_phi_scrubs_model_answer(tmp_path: Path) -> None:
+    """PHI-shaped substrings in `model_answer` are scrubbed before rendering.
+
+    Defense-in-depth: PHI-deny is enforced at fixture load, so this should be
+    unreachable in practice. But the rendered output lands in the public
+    auto-issue body, so scrub-on-render mirrors the Pass-B text-block path.
+    """
+    from runner import RotationFailure, RotationResult
+
+    failure = RotationFailure(
+        persona="x",
+        question_id="q1",
+        question_text="?",
+        fact_summary="...",
+        message="...",
+        model_answer="The model would normally cite jane.doe@example.com here.",
+    )
+    result = RotationResult(persona="x", failures=[failure])
+    rendered = result.format_failure(failure)
+    assert "jane.doe@example.com" not in rendered
+    assert "PHI-REDACTED" in rendered
+
+
 # --- YAML round-trip sanity ---
 
 
@@ -534,6 +632,183 @@ def test_render_tracking_issue_body_for_failures(tmp_path: Path) -> None:
     assert "q2" in md or "Can X access Z?" in md
 
 
+# --- Pass-B tool-refusal: empty answer + text block surfaces as SETUP error ---
+
+
+def test_pass_b_tool_refusal_surfaces_text_block_as_setup_failure(
+    tmp_path: Path,
+) -> None:
+    """When Pass-B returns empty answer + a text block, classify as SETUP error."""
+    from runner import FAILURE_CLASS_SETUP
+
+    fx = _fixture()
+    client = FakeAnthropicClient()
+    # q1 Pass-A: empty answer, no text → CONTENT failure on Pass-A.
+    client.add_response(
+        "family-member",
+        "q1",
+        CannedResponse(answer="", verbatim_evidence=()),
+    )
+    # q1 Pass-B: empty answer + a text block (model declined to call the tool).
+    client.add_response(
+        "family-member",
+        "q1",
+        CannedResponse(
+            answer="",
+            verbatim_evidence=(),
+            used_extended_thinking=True,
+            text_block_content="I am not sure I can answer this from the section alone.",
+        ),
+    )
+    # q2/q3 happy.
+    client.add_response(
+        "family-member",
+        "q2",
+        CannedResponse(
+            answer="No, gated linked-client only.",
+            verbatim_evidence=("linked-client only via ClientFamilyMember",),
+        ),
+    )
+    client.add_response(
+        "family-member",
+        "q3",
+        CannedResponse(
+            answer="v1 has no active-flag; v2 needs soft-revoke.",
+            verbatim_evidence=("no active-flag on the link",),
+        ),
+    )
+
+    result = run_rotation(fx, section=_section(), index=_index(), client=client, allow_retry=True)
+    assert not result.passed
+    assert result.has_setup_error
+    f = result.failures[0]
+    assert f.failure_class == FAILURE_CLASS_SETUP
+    assert "declined to call" in f.message.lower() or "tool" in f.message.lower()
+    assert "I am not sure" in f.message
+
+
+def test_text_block_content_truncated_in_failure_message(tmp_path: Path) -> None:
+    """Long text-block content is truncated to bound the auto-issue body."""
+    from runner import TEXT_BLOCK_TRUNCATE_CHARS
+
+    fx = _fixture()
+    long_text = "X" * (TEXT_BLOCK_TRUNCATE_CHARS + 200)
+    client = FakeAnthropicClient()
+    client.add_response("family-member", "q1", CannedResponse(answer="", verbatim_evidence=()))
+    client.add_response(
+        "family-member",
+        "q1",
+        CannedResponse(
+            answer="",
+            verbatim_evidence=(),
+            used_extended_thinking=True,
+            text_block_content=long_text,
+        ),
+    )
+    client.add_response(
+        "family-member",
+        "q2",
+        CannedResponse(
+            answer="No, gated linked-client only.",
+            verbatim_evidence=("linked-client only via ClientFamilyMember",),
+        ),
+    )
+    client.add_response(
+        "family-member",
+        "q3",
+        CannedResponse(
+            answer="v1 has no active-flag; v2 needs soft-revoke.",
+            verbatim_evidence=("no active-flag on the link",),
+        ),
+    )
+
+    result = run_rotation(fx, section=_section(), index=_index(), client=client, allow_retry=True)
+    f = result.failures[0]
+    # Truncated to bound; no full-length echo.
+    assert "X" * (TEXT_BLOCK_TRUNCATE_CHARS + 50) not in f.message
+
+
+def test_text_block_phi_scrubbed_in_failure_message(tmp_path: Path) -> None:
+    """PHI-shaped strings in text-block content are scrubbed before logging."""
+    fx = _fixture()
+    client = FakeAnthropicClient()
+    client.add_response("family-member", "q1", CannedResponse(answer="", verbatim_evidence=()))
+    client.add_response(
+        "family-member",
+        "q1",
+        CannedResponse(
+            answer="",
+            verbatim_evidence=(),
+            used_extended_thinking=True,
+            text_block_content=("I would normally cite jane.doe@example.com but cannot here."),
+        ),
+    )
+    client.add_response(
+        "family-member",
+        "q2",
+        CannedResponse(
+            answer="No, gated linked-client only.",
+            verbatim_evidence=("linked-client only via ClientFamilyMember",),
+        ),
+    )
+    client.add_response(
+        "family-member",
+        "q3",
+        CannedResponse(
+            answer="v1 has no active-flag; v2 needs soft-revoke.",
+            verbatim_evidence=("no active-flag on the link",),
+        ),
+    )
+
+    result = run_rotation(fx, section=_section(), index=_index(), client=client, allow_retry=True)
+    f = result.failures[0]
+    assert "jane.doe@example.com" not in f.message
+    assert "PHI-REDACTED" in f.message
+
+
+# --- per-question hit-count telemetry rendered in summary markdown ---
+
+
+def test_render_summary_includes_per_question_hit_counts(tmp_path: Path) -> None:
+    """Step summary must show hit counts on every question, PASS or FAIL."""
+    from runner import render_summary_markdown
+
+    fx = _fixture()
+    client = FakeAnthropicClient()
+    for qid in ("q1", "q2", "q3"):
+        answer, evidence = _KEYWORD_RICH_ANSWERS[qid]
+        client.add_response(
+            "family-member",
+            qid,
+            CannedResponse(answer=answer, verbatim_evidence=(evidence,)),
+        )
+    result = run_rotation(fx, section=_section(), index=_index(), client=client, allow_retry=False)
+    md = render_summary_markdown([result], model="claude-haiku-4-5-20251001")
+    # Each question line shows N of M hit counts.
+    assert "q1: 1 of 1" in md
+    assert "q2: 1 of 1" in md
+    # q3 has must_mention=(("active-flag",), ("soft-revoke",)) — answer contains both.
+    assert "q3: 2 of 2" in md
+
+
+def test_rotation_records_telemetry_for_passing_questions(tmp_path: Path) -> None:
+    """Telemetry list is populated for PASS questions, not just failures."""
+    fx = _fixture()
+    client = FakeAnthropicClient()
+    for qid in ("q1", "q2", "q3"):
+        answer, evidence = _KEYWORD_RICH_ANSWERS[qid]
+        client.add_response(
+            "family-member",
+            qid,
+            CannedResponse(answer=answer, verbatim_evidence=(evidence,)),
+        )
+    result = run_rotation(fx, section=_section(), index=_index(), client=client, allow_retry=False)
+    assert result.passed
+    assert len(result.telemetry) == 3
+    # All entries report the actual N-of-M, regardless of pass status.
+    assert all(t.total >= 1 for t in result.telemetry)
+
+
 # --- prevent stale yaml from confusing tests ---
 
 
@@ -542,7 +817,12 @@ def test_yaml_round_trip_smoke(tmp_path: Path) -> None:
         "persona": "family-member",
         "min_section_bytes": 1500,
         "questions": [
-            {"id": f"q{i}", "text": f"q{i}?", "expected_fact_summary": f"fact{i}"}
+            {
+                "id": f"q{i}",
+                "text": f"q{i}?",
+                "fact_summary": f"fact{i}",
+                "must_mention": [["alpha"]],
+            }
             for i in range(1, 4)
         ],
     }

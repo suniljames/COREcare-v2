@@ -1,22 +1,24 @@
-"""Verbatim-evidence + soft expected_fact_summary checks.
+"""Verbatim-evidence + must_mention checks.
 
-Pure functions, no I/O. The runner composes these into the two-pass scoring
-flow. Both checks are needed to call a question PASS:
+Pure functions, no I/O. The runner composes these into per-question scoring.
+Both checks are needed to call a question PASS:
 
 1. **verify_evidence**: every verbatim_evidence string must literally appear
    in the section or index. This catches the model fabricating citations.
-2. **check_summary_match**: the model's answer must mention the load-bearing
-   facts named in the fixture's expected_fact_summary. This catches the
-   model giving an evidenced-but-wrong answer (e.g., citing the right
-   region but reaching the wrong conclusion).
+2. **check_must_mention**: the model's answer must contain each load-bearing
+   token from the fixture's `must_mention` list. Each entry is an OR-group
+   (a list of acceptable surface forms); the answer satisfies the entry if
+   any one alternate appears as a case-insensitive substring. A per-question
+   `tolerance` (default 0) controls how many entries may be missing.
 
-A question fails if EITHER check fails on Pass A AND Pass B (with extended
-thinking).
+This replaces the prior `check_summary_match` keyword-overlap heuristic, which
+conflated load-bearing facts with prose connective tissue and over-flagged
+correct paraphrased answers.
 """
 
 from __future__ import annotations
 
-import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 
@@ -24,6 +26,8 @@ from dataclasses import dataclass
 class VerifyResult:
     passed: bool
     reason: str = ""
+    hits: int = 0
+    total: int = 0
 
 
 def _normalize_for_evidence(text: str) -> str:
@@ -77,78 +81,43 @@ def verify_evidence(
     return VerifyResult(passed=True)
 
 
-_KEYWORD_RE = re.compile(r"[A-Za-z][A-Za-z0-9_-]{4,}")
-
-
-def _keywords(text: str) -> set[str]:
-    """Extract reasonable keywords for soft matching (lowercase, ≥5 chars)."""
-    stopwords = {
-        "the",
-        "and",
-        "for",
-        "with",
-        "that",
-        "this",
-        "from",
-        "their",
-        "have",
-        "must",
-        "will",
-        "they",
-        "what",
-        "where",
-        "which",
-        "into",
-        "should",
-        "would",
-        "about",
-        "across",
-        "section",
-        "rotation",
-        "answer",
-        "question",
-    }
-    return {
-        m.group(0).lower()
-        for m in _KEYWORD_RE.finditer(text)
-        if m.group(0).lower() not in stopwords
-    }
-
-
-def check_summary_match(
+def check_must_mention(
     answer: str,
-    expected_fact_summary: str,
+    must_mention: Sequence[Sequence[str]],
     *,
-    threshold: float = 0.25,
+    tolerance: int = 0,
 ) -> VerifyResult:
-    """Loose keyword overlap between the answer and the fixture's summary.
-
-    Used to catch evidenced-but-wrong answers. Threshold 0.25 means at
-    least 25% of the summary's distinctive keywords must appear in the
-    answer. Calibrated against the first live run on 2026-05-07 — observed
-    answer overlaps for technically-correct paraphrased answers were 19–28%,
-    while genuinely off answers cluster well below that. Paired with trimmed
-    `expected_fact_summary` fixtures that focus on the load-bearing claim
-    rather than exhaustive context.
+    """Each entry in `must_mention` is an OR-group; at least one alternate must
+    appear as a case-insensitive substring of the answer. The answer may miss
+    up to `tolerance` entries (default 0). Empty `must_mention` is a trivial
+    pass.
     """
-    if not answer.strip():
-        return VerifyResult(passed=False, reason="empty answer")
+    total = len(must_mention)
+    if total == 0:
+        return VerifyResult(passed=True, hits=0, total=0)
 
-    expected_kw = _keywords(expected_fact_summary)
-    if not expected_kw:
-        # Empty summary should never happen post-schema-validation, but be safe.
-        return VerifyResult(passed=True)
-    answer_kw = _keywords(answer)
-    overlap = expected_kw & answer_kw
-    ratio = len(overlap) / len(expected_kw)
-    if ratio < threshold:
-        missing = sorted(expected_kw - answer_kw)[:8]
+    if not answer.strip():
+        return VerifyResult(passed=False, reason="empty answer", hits=0, total=total)
+
+    answer_lc = answer.lower()
+    missing_canonical: list[str] = []
+    hits = 0
+    for entry in must_mention:
+        if any(alt.lower() in answer_lc for alt in entry):
+            hits += 1
+        else:
+            # Canonical form = first alternate in the OR-group.
+            missing_canonical.append(entry[0])
+
+    misses = total - hits
+    if misses > tolerance:
         return VerifyResult(
             passed=False,
             reason=(
-                f"answer covers only {ratio:.0%} of expected_fact_summary "
-                f"keywords (threshold {threshold:.0%}); missing key terms: "
-                f"{missing}"
+                f"answer missing {misses} of {total} must_mention entries "
+                f"(tolerance {tolerance}); missing: {missing_canonical}"
             ),
+            hits=hits,
+            total=total,
         )
-    return VerifyResult(passed=True)
+    return VerifyResult(passed=True, hits=hits, total=total)

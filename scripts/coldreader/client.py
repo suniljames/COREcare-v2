@@ -95,13 +95,19 @@ class Usage:
 
 @dataclass(frozen=True)
 class RotationResponse:
-    """Output of a single model call after structured-output extraction."""
+    """Output of a single model call after structured-output extraction.
+
+    `text_block_content` carries any prose the model emitted in a `text`
+    block alongside (or instead of) the structured tool call. Used by the
+    runner to detect Pass-B tool refusals and surface them as SETUP errors.
+    """
 
     answer: str
     verbatim_evidence: tuple[str, ...]
     confidence: str
     usage: Usage = field(default_factory=Usage)
     used_extended_thinking: bool = False
+    text_block_content: str = ""
 
 
 class RotationClient(Protocol):
@@ -214,8 +220,10 @@ class AnthropicRotationClient:
         answer = ""
         evidence: tuple[str, ...] = ()
         confidence = "low"
+        text_block_parts: list[str] = []
         for block in message.content:
-            if getattr(block, "type", None) == "tool_use" and block.name == _TOOL_NAME:
+            block_type = getattr(block, "type", None)
+            if block_type == "tool_use" and block.name == _TOOL_NAME:
                 payload = block.input
                 if isinstance(payload, str):
                     payload = json.loads(payload)
@@ -225,7 +233,10 @@ class AnthropicRotationClient:
                     if isinstance(raw_ev, list):
                         evidence = tuple(str(x) for x in raw_ev)
                     confidence = str(payload.get("confidence", "low"))
-                break
+            elif block_type == "text":
+                text = getattr(block, "text", "")
+                if isinstance(text, str) and text.strip():
+                    text_block_parts.append(text)
 
         u = message.usage
         return RotationResponse(
@@ -239,4 +250,5 @@ class AnthropicRotationClient:
                 cache_creation_input_tokens=getattr(u, "cache_creation_input_tokens", 0) or 0,
             ),
             used_extended_thinking=call.use_extended_thinking,
+            text_block_content="\n".join(text_block_parts),
         )

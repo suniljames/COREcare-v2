@@ -8,7 +8,8 @@
 # `min_section_bytes` floor is calibrated to ~70% of the current
 # authored size so a halving of the section trips it.
 #
-# Summaries trimmed post-#161 calibration.
+# `must_mention` is the validation oracle; `fact_summary` is documentation only.
+# When you change a question's contract, refresh both fields together.
 
 persona: family-member
 min_section_bytes: 3500
@@ -16,24 +17,52 @@ min_section_bytes: 3500
 questions:
   - id: q1
     text: "What does a Family Member see when they log into v1?"
-    expected_fact_summary: |
-      Family Members reach a portal landing showing one card per linked
-      client drawn from their ClientFamilyMember rows. From there they
-      drill into per-client surfaces. Visibility is strictly linked-client
-      only; staff View-As sessions render the impersonated user's links.
+    fact_summary: |
+      Family Members reach `/family/dashboard/` — a card per linked client
+      drawn from their `ClientFamilyMember` rows; from there they drill into
+      `/family/client/<int:client_id>/` for calendar, events, messages,
+      billing summary, recent visit notes, family-approved chart comments,
+      and per-client billing/health-report PDF downloads. Visibility is
+      strictly linked-client only; staff View-As sessions render the
+      impersonated user's links via `effective_user`.
+    must_mention:
+      - ["/family/dashboard/", "family/dashboard", "family dashboard", "Family Member home"]
+      - ["ClientFamilyMember"]
+      - ["linked-client", "linked client", "linked clients"]
+      - ["calendar", "events", "billing", "messages", "visit notes"]
+      - ["card per linked client", "linked clients", "per-client", "per linked client"]
+    tolerance: 2
 
   - id: q2
     text: "Can a Family Member see another family's client data, and how is that prevented?"
-    expected_fact_summary: |
-      No. Visibility is enforced via Python checks in view bodies, keyed on
-      the per-client-user ClientFamilyMember link. Every Family Member row
-      renders PHI linked-client only. v2 must enforce equivalent visibility
-      at the RLS-policy layer.
+    fact_summary: |
+      No. Visibility is enforced via Python checks in view bodies
+      (`clients/views.py:55–59`, `clients/services/family_portal_service.py:142`)
+      keyed on the per-(client, user) `ClientFamilyMember` link. Every Family
+      Member row renders PHI "linked-client only"; rows lacking the
+      `🔒 PHI · ` prefix or the explicit "linked-client only" scope clause
+      are bugs. v1 enforces in Python; v2 must enforce equivalent visibility
+      at the RLS-policy layer keyed on `client_family_members`.
+    must_mention:
+      - ["No", "no"]
+      - ["ClientFamilyMember", "client_family_members"]
+      - ["linked-client", "linked client"]
+      - ["RLS", "Python"]
+    tolerance: 1
 
   - id: q3
     text: "Does v2's family-portal RLS policy need to handle revoked-link cases? Why?"
-    expected_fact_summary: |
-      Yes. v1 has no active-flag or revoked-at on ClientFamilyMember —
-      revocation today is hard-delete, which destroys the audit trail. v2
-      must add a soft-revocation path so audit trails of past access
-      survive after a link ends.
+    fact_summary: |
+      Yes. v1 has no active-flag, no soft-delete, no revoked-at, no expiry on
+      `ClientFamilyMember` — revocation today is hard-delete, which destroys
+      the audit trail of past access. v2 design must add a soft-revocation
+      path so audit trails survive after a link ends, and the RLS policy must
+      treat revoked links as blocking visibility while preserving the
+      historical row.
+    must_mention:
+      - ["active-flag", "active flag", "soft-delete", "no expiry"]
+      - ["soft-revocation", "soft-revoke", "soft revocation"]
+      - ["audit"]
+      - ["RLS"]
+      - ["ClientFamilyMember"]
+    tolerance: 1

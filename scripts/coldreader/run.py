@@ -165,6 +165,11 @@ def main(argv: list[str] | None = None) -> int:
     print(summary)
     _print_summary_to_step_summary(summary)
 
+    # Setup-error dominates drift: a system-level failure (Pass-B tool refusal,
+    # anchoring miss) invalidates the calibration of all outcomes in the run.
+    # Investigate the system before acting on content signals.
+    if any(r.has_setup_error for r in results):
+        return EXIT_SETUP_ERROR
     return EXIT_DRIFT if any(not r.passed for r in results) else EXIT_PASS
 
 

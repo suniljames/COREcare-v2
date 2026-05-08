@@ -24,6 +24,7 @@ class CannedResponse:
     cache_creation_tokens: int = 0
     input_tokens: int = 100
     output_tokens: int = 200
+    text_block_content: str = ""
 
 
 class FakeAnthropicClient:
@@ -59,6 +60,7 @@ class FakeAnthropicClient:
                 cache_creation_input_tokens=canned.cache_creation_tokens,
             ),
             used_extended_thinking=canned.used_extended_thinking,
+            text_block_content=canned.text_block_content,
         )
 
 
