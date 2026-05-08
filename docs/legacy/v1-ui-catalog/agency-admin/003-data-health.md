@@ -14,4 +14,3 @@ generated: 2026-05-08
 - "Verified" timestamp → marks when the integrity audit last ran.
 - "Core Entities" section → groups counts and flagged-record lists by model; each row drills to the affected record so an admin can fix it.
 - Role usage → operational health-check landing for the Agency Admin; surfaces v1 schedule + chart gaps that the v2 migration must reconcile.
-

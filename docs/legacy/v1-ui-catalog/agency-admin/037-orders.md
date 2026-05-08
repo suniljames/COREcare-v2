@@ -14,4 +14,4 @@ generated: 2026-05-08
 - "Active Orders" tab → currently the only state shown; the populated render adds an "Inactive" tab gated on a `?status=inactive` query.
 - Per-order row drill-in → opens the single-order detail (out of catalog scope).
 - Empty state → fixture has no active orders for the client; populated render renders one row per order with the prescriber's name and a refill / discontinue per-row action.
-- Permissions → renders for caregivers, care managers, and admins on the agency role; mutating actions are gated by the `manage_medication_orders` capability.
+- Permissions → guarded by Django's `@staff_member_required` decorator; the v1 view does not apply a finer-grained capability check.

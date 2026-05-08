@@ -12,6 +12,6 @@ generated: 2026-05-08
 **Interaction notes:**
 - Page load → `health_report_batch` (`charting/batch_health_report.html`) renders the batch-generate form (multi-select clients, report type, date range).
 - "Generate Batch" → ⚠ destructive: POSTs the form to render PDFs for each selected client and stream a zip download; partial-success warnings surface as a flash on redirect when one or more clients failed. Skipped by crawler.
-- "Select All" / "Clear All" → toggle the client multi-select; the picker is gated by `view_health_reports` per-client.
+- "Select All" / "Clear All" → toggle the client multi-select; the v1 view applies Django's `@staff_member_required` decorator with no finer-grained per-client capability gate.
 - Empty state → fixture has no clients with chart access enabled; populated render shows a checkbox per visible client.
 - Sibling routes → [agency-admin/040-generate](040-generate.md) (single), [agency-admin/041-clinical](041-clinical.md) (direct PDF), [agency-admin/042-preview](042-preview.md) (preview), [agency-admin/043-email](043-email.md) (email).
