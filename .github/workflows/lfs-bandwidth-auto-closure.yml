@@ -50,12 +50,15 @@ jobs:
           set -u
           if bash scripts/lib/lfs-report-matcher.sh "$COMMENT_BODY"; then
             echo "match=true" >> "$GITHUB_OUTPUT"
+            # Capture red-flag result once; use for both the GITHUB_OUTPUT
+            # value and the audit echo so the two cannot disagree.
             if grep -qE '(Red flag|ADR-010 follow-up)' <<<"$COMMENT_BODY"; then
-              echo "red_flag=true" >> "$GITHUB_OUTPUT"
+              red_flag=true
             else
-              echo "red_flag=false" >> "$GITHUB_OUTPUT"
+              red_flag=false
             fi
-            echo "AUTOCLOSE_MATCH issue=185 red_flag=$(grep -qE '(Red flag|ADR-010 follow-up)' <<<"$COMMENT_BODY" && echo true || echo false)"
+            echo "red_flag=$red_flag" >> "$GITHUB_OUTPUT"
+            echo "AUTOCLOSE_MATCH issue=185 red_flag=$red_flag"
           else
             echo "match=false" >> "$GITHUB_OUTPUT"
             echo "Comment does not match day-30 report signature; skipping."
