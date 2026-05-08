@@ -2591,6 +2591,162 @@ else
   echo "  SKIP — real docs/migration not found at $REPO_DOCS; smoke test skipped."
 fi
 
+# ============================================================================
+# Coverage parity meta-test (MT-1) — Issue #173
+# ============================================================================
+# Asserts that for every coverage-code prefix in scripts/check-v1-doc-structure.sh,
+# the set of distinct codes referenced by the structure script equals the set of
+# distinct codes asserted by this test file's fixtures.
+#
+# Prefixes covered (in the order they appear in the structure script's header):
+#   CL  (#98)        H2/H3 lock for v1-integrations-and-exports.md
+#   SL  (#98)        entry-table column order and per-cell token validity
+#   EL  (#98)        surfaces_at_routes inventory link resolution
+#   JL  (#104, #134) v1-user-journeys.md structure + anchor resolution
+#   GL  (#105)       v1-glossary.md structure + cross-doc anchor resolution
+#   CR  (#124)       cross-reference index ↔ canonical row consistency
+#   RR  (#132)       ## Refresh runbook invariants
+#   WF  (#169)       .github/workflows/*.yml path resolution from README
+#
+# Refactor sensitivity:
+#   The src-side regex matches `[A-Z]{2}-[0-9]+[a-z]*` anywhere in the structure
+#   script (comments and emit lines). The test-side regex matches the same
+#   pattern at the start of `assert_exit` / `assert_exit_and_match` description
+#   strings. If either source is restructured — emit lines move into a helper,
+#   a new assertion helper lands, the prefix scheme grows beyond two letters —
+#   these regexes must be updated in lockstep.
+#
+# Granularity (known limitation):
+#   Parity is asserted at the *distinct-code* level, not the *per-emit-branch*
+#   level. The awk emits SL-1 from two distinct branches (header drift at
+#   line 327, cell-count at line 349) but the fixtures only exercise the
+#   header-drift branch. Distinct-code parity marks this "covered"; per-branch
+#   parity is a possible later tightening, not this issue's contract.
+#
+# Umbrella codes (e.g., RR-4) are filtered out when sub-letter codes
+# (RR-4a..d) exist for the same prefix-and-number. The structure script's
+# header documents RR-4 as a family heading but the actual rule contracts
+# are RR-4a..d.
+#
+# See: https://github.com/suniljames/COREcare-v2/issues/173 (this issue),
+#      https://github.com/suniljames/COREcare-v2/issues/128 (architectural source).
+
+_extract_src_codes() {
+  # Distinct two-letter-prefix codes referenced anywhere in the source script.
+  grep -hoE '[A-Z]{2}-[0-9]+[a-z]*' "$1" | sort -u
+}
+
+_extract_test_codes() {
+  # Distinct codes referenced as the leading token of assert_exit* descriptions.
+  grep -oE 'assert_exit(_and_match)?[[:space:]]+"[A-Z]{2}-[0-9]+[a-z]*' "$1" \
+    | grep -oE '[A-Z]{2}-[0-9]+[a-z]*' | sort -u
+}
+
+_filter_umbrellas() {
+  # Drop "X-N" when "X-N<letter>" exists in the same set.
+  local codes="$1"
+  local out=""
+  while IFS= read -r code; do
+    [[ -z "$code" ]] && continue
+    if [[ "$code" =~ ^([A-Z]+-[0-9]+)$ ]]; then
+      local base="${BASH_REMATCH[1]}"
+      if echo "$codes" | grep -qE "^${base}[a-z]\$"; then
+        continue
+      fi
+    fi
+    out+="${code}"$'\n'
+  done <<< "$codes"
+  printf '%s' "$out"
+}
+
+_compute_coverage_parity() {
+  # stdout: full failure message on mismatch, empty on parity. Exit 1 on mismatch.
+  local awk_path="$1"
+  local test_path="$2"
+  local src_codes test_codes
+  src_codes=$(_filter_umbrellas "$(_extract_src_codes "$awk_path")")
+  test_codes=$(_filter_umbrellas "$(_extract_test_codes "$test_path")")
+
+  local prefixes
+  prefixes=$(printf '%s\n%s\n' "$src_codes" "$test_codes" | grep -oE '^[A-Z]{2}' | sort -u)
+
+  local violations=""
+  local prefix
+  for prefix in $prefixes; do
+    local src_prefix test_prefix src_only test_only
+    src_prefix=$(echo "$src_codes" | grep -E "^${prefix}-" || true)
+    test_prefix=$(echo "$test_codes" | grep -E "^${prefix}-" || true)
+    src_only=$(comm -23 <(echo "$src_prefix") <(echo "$test_prefix") | grep -v '^$' | tr '\n' ' ' | sed 's/ $//')
+    test_only=$(comm -13 <(echo "$src_prefix") <(echo "$test_prefix") | grep -v '^$' | tr '\n' ' ' | sed 's/ $//')
+    if [[ -n "$src_only" || -n "$test_only" ]]; then
+      [[ -z "$src_only" ]]  && src_only="(none)"
+      [[ -z "$test_only" ]] && test_only="(none)"
+      violations+="  ${prefix}: codes in awk only: ${src_only}"$'\n'
+      violations+="      codes in tests only: ${test_only}"$'\n'
+    fi
+  done
+
+  if [[ -n "$violations" ]]; then
+    echo "coverage parity (MT-1)"
+    echo "  awk:   $awk_path"
+    echo "  tests: $test_path"
+    printf '%s' "$violations"
+    return 1
+  fi
+  return 0
+}
+
+assert_coverage_parity() {
+  # Args: <description> <awk_path> <test_path> <expected_exit> [<expected_pattern>]
+  local description="$1"
+  local awk_path="$2"
+  local test_path="$3"
+  local expected_exit="$4"
+  local expected_pattern="${5:-}"
+  local out rc
+  out=$(_compute_coverage_parity "$awk_path" "$test_path" 2>&1)
+  rc=$?
+  local pattern_ok=1
+  if [[ -n "$expected_pattern" ]] && ! [[ "$out" =~ $expected_pattern ]]; then
+    pattern_ok=0
+  fi
+  if [[ "$rc" == "$expected_exit" && "$pattern_ok" == 1 ]]; then
+    echo "  PASS — $description (exit $rc)"
+    PASS=$((PASS + 1))
+  else
+    echo "  FAIL — $description (expected exit $expected_exit${expected_pattern:+ matching /$expected_pattern/}, got exit $rc)"
+    echo "    output: $out"
+    FAIL=$((FAIL + 1))
+  fi
+}
+
+# A. Real-state — every coverage code in the structure script has a fixture and vice versa.
+assert_coverage_parity \
+  "MT-1: real-state coverage parity holds" \
+  "$REPO_ROOT/scripts/check-v1-doc-structure.sh" \
+  "$REPO_ROOT/scripts/tests/test_check_v1_doc_structure.sh" \
+  0
+
+# B. Self-test — synthesized awk-side gap (all SL-3 references stripped) is detected.
+mkdir -p "$TEST_DIR/mt-1-awk-gap"
+sed '/SL-3/d' "$REPO_ROOT/scripts/check-v1-doc-structure.sh" > "$TEST_DIR/mt-1-awk-gap/check.sh"
+assert_coverage_parity \
+  "MT-1 self-test: awk-side gap (SL-3 stripped) is detected as orphan fixture" \
+  "$TEST_DIR/mt-1-awk-gap/check.sh" \
+  "$REPO_ROOT/scripts/tests/test_check_v1_doc_structure.sh" \
+  1 \
+  "codes in tests only: SL-3"
+
+# C. Self-test — synthesized test-side gap (SL-2 fixture stripped) is detected.
+mkdir -p "$TEST_DIR/mt-1-test-gap"
+sed '/assert_exit.*"SL-2/d' "$REPO_ROOT/scripts/tests/test_check_v1_doc_structure.sh" > "$TEST_DIR/mt-1-test-gap/test.sh"
+assert_coverage_parity \
+  "MT-1 self-test: test-side gap (SL-2 fixture stripped) is detected as uncovered awk branch" \
+  "$REPO_ROOT/scripts/check-v1-doc-structure.sh" \
+  "$TEST_DIR/mt-1-test-gap/test.sh" \
+  1 \
+  "codes in awk only: SL-2"
+
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
 [[ "$FAIL" == 0 ]] || exit 1
