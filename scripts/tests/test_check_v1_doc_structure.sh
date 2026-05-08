@@ -597,6 +597,9 @@ assert_exit "CL-2: External integrations missing locked H3 fails" 1 "$STRUCTURE"
 #      drops bare X-N when X-N<letter> exists, so umbrella refs in headers/
 #      comments don't pollute parity). MT-2 enforces the canonical regex shape
 #      so non-canonical references (e.g., SL-1.1, SL_1a, SL-1ab) fail loudly.
+#      MT-3 (#201) enforces this assertion-style discipline mechanically: any
+#      SL-* negative fixture (expected exit 1) using bare assert_exit instead
+#      of assert_exit_and_match fails the suite.
 #
 # Negative-fixture (assert_exit_and_match) substrings for renamed codes are
 # locked in issue #196's Test Specification. Positive fixtures (assert_exit
@@ -3129,12 +3132,56 @@ fi
 # ============================================================================
 # Assertion-style discipline meta-test (MT-3) — Issue #201
 # ============================================================================
-# RED scaffold: helpers stubbed as always-success. Real detection lands in
-# the GREEN commit; MT-3.B (synthesized-violation self-test) is expected to
-# FAIL under the stub.
+# Asserts that every SL-* negative fixture (expected exit 1) in this test
+# file uses assert_exit_and_match, not bare assert_exit. The substring-
+# assertion convention was introduced in #174 and previously held by the
+# convention comment block alone (line 577 above); MT-3 enforces it
+# mechanically.
+#
+# Why bare assert_exit + SL-* + exit 1 is a regression:
+#   exit-code-only assertions cannot distinguish "the right rule fired" from
+#   "some rule fired" — a regression that swapped two SL-* branches'
+#   conditions would still exit 1 and silently pass a bare-exit fixture. The
+#   convention forces a substring match against the rule-code-anchored emit
+#   string, so a regression that fires the wrong rule is detected.
+#
+# Cohort scope (load-bearing — see #174):
+#   Hard-coded to SL- prefix only. JL-*, CR-*, EL-*, CL-*, GL-*, RR-*, WF-*
+#   fixtures using bare assert_exit are NOT violations today — those cohorts
+#   have not adopted the substring-assertion convention. When they do, MT-3
+#   expands cohort-by-cohort, not pre-emptively. MT-3.D guards this.
+#
+# Positive-fixture exemption (load-bearing):
+#   Fixtures expecting exit 0 (e.g., line 869, "SL-3a: trailing-space
+#   severity token passes") correctly use bare assert_exit because there is
+#   no rule-emit string to substring-match. The detection regex is scoped to
+#   expected-exit-1 lines only. MT-3.C guards this.
+#
+# See: https://github.com/suniljames/COREcare-v2/issues/201 (this rule),
+#      https://github.com/suniljames/COREcare-v2/issues/174 (convention origin),
+#      https://github.com/suniljames/COREcare-v2/issues/196 (per-branch parity).
 
 _extract_sl_loose_fixtures() {
-  # STUB — replaced in GREEN commit.
+  # Three-condition filter on each line of $1 (test file):
+  #   1. line starts (after optional whitespace) with `assert_exit ` —
+  #      negative match on `assert_exit_and_match` is achieved via the
+  #      trailing space-quote pattern `assert_exit "`.
+  #   2. description begins `"SL-[0-9]+[a-z]?:`.
+  #   3. expected exit code (the second positional arg) is `1`.
+  # Emits "<line-number>:<line>" for each violation. Exit 1 if any
+  # violations found, exit 0 if clean.
+  local file="$1"
+  local violations
+  violations=$(grep -nE '^[[:space:]]*assert_exit[[:space:]]+"SL-[0-9]+[a-z]?:[^"]*"[[:space:]]+1[[:space:]]+' "$file" || true)
+  if [[ -n "$violations" ]]; then
+    echo "assertion-style discipline (MT-3)"
+    echo "  test file: $file"
+    echo "  SL-* negative fixtures must use assert_exit_and_match (see line ~577 convention block):"
+    while IFS= read -r line; do
+      [[ -n "$line" ]] && echo "    line $line"
+    done <<< "$violations"
+    return 1
+  fi
   return 0
 }
 
