@@ -368,7 +368,7 @@ Used by `.github/workflows/v1-sha-bump-diff-report.yml` (#131) to clone v1 and r
 ## Related work
 
 - **#70 (closed)** — landed `v1-functionality-delta.md` (the feature/data-model layer this set extends).
-- **#78** — umbrella issue for v1 reference content authoring; tracks all persona-section sub-issues.
+- **#78 (closed via #106)** — umbrella issue for v1 reference content authoring; closed by the [#106](https://github.com/suniljames/COREcare-v2/issues/106) closeout pass (cold-reader on all six personas + PHI sweep across the committed docset, 2026-05-08).
 - **#80 (closed)** — landed conventions, scanner, structure validator, scaffold.
 - **#81** — Agency Admin pages-inventory rows; first persona-section content-authoring PR; locked the row-prose conventions above.
 - **#79 (open, follow-up)** — Playwright screenshot catalog of v1 UI per persona; depends on populated rows for coverage check.
