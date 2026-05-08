@@ -13,8 +13,12 @@ The crawler initially writes `<!-- TODO: author CTAs + interaction notes -->` pl
 - **Present tense, declarative, third-person observational.** "The page shows a list of clients." Not "You can see clients here."
 - **Specificity over abstraction.** Name the visible element, not its function. "The 'Approve' button" not "the approve action." "The blue alert banner" not "an indicator."
 - **No second person.** Never "you," "your." The catalog reader is a generic future v2 contributor, not the user of v1.
+- **No first person.** Never "we," "our," "us," "I."
 - **No speculation about user intent.** Describe what's on the screen, not what the user is trying to accomplish.
+- **No speculative qualifiers.** Forbidden: "probably," "likely," "might," "may," "seems," "appears to."
 - **No editorial commentary.** Don't say "this is confusing" or "this looks dated" — the catalog is a reference, not a critique.
+- **No conditional/spec language.** Forbidden: "should be," "could be," "would be," "ought to." The catalog describes what v1 IS, not what v2 should do.
+- **Behavior is described against the captioned `seed_state`.** Do not describe alternative states ("if the list were empty…"). The frontmatter `seed_state` field captures which state was observed. If a caption needs another state, that's a re-crawl + split — out of scope for the Phase 3 authoring pass (#184).
 
 ---
 
@@ -34,9 +38,9 @@ The crawler initially writes `<!-- TODO: author CTAs + interaction notes -->` pl
 - 1–4 bullets, no more. If a page has more than 4 distinct interactions worth documenting, the caption probably wants splitting (see "Splitting captions" below).
 - **Format:** `<element> → <result>`. Element first, result after a `→` arrow.
 - **Element** names exactly as displayed. **Result** describes what the page does when the element is interacted with — observed behavior only, not speculation.
-- For destructive interactions (POST/DELETE that mutates data): prefix with `⚠ destructive:` and document that the crawler skipped the interaction.
-- If the result navigates to another page in the catalog, link the canonical_id: `→ navigates to [agency-admin/015-shift-detail](../agency-admin/015-shift-detail.md)`.
-- If the interaction triggers something not visible (a background API call, an email send), note it without speculation about side effects: "→ POSTs to `/timesheets/<id>/approve/`" — yes; "→ POSTs to `/timesheets/<id>/approve/`, sends notification email to client" — only if the catalog author confirmed by reading v1 source.
+- For destructive interactions (POST/DELETE that mutates data): prefix with `⚠ destructive:` and document that the crawler skipped the interaction. Authors must NOT click destructive interactions (it mutates the seed DB, breaking later sessions). Describe by reading v1 source (`urls.py` + view function), not by clicking.
+- If the result navigates to another page in the catalog, link the canonical_id: `→ navigates to [agency-admin/015-shift-detail](../agency-admin/015-shift-detail.md)`. **Link text MUST equal the target's canonical_id** (e.g., `agency-admin/015-shift-detail`), not arbitrary prose like `Shift Detail` or `here`. Cross-references are checked by `scripts/check-v1-caption-voice.sh`.
+- If the interaction triggers something not visible (a background API call, an email send), note it without speculation about side effects. **HTTP paths in interaction notes must be verified against v1 source** (`urls.py` + view function) or omitted in favor of an observational result. "→ POSTs to `/timesheets/<id>/approve/`" — yes, if confirmed by reading v1 source; "→ POSTs to `/timesheets/<id>/approve/`, sends notification email to client" — only if the catalog author confirmed both legs by reading v1 source.
 
 ---
 
@@ -64,6 +68,8 @@ If a route has multiple distinct visual states, generate one caption per state w
 - `015c-shifts-list-empty-state.md` (no shifts)
 
 The numeric prefix stays the same (route-level identity); the letter disambiguates the state. The frontmatter `seed_state` field captures which state each variant represents.
+
+**Splitting is out of scope for Phase 3 authoring (#184).** Splits require re-capturing screenshots for each new sub-state — that's a re-crawl, not an authoring task. If you find a caption that genuinely needs splitting during the Phase 3 pass, file a follow-up issue and proceed with a single best-effort caption against the captured state.
 
 ---
 
@@ -126,14 +132,49 @@ viewport: desktop
 
 ## Authoring workflow
 
-1. Pull the route's WebP file and current caption (with TODO body) from `docs/legacy/v1-ui-catalog/<persona-slug>/<NNN>-<route>.md`.
-2. Open v1 in a browser; navigate to the route as the matching persona.
-3. Note the visible CTAs in reading order. Trim to the 10 most prominent.
-4. Click (or note without clicking, for destructive actions) each interaction worth documenting. Confirm the result.
-5. Replace the `<!-- TODO: author CTAs + interaction notes -->` placeholder with the body.
-6. Confirm the caption file size is under 1 KB; if larger, consider splitting.
-7. Move to the next route.
+### Step 0 — Per-session preconditions
 
-After all captions are authored:
-- Run `bash scripts/check-v1-catalog-coverage.sh` to confirm parity with the inventory.
-- Run the cold smoke test (T7 in #107): a v2 contributor without v1 access opens 3 random captions and confirms they can answer "what does this page do" in one sentence per page.
+Before opening any caption file:
+
+1. `cd ~/Code/COREcare-access && git fetch && git checkout 9738412a6e41064203fc253d9dd2a5c6a9c2e231`.
+2. `unset DATABASE_URL` (default SQLite per [INVESTIGATIONS.md](INVESTIGATIONS.md)).
+3. `python manage.py migrate` against a **fresh** SQLite DB (delete the SQLite file from any prior session — destructive interactions during prior sessions could have mutated state).
+4. `python manage.py loaddata fixtures/v2_catalog_snapshot.json`.
+5. From the v2 worktree: `bash scripts/v1-author-precheck.sh` — must exit 0 (asserts the operator's local fixture sha256 matches `RUN-MANIFEST.md`). If it fails: STOP and re-load the fixture.
+6. `python manage.py runserver 0.0.0.0:8000`.
+7. Append a session entry to [`AUTHORING-LOG.md`](AUTHORING-LOG.md): timestamp + persona section.
+
+### Per-caption workflow
+
+1. `grep -rl '<!-- TODO: author CTAs' docs/legacy/v1-ui-catalog/<persona-slug>/` to find the next unfinished caption.
+2. **Open the caption's lead-viewport image** as the reading-order reference: `<NNN>-<slug>.desktop.webp` for desktop-lead personas (Super-Admin, Agency Admin, Care Manager); `<NNN>-<slug>.mobile.webp` for mobile-lead personas (Caregiver, Family Member). The lead viewport is locked in the caption's `lead_viewport` frontmatter field.
+3. Open the route in v1 logged in as the matching persona.
+4. List visible CTAs in reading order (top-to-bottom, left-to-right at the lead viewport). Trim to the 10 most prominent. Quote-wrap each label. Use position descriptors for unlabeled icons: `"calendar icon (top-right header)"`.
+5. Identify 1–4 worth-documenting interactions. For each:
+   - Click non-destructive interactions; describe the result observationally.
+   - For destructive interactions (POST/DELETE that mutates data): **do not click**. Describe by reading v1 source (`urls.py` + view function). Prefix bullet with `⚠ destructive:` and note "Skipped by crawler."
+6. Format each interaction note as `<element> → <result>`. If the result navigates within the catalog, link by canonical_id (link text MUST equal the canonical_id).
+7. **HTTP paths in interaction notes must be verified against v1 source** (`urls.py` + view function), or omitted in favor of an observational result.
+8. Replace the `<!-- TODO: author CTAs + interaction notes -->` placeholder with `**CTAs visible:** ...\n\n**Interaction notes:**\n- ...` body.
+9. **Do not modify frontmatter.** Authors edit only the body (everything after the trailing `---`). Frontmatter immutability is enforced by pre-commit + CI.
+10. Confirm caption file size <1 KB.
+11. `git add` + commit (the pre-commit hook runs hygiene + voice + body-PHI lints over the staged caption).
+
+### Locked decisions for Phase 3 (#184)
+
+- **No splits, no re-captures, no new captions** — only body content for the existing 84 files. Discovered split candidates are filed as follow-ups.
+- **Frontmatter is immutable** — authors edit only the body.
+- **Cross-reference link text is the canonical_id** (e.g., `[agency-admin/015-shifts-list](015-shifts-list.md)`).
+- **Interaction notes use `<element> → <result>` bullets — no prose paragraphs.**
+- **Behavior is described against the captioned `seed_state`** (currently `populated` for all 84 captures). No alt-state speculation.
+- **HTTP paths verified or omitted** — no path speculation.
+
+### After authoring all 84 captions
+
+- Run `bash scripts/check-v1-catalog-coverage.sh` — confirms parity with the inventory.
+- Run `bash scripts/check-v1-captions-authored.sh` — asserts no `<!-- TODO -->` markers remain (or `make test-v1-captions-authored`).
+- Run `bash scripts/check-v1-doc-hygiene.sh docs/legacy/v1-ui-catalog/**/*.md` — PHI / real-name / abs-path scan.
+- Run `bash scripts/check-v1-caption-phi.sh docs/legacy/v1-ui-catalog/**/*.md` — body-scoped placeholder forbid.
+- Run `bash scripts/check-v1-caption-voice.sh docs/legacy/v1-ui-catalog/**/*.md` — voice + format + cross-ref lint.
+- Run the cold smoke test ([T7-COLD-SMOKE-TASKS.md](T7-COLD-SMOKE-TASKS.md)): two v2 contributors without v1 access, three sealed-envelope tasks, `<60s` each. 6/6 = pass.
+- Commit `PHI-AUDIT-POSTAUTHORING-<YYYY-MM-DD>.md` with the 11-category checklist over a sample (1/persona for small + 5 random for agency-admin).

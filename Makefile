@@ -56,6 +56,13 @@ test-v1-docs: ## Run v1 doc hygiene + structure + catalog scripts self-tests
 	bash scripts/tests/test_check_v1_catalog_coverage.sh
 	bash scripts/tests/test_extract_inventory_routes.sh
 	bash scripts/tests/test_post_v1_sha_bump_diff.sh
+	bash scripts/tests/test_check_v1_captions_authored.sh
+	bash scripts/tests/test_check_v1_caption_voice.sh
+	bash scripts/tests/test_check_v1_caption_phi.sh
+	bash scripts/tests/test_v1_author_precheck.sh
+
+test-v1-captions-authored: ## Final-acceptance gate for #184: assert no <!-- TODO --> markers remain in any caption
+	bash scripts/check-v1-captions-authored.sh
 
 coldreader-test: ## Run coldreader pytest (L1+L2+L3, no API key needed)
 	cd scripts/coldreader && uv sync --frozen && uv run --frozen pytest -q
