@@ -2345,13 +2345,182 @@ sed -i.bak 's|(#family-member-section--extra-diff-checks-before-re-authoring)|(#
 rm -f "$TEST_DIR/rr-5/README.md.bak"
 assert_exit "RR-5: orphan anchor link in README fails" 1 "$STRUCTURE" --dir "$TEST_DIR/rr-5"
 
+# =============================================================================
+# WF-1 — workflow path resolution. Issue #169.
+#
+# Every backticked reference in `docs/migration/README.md` matching the form
+# `.github/workflows/<name>.yml` must point to a file that exists on disk.
+# Resolution root is configurable via `--repo-root <path>` (default: CWD).
+#
+# Six fixture-driven cases per the issue's Test Specification:
+#   1. Happy path — three real backticked refs all resolve, exit 0.
+#   2. Single unresolved citation — exit 1, one WF-1 line.
+#   3. Multiple distinct unresolved citations — both reported.
+#   4. Same path cited twice, both unresolved — both cite-sites reported.
+#   5. Non-backticked mention is ignored.
+#   6. Out-of-scope path class is ignored.
+# =============================================================================
+
+write_wf1_readme() {
+  # README skeleton that satisfies RR-1..RR-5 plus a WF-references block whose
+  # contents the caller customizes by passing extra lines on stdin.
+  local path="$1"
+  local extra="$2"
+  cat > "$path" <<EOF
+# v1 Reference Set
+
+## Refresh runbook
+
+When v1 receives material changes, refresh this docset against the new SHA.
+
+### Family Member section — extra diff checks before re-authoring
+
+Family Member is the lowest-frequency persona surface. Run these checks every time the \`V1 Reference Commit\` above is bumped.
+
+In your local v1 checkout, against the previously-pinned SHA:
+
+- \`git diff <old>..<new> -- '*/urls.py'\` — surfaces new family-prefixed routes.
+- \`git diff <old>..<new> -- clients/\` — surfaces permission-gating changes.
+- \`git diff <old>..<new> -- clients/models.py\` — surfaces schema shifts.
+
+Baseline at the currently-pinned SHA: \`ClientFamilyMember\` has no \`is_active\`.
+
+If any diff is non-empty: re-author affected rows. If all diffs are empty: still bump \`last reconciled\`.
+
+### Refresh order — Agency Admin first
+
+Agency Admin is the most-iterated persona surface. Refresh first.
+
+See [Family Member section](#family-member-section--extra-diff-checks-before-re-authoring) above.
+
+## Workflow secrets
+
+${extra}
+EOF
+}
+
+# --- WF-1 happy path: three real backticked refs all resolve → pass ---
+mkdir -p "$TEST_DIR/wf-good/.github/workflows"
+touch "$TEST_DIR/wf-good/.github/workflows/v1-doc-hygiene.yml"
+touch "$TEST_DIR/wf-good/.github/workflows/v1-sha-bump-diff-report.yml"
+write_good_inventory "$TEST_DIR/wf-good/v1-pages-inventory.md"
+write_good_delta     "$TEST_DIR/wf-good/v1-functionality-delta.md"
+write_wf1_readme     "$TEST_DIR/wf-good/README.md" "$(cat <<'BLOCK'
+CI workflow: `.github/workflows/v1-doc-hygiene.yml`. Runs on PRs.
+
+CI posts diffs as a sticky PR comment — see `.github/workflows/v1-sha-bump-diff-report.yml`.
+
+Used by `.github/workflows/v1-sha-bump-diff-report.yml` to clone v1.
+BLOCK
+)"
+assert_exit "WF-1 happy path: three real backticked refs resolve" 0 "$STRUCTURE" --dir "$TEST_DIR/wf-good" --repo-root "$TEST_DIR/wf-good"
+
+# --- WF-1 single unresolved citation → fail ---
+mkdir -p "$TEST_DIR/wf-1-single/.github/workflows"
+write_good_inventory "$TEST_DIR/wf-1-single/v1-pages-inventory.md"
+write_good_delta     "$TEST_DIR/wf-1-single/v1-functionality-delta.md"
+write_wf1_readme     "$TEST_DIR/wf-1-single/README.md" "$(cat <<'BLOCK'
+See `.github/workflows/does-not-exist.yml`.
+BLOCK
+)"
+assert_exit "WF-1 single unresolved: missing workflow path fails" 1 "$STRUCTURE" --dir "$TEST_DIR/wf-1-single" --repo-root "$TEST_DIR/wf-1-single"
+
+# Confirm the WF-1 message names the missing path with file:line: prefix.
+assert_output_contains() {
+  local description="$1"
+  local needle="$2"
+  shift 2
+  local actual_output
+  actual_output=$("$@" 2>&1) || true
+  if echo "$actual_output" | grep -qF "$needle"; then
+    echo "  PASS — $description"
+    PASS=$((PASS + 1))
+  else
+    echo "  FAIL — $description"
+    echo "    needle: $needle"
+    echo "    output: $actual_output"
+    FAIL=$((FAIL + 1))
+  fi
+}
+assert_output_contains "WF-1 single unresolved: error message names the missing path" \
+  "WF-1: workflow path '.github/workflows/does-not-exist.yml' not found on disk" \
+  "$STRUCTURE" --dir "$TEST_DIR/wf-1-single" --repo-root "$TEST_DIR/wf-1-single"
+
+# --- WF-1 multiple distinct unresolved citations → fail; both reported ---
+mkdir -p "$TEST_DIR/wf-1-multi/.github/workflows"
+write_good_inventory "$TEST_DIR/wf-1-multi/v1-pages-inventory.md"
+write_good_delta     "$TEST_DIR/wf-1-multi/v1-functionality-delta.md"
+write_wf1_readme     "$TEST_DIR/wf-1-multi/README.md" "$(cat <<'BLOCK'
+See `.github/workflows/missing-one.yml`.
+
+Also see `.github/workflows/missing-two.yml`.
+BLOCK
+)"
+assert_exit "WF-1 multi: two distinct missing workflow paths fail" 1 "$STRUCTURE" --dir "$TEST_DIR/wf-1-multi" --repo-root "$TEST_DIR/wf-1-multi"
+assert_output_contains "WF-1 multi: first missing path reported" \
+  "WF-1: workflow path '.github/workflows/missing-one.yml' not found on disk" \
+  "$STRUCTURE" --dir "$TEST_DIR/wf-1-multi" --repo-root "$TEST_DIR/wf-1-multi"
+assert_output_contains "WF-1 multi: second missing path reported" \
+  "WF-1: workflow path '.github/workflows/missing-two.yml' not found on disk" \
+  "$STRUCTURE" --dir "$TEST_DIR/wf-1-multi" --repo-root "$TEST_DIR/wf-1-multi"
+
+# --- WF-1 same path cited twice, both unresolved → both cite-sites reported (no dedup) ---
+mkdir -p "$TEST_DIR/wf-1-dup/.github/workflows"
+write_good_inventory "$TEST_DIR/wf-1-dup/v1-pages-inventory.md"
+write_good_delta     "$TEST_DIR/wf-1-dup/v1-functionality-delta.md"
+write_wf1_readme     "$TEST_DIR/wf-1-dup/README.md" "$(cat <<'BLOCK'
+See `.github/workflows/v1-sha-bump-diff-report.yml`.
+
+Used by `.github/workflows/v1-sha-bump-diff-report.yml` to clone v1.
+BLOCK
+)"
+# Run the script once and capture output; assert two distinct line-number cites
+# of the same missing workflow file appear.
+DUP_OUT=$("$STRUCTURE" --dir "$TEST_DIR/wf-1-dup" --repo-root "$TEST_DIR/wf-1-dup" 2>&1 || true)
+DUP_HITS=$(echo "$DUP_OUT" | grep -cF "WF-1: workflow path '.github/workflows/v1-sha-bump-diff-report.yml' not found on disk")
+if [[ "$DUP_HITS" == 2 ]]; then
+  echo "  PASS — WF-1 dup: same missing path on two lines yields two violations (no dedup)"
+  PASS=$((PASS + 1))
+else
+  echo "  FAIL — WF-1 dup: expected 2 violations for repeated path, got $DUP_HITS"
+  echo "    output: $DUP_OUT"
+  FAIL=$((FAIL + 1))
+fi
+
+# --- WF-1 non-backticked mention is ignored → pass ---
+mkdir -p "$TEST_DIR/wf-1-prose/.github/workflows"
+write_good_inventory "$TEST_DIR/wf-1-prose/v1-pages-inventory.md"
+write_good_delta     "$TEST_DIR/wf-1-prose/v1-functionality-delta.md"
+write_wf1_readme     "$TEST_DIR/wf-1-prose/README.md" "$(cat <<'BLOCK'
+Plain prose mention .github/workflows/foo.yml lives somewhere.
+
+[link form](.github/workflows/foo.yml) is also out of scope.
+
+<!-- HTML comment with .github/workflows/foo.yml -->
+BLOCK
+)"
+assert_exit "WF-1 prose: non-backticked mentions of missing workflow are ignored" 0 "$STRUCTURE" --dir "$TEST_DIR/wf-1-prose" --repo-root "$TEST_DIR/wf-1-prose"
+
+# --- WF-1 out-of-scope path class is ignored → pass ---
+# Backticked references to scripts/*.sh — even missing ones — must not trip WF-1.
+mkdir -p "$TEST_DIR/wf-1-scope/.github/workflows"
+write_good_inventory "$TEST_DIR/wf-1-scope/v1-pages-inventory.md"
+write_good_delta     "$TEST_DIR/wf-1-scope/v1-functionality-delta.md"
+write_wf1_readme     "$TEST_DIR/wf-1-scope/README.md" "$(cat <<'BLOCK'
+See `scripts/check-v1-doc-hygiene.sh` (real, exists upstream — but irrelevant to WF-1).
+
+Also see `scripts/does-not-exist.sh`.
+BLOCK
+)"
+assert_exit "WF-1 scope: backticked non-workflow paths are ignored" 0 "$STRUCTURE" --dir "$TEST_DIR/wf-1-scope" --repo-root "$TEST_DIR/wf-1-scope"
+
 # --- Test 13: smoke-check against the actual repo inventory → pass (no false positives) ---
 # This guarantees the new check does not regress against current main content.
 # Locate the repo's docs/migration relative to the test file; bail with a skip
 # if it isn't present (in case the test is run in a degraded checkout).
 REPO_DOCS="$REPO_ROOT/docs/migration"
 if [[ -f "$REPO_DOCS/v1-pages-inventory.md" && -f "$REPO_DOCS/v1-functionality-delta.md" ]]; then
-  assert_exit "smoke: real docs/migration content passes (no false positives)" 0 "$STRUCTURE" --dir "$REPO_DOCS"
+  assert_exit "smoke: real docs/migration content passes (no false positives)" 0 "$STRUCTURE" --dir "$REPO_DOCS" --repo-root "$REPO_ROOT"
 else
   echo "  SKIP — real docs/migration not found at $REPO_DOCS; smoke test skipped."
 fi
