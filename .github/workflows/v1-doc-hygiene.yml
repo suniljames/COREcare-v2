@@ -5,11 +5,14 @@ on:
     paths:
       - 'docs/migration/v1-*.md'
       - 'docs/migration/README.md'
+      - 'docs/migration/fixtures/v1-elitecare-urls.txt'
       - 'tools/v1-screenshot-catalog/*.md'
       - 'scripts/check-v1-doc-hygiene.sh'
       - 'scripts/check-v1-doc-structure.sh'
+      - 'scripts/check-v1-inventory-mount-prefixes.sh'
       - 'scripts/coldreader/**'
       - 'scripts/tests/test_check_v1_doc_*.sh'
+      - 'scripts/tests/test_check_v1_inventory_mount_prefixes.sh'
       # WF-1 (#169): workflow renames must trigger the structure check so a
       # rename-only PR cannot silently desync the README's backticked refs.
       - '.github/workflows/*.yml'
@@ -18,10 +21,13 @@ on:
     paths:
       - 'docs/migration/v1-*.md'
       - 'docs/migration/README.md'
+      - 'docs/migration/fixtures/v1-elitecare-urls.txt'
       - 'tools/v1-screenshot-catalog/*.md'
       - 'scripts/check-v1-doc-hygiene.sh'
       - 'scripts/check-v1-doc-structure.sh'
+      - 'scripts/check-v1-inventory-mount-prefixes.sh'
       - 'scripts/coldreader/**'
+      - 'scripts/tests/test_check_v1_inventory_mount_prefixes.sh'
       - '.github/workflows/*.yml'
 
 concurrency:
@@ -38,6 +44,8 @@ jobs:
         run: bash scripts/tests/test_check_v1_doc_hygiene.sh
       - name: Run structure script tests
         run: bash scripts/tests/test_check_v1_doc_structure.sh
+      - name: Run inventory mount-prefix script tests
+        run: bash scripts/tests/test_check_v1_inventory_mount_prefixes.sh
 
   scan-v1-docs:
     name: Scan v1 reference docs in repo
@@ -60,6 +68,20 @@ jobs:
             bash scripts/check-v1-doc-structure.sh
           else
             echo "Pages inventory or delta doc not yet present — structure check skipped."
+          fi
+
+  mount-prefix-invariant:
+    name: Inventory mount-prefix invariant (#211)
+    runs-on: ubuntu-latest
+    needs: scripts-self-test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate inventory mount prefixes against v1 fixture
+        run: |
+          if [[ -f docs/migration/v1-pages-inventory.md && -f docs/migration/fixtures/v1-elitecare-urls.txt ]]; then
+            bash scripts/check-v1-inventory-mount-prefixes.sh
+          else
+            echo "Pages inventory or v1-elitecare-urls.txt fixture not yet present — mount-prefix invariant check skipped."
           fi
 
   gitleaks:
