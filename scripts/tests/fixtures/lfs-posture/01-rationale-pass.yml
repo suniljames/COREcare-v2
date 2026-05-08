@@ -1,0 +1,10 @@
+name: Test fixture — lfs:true with rationale
+on: push
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true  # rationale: catalog viewer must read WebPs
+      - run: echo ok

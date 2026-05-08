@@ -1,0 +1,14 @@
+name: Test fixture — lfs key under non-checkout action
+on: push
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: example-org/some-other-action@v1
+        with:
+          lfs: true
+          other-input: yes
+      - run: echo ok

@@ -1,0 +1,62 @@
+name: LFS bandwidth day-30 reminder
+
+# One-shot reminder for issue #185. Fires on 2026-06-07 17:00 UTC and posts
+# a comment prompting the operator to run `scripts/lfs-bandwidth-snapshot.sh`
+# and post the day-30 report. Delete this workflow file in the closure PR
+# once the report has been posted. See docs/operations/lfs-bandwidth-watch.md
+# for the runbook.
+#
+# The cron field below uses standard 5-field syntax which fires every June 7
+# at 17:00 UTC, not just in 2026. The "Verify date" step short-circuits any
+# subsequent annual firings — belt-and-suspenders against forgetting to delete
+# this workflow on closure day.
+
+on:
+  schedule:
+    - cron: '0 17 7 6 *'
+  workflow_dispatch: {}
+
+permissions:
+  issues: write
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify date is 2026-06-07
+        id: date-guard
+        run: |
+          today=$(date -u +%F)
+          echo "today=$today" >> "$GITHUB_OUTPUT"
+          if [[ "$today" != "2026-06-07" ]]; then
+            echo "Today is $today, not the one-shot target 2026-06-07. Skipping."
+            echo "fire=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "fire=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Post reminder comment on issue #185
+        if: steps.date-guard.outputs.fire == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue comment 185 --repo "${{ github.repository }}" --body "$(cat <<'BODY'
+          **Reminder — 30-day Git LFS bandwidth watch window has closed**
+
+          Per [`docs/operations/lfs-bandwidth-watch.md`](https://github.com/suniljames/COREcare-v2/blob/main/docs/operations/lfs-bandwidth-watch.md), the 30-day post-#107 watch closes today (2026-06-07).
+
+          Next steps for the operator:
+
+          1. Run `scripts/lfs-bandwidth-snapshot.sh` to print the day-30 closure template pre-filled with today's date.
+          2. Read the GitHub LFS bandwidth meter at https://github.com/settings/billing → Git LFS Data.
+          3. Take a screenshot of the panel.
+          4. Fill the TBDs in the template and post as a comment on this issue, attaching the screenshot.
+          5. Either close as resolved (no threshold approached) or link the ADR-010 escalation follow-up.
+          6. In the closure PR, delete `.github/workflows/lfs-bandwidth-day30-reminder.yml` — the one-shot reminder is no longer needed.
+
+          _This comment was posted automatically by `.github/workflows/lfs-bandwidth-day30-reminder.yml`._
+          BODY
+          )"

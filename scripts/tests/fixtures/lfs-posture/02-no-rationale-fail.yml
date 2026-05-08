@@ -1,0 +1,10 @@
+name: Test fixture — lfs:true without rationale
+on: push
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - run: echo ok
