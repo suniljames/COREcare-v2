@@ -11,8 +11,14 @@
 
 - **Service layer pattern:** routers call services, services call models. No business logic in routers.
 - Pydantic schemas for all request/response I/O.
-- Alembic for database migrations.
 - SQLModel for ORM.
+
+## Database schema
+
+- **Source of truth:** `app.models.*` defines schema intent; `alembic upgrade head` is the contract that brings the DB to that state. Production, staging, dev, and CI all bootstrap via `make api-migrate` (then `make api-seed`).
+- **Drift guard:** `api/app/tests/test_migrations_e2e.py` runs an ephemeral Postgres, applies migrations, and runs `alembic check` to assert `SQLModel.metadata` ≡ migration head. Wired into `make check`. If you change a model, regenerate the migration (`make -C api migration MSG="..."`) before pushing.
+- **`SQLModel.metadata.create_all` is unit-test-only.** It is invoked from a handful of test fixtures as a fast path (skip Alembic for in-memory SQLite) but is **not** acceptable for any shared environment. Defending the equivalence between the two paths is the drift guard's only job.
+- See [`docs/developer/migrations-runbook.md`](migrations-runbook.md) for bootstrap, reset, add-a-migration, and recovery flows.
 
 ## Web Patterns (Next.js 15)
 

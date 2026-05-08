@@ -19,7 +19,14 @@ make setup        # or: bash scripts/setup.sh
 
 `make setup` is idempotent: it checks tool versions, seeds `api/.env` and `web/.env.local` from the example files (without overwriting existing files), starts the Docker stack, and waits for the API to be healthy. On success it prints next-step commands.
 
-> **Note — schema init is currently broken** ([#240](https://github.com/suniljames/COREcare-v2/issues/240)). `make api-migrate` and `make api-seed` are *not* run by `make setup` because no migration creates the initial tables. The Docker stack still comes up and `/healthz` works; persona-driven UI flows and DB-backed endpoints will fail until #240 is resolved.
+Bring the database up to head and load demo data once the stack is healthy:
+
+```bash
+make api-migrate  # alembic upgrade head — creates the schema
+make api-seed     # demo agency + 7 test users
+```
+
+See [`docs/developer/migrations-runbook.md`](docs/developer/migrations-runbook.md) for reset, recovery, and adding-a-migration flows.
 
 Verify everything is green:
 
@@ -124,7 +131,7 @@ The local pytest suite uses SQLite (via `aiosqlite`); CI uses real PostgreSQL. I
 The editor post-tool hook formats with `black` (line length 88), but the project uses `ruff format` (line length 100). Run `cd api && uv run ruff format .` before committing.
 
 **`make api-seed` fails with "relation does not exist"**
-Tracked in [#240](https://github.com/suniljames/COREcare-v2/issues/240) — no migration runs `CREATE TABLE`, so `ALTER TABLE users` in `0001_enable_rls_policies.py` fails first. Until that's fixed, schema is only created in test fixtures via `SQLModel.metadata.create_all`.
+Run `make api-migrate` first. If the DB is in an unknown state (created by stray test fixtures, prior failed migrations), the fastest recovery is `make db-reset`. See [`docs/developer/migrations-runbook.md`](docs/developer/migrations-runbook.md).
 
 ## Slash-command Invariants
 

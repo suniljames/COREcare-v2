@@ -1,0 +1,1318 @@
+"""initial schema — squash of the prior 0001-0009 chain (issue #240).
+
+The prior 9-migration chain was broken end-to-end on a fresh DB: 0001 ALTERed
+`users` before any CREATE TABLE; 0002, 0004, 0005, 0006, 0007, 0008, 0009 then
+referenced `agencies`/`clients`/`shifts`/`messages` that no migration created.
+Schema only ever materialized via `SQLModel.metadata.create_all` in tests, so
+no environment had an `alembic_version` row — there was no real history to
+preserve. This single migration creates the full current schema and applies
+the post-0008 RLS state in one shot.
+
+What this reproduces:
+- All tables in `SQLModel.metadata` as of issue #240.
+- Single-axis tenant_isolation RLS on `users` and `email_events`
+  (post-0001 + post-0002 design).
+- Dual-axis tenant_and_client_isolation RLS on `clients`, `shifts`,
+  `care_plan_versions`, `message_threads` (post-0008 design), with the
+  thread-join variant on `messages`.
+- FORCE ROW LEVEL SECURITY on every protected table.
+- `messages.recipient_id` nullable from the start (post-0009).
+- Partial indexes that autogenerate omits: one-active-care-plan-per-client,
+  one-non-null-provider-message-id-per-row.
+
+Revision ID: 0001
+Revises:
+Create Date: 2026-05-08
+"""
+
+from collections.abc import Sequence
+
+import sqlalchemy as sa
+import sqlmodel
+
+from alembic import op
+
+# revision identifiers, used by Alembic.
+revision: str = "0001"
+down_revision: str | None = None
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
+
+
+# Tables that take single-axis tenant_isolation RLS (post-0001 + post-0002).
+SINGLE_AXIS_RLS_TABLES = ("users", "email_events")
+
+# Tables and the row-key column for dual-axis RLS (post-0008). The Client
+# context (app.current_client_id) must equal this column when set; no
+# Client context falls back to the staff/tenant predicate. `messages` uses a
+# thread-join variant defined separately below.
+DUAL_AXIS_RLS_TABLES = {
+    "clients": "id",
+    "shifts": "client_id",
+    "care_plan_versions": "client_id",
+    "message_threads": "client_id",
+}
+
+# `current_setting('app.x', true)` returns NULL when the GUC was never set on
+# the current connection. coalesce-to-empty so the staff/tenant predicate
+# (no client context) holds on a fresh connection before auth has had a
+# chance to set GUCs. Lifted verbatim from the post-0008 design.
+_TENANT = "coalesce(current_setting('app.current_tenant_id', true), '')"
+_CLIENT = "coalesce(current_setting('app.current_client_id', true), '')"
+
+
+def _single_axis_policy(table: str) -> str:
+    """post-0001 / 0002 tenant_isolation policy. Used for non-Client-row tables."""
+    return f"""
+        CREATE POLICY tenant_isolation ON {table}
+        USING (
+            agency_id::text = current_setting('app.current_tenant_id', true)
+            OR current_setting('app.current_tenant_id', true) = ''
+        )
+        WITH CHECK (
+            agency_id::text = current_setting('app.current_tenant_id', true)
+            OR current_setting('app.current_tenant_id', true) = ''
+        )
+    """
+
+
+def _dual_axis_policy(table: str, own_column: str) -> str:
+    """post-0008 dual-axis policy: tenant + Client-row isolation."""
+    return f"""
+        CREATE POLICY tenant_and_client_isolation ON {table}
+          USING (
+            ({_CLIENT} = ''
+              AND (agency_id::text = {_TENANT}
+                   OR {_TENANT} = ''))
+            OR
+            ({_CLIENT} <> ''
+              AND {own_column}::text = {_CLIENT}
+              AND agency_id::text = {_TENANT})
+          )
+          WITH CHECK (
+            ({_CLIENT} = ''
+              AND (agency_id::text = {_TENANT}
+                   OR {_TENANT} = ''))
+            OR
+            ({_CLIENT} <> ''
+              AND {own_column}::text = {_CLIENT}
+              AND agency_id::text = {_TENANT})
+          )
+    """
+
+
+def _messages_thread_join_policy() -> str:
+    """post-0008 messages policy — Clients see only messages in their threads."""
+    return f"""
+        CREATE POLICY tenant_and_client_isolation ON messages
+          USING (
+            ({_CLIENT} = ''
+              AND (agency_id::text = {_TENANT}
+                   OR {_TENANT} = ''))
+            OR
+            ({_CLIENT} <> ''
+              AND thread_id IN (
+                SELECT id FROM message_threads
+                WHERE client_id::text = {_CLIENT}
+              )
+              AND agency_id::text = {_TENANT})
+          )
+          WITH CHECK (
+            ({_CLIENT} = ''
+              AND (agency_id::text = {_TENANT}
+                   OR {_TENANT} = ''))
+            OR
+            ({_CLIENT} <> ''
+              AND thread_id IN (
+                SELECT id FROM message_threads
+                WHERE client_id::text = {_CLIENT}
+              )
+              AND agency_id::text = {_TENANT})
+          )
+    """
+
+
+def upgrade() -> None:
+    # ### commands auto generated by Alembic - please adjust! ###
+    op.create_table(
+        "agencies",
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("name", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column("slug", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column("is_active", sa.Boolean(), nullable=False),
+        sa.Column("address", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
+        sa.Column("phone", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
+        sa.Column("email", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(op.f("ix_agencies_name"), "agencies", ["name"], unique=False)
+    op.create_index(op.f("ix_agencies_slug"), "agencies", ["slug"], unique=True)
+    op.create_table(
+        "ai_feature_flags",
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("agency_id", sa.Uuid(), nullable=False),
+        sa.Column("feature_name", sqlmodel.sql.sqltypes.AutoString(length=100), nullable=False),
+        sa.Column("is_enabled", sa.Boolean(), nullable=False),
+        sa.Column("config_json", sa.Text(), nullable=True),
+        sa.ForeignKeyConstraint(
+            ["agency_id"],
+            ["agencies.id"],
+        ),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(
+        op.f("ix_ai_feature_flags_agency_id"), "ai_feature_flags", ["agency_id"], unique=False
+    )
+    op.create_index(
+        op.f("ix_ai_feature_flags_feature_name"), "ai_feature_flags", ["feature_name"], unique=False
+    )
+    op.create_table(
+        "audit_events",
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("user_id", sa.Uuid(), nullable=True),
+        sa.Column("agency_id", sa.Uuid(), nullable=True),
+        sa.Column(
+            "action",
+            sa.Enum(
+                "CREATE",
+                "READ",
+                "UPDATE",
+                "DELETE",
+                "LOGIN",
+                "LOGOUT",
+                "EXPORT",
+                name="auditaction",
+            ),
+            nullable=False,
+        ),
+        sa.Column("resource_type", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column("resource_id", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column("is_phi_access", sa.Boolean(), nullable=False),
+        sa.Column("ip_address", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column("user_agent", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column("details", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column("changes", sa.JSON(), nullable=True),
+        sa.ForeignKeyConstraint(
+            ["agency_id"],
+            ["agencies.id"],
+        ),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(op.f("ix_audit_events_action"), "audit_events", ["action"], unique=False)
+    op.create_index(op.f("ix_audit_events_agency_id"), "audit_events", ["agency_id"], unique=False)
+    op.create_index(
+        op.f("ix_audit_events_is_phi_access"), "audit_events", ["is_phi_access"], unique=False
+    )
+    op.create_index(
+        op.f("ix_audit_events_resource_type"), "audit_events", ["resource_type"], unique=False
+    )
+    op.create_index(op.f("ix_audit_events_user_id"), "audit_events", ["user_id"], unique=False)
+    op.create_table(
+        "baa_records",
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("agency_id", sa.Uuid(), nullable=False),
+        sa.Column("vendor_name", sqlmodel.sql.sqltypes.AutoString(length=200), nullable=False),
+        sa.Column("vendor_contact", sqlmodel.sql.sqltypes.AutoString(length=200), nullable=False),
+        sa.Column("agreement_date", sqlmodel.sql.sqltypes.AutoString(length=10), nullable=False),
+        sa.Column("expiration_date", sqlmodel.sql.sqltypes.AutoString(length=10), nullable=False),
+        sa.Column("document_url", sqlmodel.sql.sqltypes.AutoString(length=500), nullable=False),
+        sa.Column("is_active", sa.Boolean(), nullable=False),
+        sa.Column("notes", sa.Text(), nullable=True),
+        sa.ForeignKeyConstraint(
+            ["agency_id"],
+            ["agencies.id"],
+        ),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(op.f("ix_baa_records_agency_id"), "baa_records", ["agency_id"], unique=False)
+    op.create_table(
+        "chart_templates",
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("agency_id", sa.Uuid(), nullable=False),
+        sa.Column("name", sqlmodel.sql.sqltypes.AutoString(length=200), nullable=False),
+        sa.Column("description", sa.Text(), nullable=True),
+        sa.Column("version", sa.Integer(), nullable=False),
+        sa.Column("is_active", sa.Boolean(), nullable=False),
+        sa.Column("sections_json", sa.Text(), nullable=True),
+        sa.ForeignKeyConstraint(
+            ["agency_id"],
+            ["agencies.id"],
+        ),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(
+        op.f("ix_chart_templates_agency_id"), "chart_templates", ["agency_id"], unique=False
+    )
+    op.create_index(op.f("ix_chart_templates_name"), "chart_templates", ["name"], unique=False)
+    op.create_table(
+        "compliance_rules",
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("agency_id", sa.Uuid(), nullable=False),
+        sa.Column("state_code", sqlmodel.sql.sqltypes.AutoString(length=2), nullable=False),
+        sa.Column(
+            "rule_type",
+            sa.Enum(
+                "OVERTIME",
+                "MINIMUM_WAGE",
+                "REST_PERIOD",
+                "TRAINING_REQUIREMENT",
+                "BACKGROUND_CHECK",
+                "LICENSURE",
+                "DOCUMENTATION",
+                "OTHER",
+                name="complianceruletype",
+            ),
+            nullable=False,
+        ),
+        sa.Column("name", sqlmodel.sql.sqltypes.AutoString(length=200), nullable=False),
+        sa.Column("description", sa.Text(), nullable=True),
+        sa.Column("rule_json", sa.Text(), nullable=True),
+        sa.Column("is_active", sa.Boolean(), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["agency_id"],
+            ["agencies.id"],
+        ),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(
+        op.f("ix_compliance_rules_agency_id"), "compliance_rules", ["agency_id"], unique=False
+    )
+    op.create_index(
+        op.f("ix_compliance_rules_rule_type"), "compliance_rules", ["rule_type"], unique=False
+    )
+    op.create_index(
+        op.f("ix_compliance_rules_state_code"), "compliance_rules", ["state_code"], unique=False
+    )
+    op.create_table(
+        "email_events",
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("agency_id", sa.Uuid(), nullable=False),
+        sa.Column(
+            "category",
+            sa.Enum(
+                "INVOICE",
+                "CREDENTIAL_ALERT",
+                "SHIFT_OFFER",
+                "WEEKLY_HEALTH",
+                "SYSTEM",
+                name="emailcategory",
+            ),
+            nullable=False,
+        ),
+        sa.Column("ref_id", sa.Uuid(), nullable=False),
+        sa.Column("recipient", sqlmodel.sql.sqltypes.AutoString(length=320), nullable=False),
+        sa.Column("subject_redacted", sqlmodel.sql.sqltypes.AutoString(length=200), nullable=False),
+        sa.Column("subject_hash", sqlmodel.sql.sqltypes.AutoString(length=64), nullable=False),
+        sa.Column("body_storage_uri", sqlmodel.sql.sqltypes.AutoString(length=1024), nullable=True),
+        sa.Column("attachment_count", sa.Integer(), nullable=False),
+        sa.Column(
+            "status",
+            sa.Enum(
+                "PENDING",
+                "SENT",
+                "FAILED",
+                "BOUNCED",
+                "DELIVERED",
+                "OPENED",
+                "CLICKED",
+                name="emailstatus",
+            ),
+            nullable=False,
+        ),
+        sa.Column("transport", sqlmodel.sql.sqltypes.AutoString(length=64), nullable=False),
+        sa.Column(
+            "provider_message_id", sqlmodel.sql.sqltypes.AutoString(length=256), nullable=True
+        ),
+        sa.Column("error_code", sqlmodel.sql.sqltypes.AutoString(length=64), nullable=True),
+        sa.Column("error_message", sqlmodel.sql.sqltypes.AutoString(length=1024), nullable=True),
+        sa.Column("sent_at", sa.DateTime(), nullable=True),
+        sa.Column("delivered_at", sa.DateTime(), nullable=True),
+        sa.Column("bounced_at", sa.DateTime(), nullable=True),
+        sa.Column("idempotency_key", sqlmodel.sql.sqltypes.AutoString(length=256), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["agency_id"],
+            ["agencies.id"],
+        ),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("idempotency_key", name="uq_email_events_idempotency_key"),
+    )
+    op.create_index(op.f("ix_email_events_agency_id"), "email_events", ["agency_id"], unique=False)
+    op.create_index(op.f("ix_email_events_category"), "email_events", ["category"], unique=False)
+    op.create_index(op.f("ix_email_events_ref_id"), "email_events", ["ref_id"], unique=False)
+    op.create_index(op.f("ix_email_events_status"), "email_events", ["status"], unique=False)
+    op.create_table(
+        "users",
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("email", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column("first_name", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column("last_name", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column(
+            "role",
+            sa.Enum(
+                "SUPER_ADMIN",
+                "AGENCY_ADMIN",
+                "CARE_MANAGER",
+                "CAREGIVER",
+                "FAMILY",
+                "CLIENT",
+                name="userrole",
+            ),
+            nullable=False,
+        ),
+        sa.Column("is_active", sa.Boolean(), nullable=False),
+        sa.Column("clerk_id", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
+        sa.Column("agency_id", sa.Uuid(), nullable=True),
+        sa.ForeignKeyConstraint(
+            ["agency_id"],
+            ["agencies.id"],
+        ),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(op.f("ix_users_agency_id"), "users", ["agency_id"], unique=False)
+    op.create_index(op.f("ix_users_clerk_id"), "users", ["clerk_id"], unique=True)
+    op.create_index(op.f("ix_users_email"), "users", ["email"], unique=True)
+    op.create_table(
+        "ai_conversations",
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("agency_id", sa.Uuid(), nullable=False),
+        sa.Column("user_id", sa.Uuid(), nullable=False),
+        sa.Column(
+            "channel", sa.Enum("WEB", "SMS", "WHATSAPP", name="conversationchannel"), nullable=False
+        ),
+        sa.Column(
+            "status",
+            sa.Enum("ACTIVE", "CLOSED", "ESCALATED", name="conversationstatus"),
+            nullable=False,
+        ),
+        sa.Column("external_id", sqlmodel.sql.sqltypes.AutoString(length=200), nullable=False),
+        sa.Column("summary", sa.Text(), nullable=True),
+        sa.ForeignKeyConstraint(
+            ["agency_id"],
+            ["agencies.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["user_id"],
+            ["users.id"],
+        ),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(
+        op.f("ix_ai_conversations_agency_id"), "ai_conversations", ["agency_id"], unique=False
+    )
+    op.create_index(
+        op.f("ix_ai_conversations_channel"), "ai_conversations", ["channel"], unique=False
+    )
+    op.create_index(
+        op.f("ix_ai_conversations_status"), "ai_conversations", ["status"], unique=False
+    )
+    op.create_index(
+        op.f("ix_ai_conversations_user_id"), "ai_conversations", ["user_id"], unique=False
+    )
+    op.create_table(
+        "caregiver_profiles",
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("agency_id", sa.Uuid(), nullable=False),
+        sa.Column("user_id", sa.Uuid(), nullable=False),
+        sa.Column("bio", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column("years_experience", sa.Integer(), nullable=False),
+        sa.Column("hourly_rate", sa.Numeric(precision=8, scale=2), nullable=False),
+        sa.Column("overtime_rate", sa.Numeric(precision=8, scale=2), nullable=False),
+        sa.Column("holiday_rate", sa.Numeric(precision=8, scale=2), nullable=False),
+        sa.Column("skills", sa.JSON(), nullable=True),
+        sa.Column("certifications", sa.JSON(), nullable=True),
+        sa.Column("availability", sa.JSON(), nullable=True),
+        sa.ForeignKeyConstraint(
+            ["agency_id"],
+            ["agencies.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["user_id"],
+            ["users.id"],
+        ),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(
+        op.f("ix_caregiver_profiles_agency_id"), "caregiver_profiles", ["agency_id"], unique=False
+    )
+    op.create_index(
+        op.f("ix_caregiver_profiles_user_id"), "caregiver_profiles", ["user_id"], unique=True
+    )
+    op.create_table(
+        "clients",
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("agency_id", sa.Uuid(), nullable=False),
+        sa.Column("first_name", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column("last_name", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column("date_of_birth", sa.Date(), nullable=True),
+        sa.Column("gender", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column("phone", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column("email", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column("address", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column(
+            "status",
+            sa.Enum("ACTIVE", "INACTIVE", "DISCHARGED", name="clientstatus"),
+            nullable=False,
+        ),
+        sa.Column("care_level", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column("notes", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column("emergency_contacts", sa.JSON(), nullable=True),
+        sa.Column("client_user_id", sa.Uuid(), nullable=True),
+        sa.ForeignKeyConstraint(
+            ["agency_id"],
+            ["agencies.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["client_user_id"],
+            ["users.id"],
+        ),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(op.f("ix_clients_agency_id"), "clients", ["agency_id"], unique=False)
+    op.create_index(op.f("ix_clients_client_user_id"), "clients", ["client_user_id"], unique=True)
+    op.create_index(op.f("ix_clients_first_name"), "clients", ["first_name"], unique=False)
+    op.create_index(op.f("ix_clients_last_name"), "clients", ["last_name"], unique=False)
+    op.create_index(op.f("ix_clients_status"), "clients", ["status"], unique=False)
+    op.create_table(
+        "credentials",
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("agency_id", sa.Uuid(), nullable=False),
+        sa.Column("caregiver_id", sa.Uuid(), nullable=False),
+        sa.Column(
+            "credential_type",
+            sa.Enum(
+                "LICENSE",
+                "CERTIFICATION",
+                "TRAINING",
+                "BACKGROUND_CHECK",
+                "HEALTH_SCREENING",
+                "OTHER",
+                name="credentialtype",
+            ),
+            nullable=False,
+        ),
+        sa.Column("name", sqlmodel.sql.sqltypes.AutoString(length=200), nullable=False),
+        sa.Column(
+            "issuing_authority", sqlmodel.sql.sqltypes.AutoString(length=200), nullable=False
+        ),
+        sa.Column(
+            "credential_number", sqlmodel.sql.sqltypes.AutoString(length=100), nullable=False
+        ),
+        sa.Column("issued_date", sa.Date(), nullable=True),
+        sa.Column("expiration_date", sa.Date(), nullable=True),
+        sa.Column(
+            "status",
+            sa.Enum(
+                "ACTIVE", "EXPIRING_SOON", "EXPIRED", "PENDING_REVIEW", name="credentialstatus"
+            ),
+            nullable=False,
+        ),
+        sa.Column("document_url", sqlmodel.sql.sqltypes.AutoString(length=500), nullable=False),
+        sa.Column("notes", sa.Text(), nullable=True),
+        sa.Column("alert_sent_90", sa.Boolean(), nullable=False),
+        sa.Column("alert_sent_60", sa.Boolean(), nullable=False),
+        sa.Column("alert_sent_30", sa.Boolean(), nullable=False),
+        sa.Column("alert_sent_7", sa.Boolean(), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["agency_id"],
+            ["agencies.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["caregiver_id"],
+            ["users.id"],
+        ),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(op.f("ix_credentials_agency_id"), "credentials", ["agency_id"], unique=False)
+    op.create_index(
+        op.f("ix_credentials_caregiver_id"), "credentials", ["caregiver_id"], unique=False
+    )
+    op.create_index(
+        op.f("ix_credentials_credential_type"), "credentials", ["credential_type"], unique=False
+    )
+    op.create_index(op.f("ix_credentials_status"), "credentials", ["status"], unique=False)
+    op.create_table(
+        "messages",
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("agency_id", sa.Uuid(), nullable=False),
+        sa.Column("sender_id", sa.Uuid(), nullable=False),
+        sa.Column("recipient_id", sa.Uuid(), nullable=True),
+        sa.Column("thread_id", sa.Uuid(), nullable=False),
+        sa.Column("body", sa.Text(), nullable=True),
+        sa.Column("is_read", sa.Boolean(), nullable=False),
+        sa.Column("read_at", sa.DateTime(), nullable=True),
+        sa.ForeignKeyConstraint(
+            ["agency_id"],
+            ["agencies.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["recipient_id"],
+            ["users.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["sender_id"],
+            ["users.id"],
+        ),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(op.f("ix_messages_agency_id"), "messages", ["agency_id"], unique=False)
+    op.create_index(op.f("ix_messages_recipient_id"), "messages", ["recipient_id"], unique=False)
+    op.create_index(op.f("ix_messages_sender_id"), "messages", ["sender_id"], unique=False)
+    op.create_index(op.f("ix_messages_thread_id"), "messages", ["thread_id"], unique=False)
+    op.create_table(
+        "notifications",
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("agency_id", sa.Uuid(), nullable=False),
+        sa.Column("user_id", sa.Uuid(), nullable=False),
+        sa.Column(
+            "notification_type",
+            sa.Enum(
+                "SHIFT_ASSIGNED",
+                "SHIFT_CANCELLED",
+                "SHIFT_REMINDER",
+                "CREDENTIAL_EXPIRING",
+                "PAYROLL_APPROVED",
+                "INVOICE_SENT",
+                "CHART_SIGNED",
+                "MESSAGE_RECEIVED",
+                "SYSTEM",
+                name="notificationtype",
+            ),
+            nullable=False,
+        ),
+        sa.Column(
+            "channel",
+            sa.Enum("IN_APP", "EMAIL", "PUSH", name="notificationchannel"),
+            nullable=False,
+        ),
+        sa.Column("title", sqlmodel.sql.sqltypes.AutoString(length=200), nullable=False),
+        sa.Column("body", sa.Text(), nullable=True),
+        sa.Column("is_read", sa.Boolean(), nullable=False),
+        sa.Column("read_at", sa.DateTime(), nullable=True),
+        sa.Column("resource_type", sqlmodel.sql.sqltypes.AutoString(length=50), nullable=False),
+        sa.Column("resource_id", sqlmodel.sql.sqltypes.AutoString(length=100), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["agency_id"],
+            ["agencies.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["user_id"],
+            ["users.id"],
+        ),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(
+        op.f("ix_notifications_agency_id"), "notifications", ["agency_id"], unique=False
+    )
+    op.create_index(op.f("ix_notifications_is_read"), "notifications", ["is_read"], unique=False)
+    op.create_index(
+        op.f("ix_notifications_notification_type"),
+        "notifications",
+        ["notification_type"],
+        unique=False,
+    )
+    op.create_index(op.f("ix_notifications_user_id"), "notifications", ["user_id"], unique=False)
+    op.create_table(
+        "payroll_periods",
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("agency_id", sa.Uuid(), nullable=False),
+        sa.Column("start_date", sa.Date(), nullable=False),
+        sa.Column("end_date", sa.Date(), nullable=False),
+        sa.Column(
+            "status",
+            sa.Enum(
+                "DRAFT",
+                "PENDING_APPROVAL",
+                "APPROVED",
+                "PROCESSED",
+                "REJECTED",
+                name="payrollperiodstatus",
+            ),
+            nullable=False,
+        ),
+        sa.Column("total_hours", sa.Numeric(precision=10, scale=2), nullable=False),
+        sa.Column("total_amount", sa.Numeric(precision=12, scale=2), nullable=False),
+        sa.Column("approved_by_id", sa.Uuid(), nullable=True),
+        sa.Column("notes", sa.Text(), nullable=True),
+        sa.ForeignKeyConstraint(
+            ["agency_id"],
+            ["agencies.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["approved_by_id"],
+            ["users.id"],
+        ),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(
+        op.f("ix_payroll_periods_agency_id"), "payroll_periods", ["agency_id"], unique=False
+    )
+    op.create_index(op.f("ix_payroll_periods_status"), "payroll_periods", ["status"], unique=False)
+    op.create_table(
+        "push_subscriptions",
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("agency_id", sa.Uuid(), nullable=False),
+        sa.Column("user_id", sa.Uuid(), nullable=False),
+        sa.Column("endpoint", sa.Text(), nullable=True),
+        sa.Column("p256dh_key", sqlmodel.sql.sqltypes.AutoString(length=500), nullable=False),
+        sa.Column("auth_key", sqlmodel.sql.sqltypes.AutoString(length=500), nullable=False),
+        sa.Column("is_active", sa.Boolean(), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["agency_id"],
+            ["agencies.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["user_id"],
+            ["users.id"],
+        ),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(
+        op.f("ix_push_subscriptions_agency_id"), "push_subscriptions", ["agency_id"], unique=False
+    )
+    op.create_index(
+        op.f("ix_push_subscriptions_user_id"), "push_subscriptions", ["user_id"], unique=False
+    )
+    op.create_table(
+        "ai_messages",
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("agency_id", sa.Uuid(), nullable=False),
+        sa.Column("conversation_id", sa.Uuid(), nullable=False),
+        sa.Column("role", sqlmodel.sql.sqltypes.AutoString(length=20), nullable=False),
+        sa.Column("content", sa.Text(), nullable=True),
+        sa.Column("tokens_used", sa.Integer(), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["agency_id"],
+            ["agencies.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["conversation_id"],
+            ["ai_conversations.id"],
+        ),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(op.f("ix_ai_messages_agency_id"), "ai_messages", ["agency_id"], unique=False)
+    op.create_index(
+        op.f("ix_ai_messages_conversation_id"), "ai_messages", ["conversation_id"], unique=False
+    )
+    op.create_table(
+        "care_plan_versions",
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("agency_id", sa.Uuid(), nullable=False),
+        sa.Column("client_id", sa.Uuid(), nullable=False),
+        sa.Column("version_no", sa.Integer(), nullable=False),
+        sa.Column("is_active", sa.Boolean(), nullable=False),
+        sa.Column("plain_summary", sa.Text(), nullable=True),
+        sa.Column("care_team_blob", sa.JSON(), nullable=True),
+        sa.Column("weekly_support_blob", sa.JSON(), nullable=True),
+        sa.Column("allergies", sa.JSON(), nullable=True),
+        sa.Column("emergency_contact_blob", sa.JSON(), nullable=True),
+        sa.Column("clinical_detail", sa.JSON(), nullable=True),
+        sa.Column("authored_by_user_id", sa.Uuid(), nullable=False),
+        sa.Column("supersedes_version_id", sa.Uuid(), nullable=True),
+        sa.ForeignKeyConstraint(
+            ["agency_id"],
+            ["agencies.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["authored_by_user_id"],
+            ["users.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["client_id"],
+            ["clients.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["supersedes_version_id"],
+            ["care_plan_versions.id"],
+        ),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(
+        op.f("ix_care_plan_versions_agency_id"), "care_plan_versions", ["agency_id"], unique=False
+    )
+    op.create_index(
+        op.f("ix_care_plan_versions_authored_by_user_id"),
+        "care_plan_versions",
+        ["authored_by_user_id"],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_care_plan_versions_client_id"), "care_plan_versions", ["client_id"], unique=False
+    )
+    op.create_index(
+        op.f("ix_care_plan_versions_is_active"), "care_plan_versions", ["is_active"], unique=False
+    )
+    op.create_index(
+        op.f("ix_care_plan_versions_version_no"), "care_plan_versions", ["version_no"], unique=False
+    )
+    op.create_table(
+        "client_invites",
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("agency_id", sa.Uuid(), nullable=False),
+        sa.Column("client_id", sa.Uuid(), nullable=False),
+        sa.Column("email", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column("token", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column("expires_at", sa.DateTime(), nullable=False),
+        sa.Column("redeemed_at", sa.DateTime(), nullable=True),
+        sa.Column("issued_by_user_id", sa.Uuid(), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["agency_id"],
+            ["agencies.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["client_id"],
+            ["clients.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["issued_by_user_id"],
+            ["users.id"],
+        ),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(
+        op.f("ix_client_invites_agency_id"), "client_invites", ["agency_id"], unique=False
+    )
+    op.create_index(
+        op.f("ix_client_invites_client_id"), "client_invites", ["client_id"], unique=False
+    )
+    op.create_index(op.f("ix_client_invites_email"), "client_invites", ["email"], unique=False)
+    op.create_index(
+        op.f("ix_client_invites_issued_by_user_id"),
+        "client_invites",
+        ["issued_by_user_id"],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_client_invites_redeemed_at"), "client_invites", ["redeemed_at"], unique=False
+    )
+    op.create_index(op.f("ix_client_invites_token"), "client_invites", ["token"], unique=True)
+    op.create_table(
+        "family_links",
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("agency_id", sa.Uuid(), nullable=False),
+        sa.Column("client_id", sa.Uuid(), nullable=False),
+        sa.Column("user_id", sa.Uuid(), nullable=False),
+        sa.Column("relationship_type", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["agency_id"],
+            ["agencies.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["client_id"],
+            ["clients.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["user_id"],
+            ["users.id"],
+        ),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(op.f("ix_family_links_agency_id"), "family_links", ["agency_id"], unique=False)
+    op.create_index(op.f("ix_family_links_client_id"), "family_links", ["client_id"], unique=False)
+    op.create_index(op.f("ix_family_links_user_id"), "family_links", ["user_id"], unique=False)
+    op.create_table(
+        "invoices",
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("agency_id", sa.Uuid(), nullable=False),
+        sa.Column("client_id", sa.Uuid(), nullable=False),
+        sa.Column("invoice_number", sqlmodel.sql.sqltypes.AutoString(length=50), nullable=False),
+        sa.Column("issue_date", sa.Date(), nullable=False),
+        sa.Column("due_date", sa.Date(), nullable=False),
+        sa.Column(
+            "status",
+            sa.Enum("DRAFT", "SENT", "PAID", "OVERDUE", "CANCELLED", name="invoicestatus"),
+            nullable=False,
+        ),
+        sa.Column("subtotal", sa.Numeric(precision=12, scale=2), nullable=False),
+        sa.Column("tax_rate", sa.Numeric(precision=5, scale=4), nullable=False),
+        sa.Column("tax_amount", sa.Numeric(precision=12, scale=2), nullable=False),
+        sa.Column("total", sa.Numeric(precision=12, scale=2), nullable=False),
+        sa.Column("notes", sa.Text(), nullable=True),
+        sa.Column("paid_date", sa.Date(), nullable=True),
+        sa.ForeignKeyConstraint(
+            ["agency_id"],
+            ["agencies.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["client_id"],
+            ["clients.id"],
+        ),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(op.f("ix_invoices_agency_id"), "invoices", ["agency_id"], unique=False)
+    op.create_index(op.f("ix_invoices_client_id"), "invoices", ["client_id"], unique=False)
+    op.create_index(
+        op.f("ix_invoices_invoice_number"), "invoices", ["invoice_number"], unique=False
+    )
+    op.create_index(op.f("ix_invoices_status"), "invoices", ["status"], unique=False)
+    op.create_table(
+        "message_threads",
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("agency_id", sa.Uuid(), nullable=False),
+        sa.Column("client_id", sa.Uuid(), nullable=False),
+        sa.Column("last_message_at", sa.DateTime(), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["agency_id"],
+            ["agencies.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["client_id"],
+            ["clients.id"],
+        ),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(
+        op.f("ix_message_threads_agency_id"), "message_threads", ["agency_id"], unique=False
+    )
+    op.create_index(
+        op.f("ix_message_threads_client_id"), "message_threads", ["client_id"], unique=True
+    )
+    op.create_index(
+        op.f("ix_message_threads_last_message_at"),
+        "message_threads",
+        ["last_message_at"],
+        unique=False,
+    )
+    op.create_table(
+        "payroll_entries",
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("agency_id", sa.Uuid(), nullable=False),
+        sa.Column("period_id", sa.Uuid(), nullable=False),
+        sa.Column("caregiver_id", sa.Uuid(), nullable=False),
+        sa.Column("regular_hours", sa.Numeric(precision=8, scale=2), nullable=False),
+        sa.Column("overtime_hours", sa.Numeric(precision=8, scale=2), nullable=False),
+        sa.Column("hourly_rate", sa.Numeric(precision=8, scale=2), nullable=False),
+        sa.Column("overtime_rate", sa.Numeric(precision=8, scale=2), nullable=False),
+        sa.Column("total_amount", sa.Numeric(precision=12, scale=2), nullable=False),
+        sa.Column("notes", sa.Text(), nullable=True),
+        sa.ForeignKeyConstraint(
+            ["agency_id"],
+            ["agencies.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["caregiver_id"],
+            ["users.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["period_id"],
+            ["payroll_periods.id"],
+        ),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(
+        op.f("ix_payroll_entries_agency_id"), "payroll_entries", ["agency_id"], unique=False
+    )
+    op.create_index(
+        op.f("ix_payroll_entries_caregiver_id"), "payroll_entries", ["caregiver_id"], unique=False
+    )
+    op.create_index(
+        op.f("ix_payroll_entries_period_id"), "payroll_entries", ["period_id"], unique=False
+    )
+    op.create_table(
+        "shifts",
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("agency_id", sa.Uuid(), nullable=False),
+        sa.Column("client_id", sa.Uuid(), nullable=False),
+        sa.Column("caregiver_id", sa.Uuid(), nullable=True),
+        sa.Column("start_time", sa.DateTime(), nullable=False),
+        sa.Column("end_time", sa.DateTime(), nullable=False),
+        sa.Column(
+            "status",
+            sa.Enum(
+                "OPEN", "ASSIGNED", "IN_PROGRESS", "COMPLETED", "CANCELLED", name="shiftstatus"
+            ),
+            nullable=False,
+        ),
+        sa.Column("recurrence_rule", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column("notes", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["agency_id"],
+            ["agencies.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["caregiver_id"],
+            ["users.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["client_id"],
+            ["clients.id"],
+        ),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(op.f("ix_shifts_agency_id"), "shifts", ["agency_id"], unique=False)
+    op.create_index(op.f("ix_shifts_caregiver_id"), "shifts", ["caregiver_id"], unique=False)
+    op.create_index(op.f("ix_shifts_client_id"), "shifts", ["client_id"], unique=False)
+    op.create_index(op.f("ix_shifts_start_time"), "shifts", ["start_time"], unique=False)
+    op.create_index(op.f("ix_shifts_status"), "shifts", ["status"], unique=False)
+    op.create_table(
+        "charts",
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("agency_id", sa.Uuid(), nullable=False),
+        sa.Column("template_id", sa.Uuid(), nullable=False),
+        sa.Column("client_id", sa.Uuid(), nullable=False),
+        sa.Column("caregiver_id", sa.Uuid(), nullable=False),
+        sa.Column("shift_id", sa.Uuid(), nullable=True),
+        sa.Column(
+            "status",
+            sa.Enum("DRAFT", "IN_PROGRESS", "COMPLETED", "SIGNED", "AMENDED", name="chartstatus"),
+            nullable=False,
+        ),
+        sa.Column("version", sa.Integer(), nullable=False),
+        sa.Column("data_json", sa.Text(), nullable=True),
+        sa.Column("signed_at", sa.DateTime(), nullable=True),
+        sa.Column("signed_by_id", sa.Uuid(), nullable=True),
+        sa.Column("notes", sa.Text(), nullable=True),
+        sa.ForeignKeyConstraint(
+            ["agency_id"],
+            ["agencies.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["caregiver_id"],
+            ["users.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["client_id"],
+            ["clients.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["shift_id"],
+            ["shifts.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["signed_by_id"],
+            ["users.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["template_id"],
+            ["chart_templates.id"],
+        ),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(op.f("ix_charts_agency_id"), "charts", ["agency_id"], unique=False)
+    op.create_index(op.f("ix_charts_caregiver_id"), "charts", ["caregiver_id"], unique=False)
+    op.create_index(op.f("ix_charts_client_id"), "charts", ["client_id"], unique=False)
+    op.create_index(op.f("ix_charts_shift_id"), "charts", ["shift_id"], unique=False)
+    op.create_index(op.f("ix_charts_status"), "charts", ["status"], unique=False)
+    op.create_index(op.f("ix_charts_template_id"), "charts", ["template_id"], unique=False)
+    op.create_table(
+        "invoice_line_items",
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("agency_id", sa.Uuid(), nullable=False),
+        sa.Column("invoice_id", sa.Uuid(), nullable=False),
+        sa.Column("description", sqlmodel.sql.sqltypes.AutoString(length=500), nullable=False),
+        sa.Column("quantity", sa.Numeric(precision=10, scale=2), nullable=False),
+        sa.Column("unit_price", sa.Numeric(precision=10, scale=2), nullable=False),
+        sa.Column("amount", sa.Numeric(precision=12, scale=2), nullable=False),
+        sa.Column("shift_id", sa.Uuid(), nullable=True),
+        sa.ForeignKeyConstraint(
+            ["agency_id"],
+            ["agencies.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["invoice_id"],
+            ["invoices.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["shift_id"],
+            ["shifts.id"],
+        ),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(
+        op.f("ix_invoice_line_items_agency_id"), "invoice_line_items", ["agency_id"], unique=False
+    )
+    op.create_index(
+        op.f("ix_invoice_line_items_invoice_id"), "invoice_line_items", ["invoice_id"], unique=False
+    )
+    op.create_table(
+        "shift_offers",
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("agency_id", sa.Uuid(), nullable=False),
+        sa.Column("shift_id", sa.Uuid(), nullable=False),
+        sa.Column("caregiver_id", sa.Uuid(), nullable=False),
+        sa.Column(
+            "status",
+            sa.Enum("PENDING", "ACCEPTED", "DECLINED", "EXPIRED", name="shiftofferstatus"),
+            nullable=False,
+        ),
+        sa.Column("responded_at", sa.DateTime(), nullable=True),
+        sa.ForeignKeyConstraint(
+            ["agency_id"],
+            ["agencies.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["caregiver_id"],
+            ["users.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["shift_id"],
+            ["shifts.id"],
+        ),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(op.f("ix_shift_offers_agency_id"), "shift_offers", ["agency_id"], unique=False)
+    op.create_index(
+        op.f("ix_shift_offers_caregiver_id"), "shift_offers", ["caregiver_id"], unique=False
+    )
+    op.create_index(op.f("ix_shift_offers_shift_id"), "shift_offers", ["shift_id"], unique=False)
+    op.create_index(op.f("ix_shift_offers_status"), "shift_offers", ["status"], unique=False)
+    op.create_table(
+        "visits",
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("agency_id", sa.Uuid(), nullable=False),
+        sa.Column("shift_id", sa.Uuid(), nullable=False),
+        sa.Column("caregiver_id", sa.Uuid(), nullable=False),
+        sa.Column("clock_in", sa.DateTime(), nullable=True),
+        sa.Column("clock_out", sa.DateTime(), nullable=True),
+        sa.Column("clock_in_lat", sa.Numeric(precision=10, scale=7), nullable=True),
+        sa.Column("clock_in_lng", sa.Numeric(precision=10, scale=7), nullable=True),
+        sa.Column("clock_out_lat", sa.Numeric(precision=10, scale=7), nullable=True),
+        sa.Column("clock_out_lng", sa.Numeric(precision=10, scale=7), nullable=True),
+        sa.Column("geofence_valid_in", sa.Boolean(), nullable=False),
+        sa.Column("geofence_valid_out", sa.Boolean(), nullable=False),
+        sa.Column("duration_minutes", sa.Integer(), nullable=True),
+        sa.Column("notes", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["agency_id"],
+            ["agencies.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["caregiver_id"],
+            ["users.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["shift_id"],
+            ["shifts.id"],
+        ),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(op.f("ix_visits_agency_id"), "visits", ["agency_id"], unique=False)
+    op.create_index(op.f("ix_visits_caregiver_id"), "visits", ["caregiver_id"], unique=False)
+    op.create_index(op.f("ix_visits_shift_id"), "visits", ["shift_id"], unique=False)
+    # ### end Alembic commands ###
+
+    # --- Partial indexes that autogenerate omits ------------------------------
+    # care_plan_versions: exactly one active version per Client (issue #125).
+    op.execute(
+        "CREATE UNIQUE INDEX uq_care_plan_active_per_client "
+        "ON care_plan_versions (client_id) WHERE is_active = true"
+    )
+    # email_events: provider's message_id is unique when present (issue #120).
+    op.execute(
+        "CREATE UNIQUE INDEX ix_email_events_provider_message_id "
+        "ON email_events (provider_message_id) WHERE provider_message_id IS NOT NULL"
+    )
+
+    # --- Row-Level Security policies (post-0008 design state) -----------------
+    for table in SINGLE_AXIS_RLS_TABLES:
+        op.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
+        op.execute(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY")
+        op.execute(_single_axis_policy(table))
+
+    for table, own_column in DUAL_AXIS_RLS_TABLES.items():
+        op.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
+        op.execute(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY")
+        op.execute(_dual_axis_policy(table, own_column))
+
+    # `messages` uses a thread-join variant (Clients see only their threads).
+    op.execute("ALTER TABLE messages ENABLE ROW LEVEL SECURITY")
+    op.execute("ALTER TABLE messages FORCE ROW LEVEL SECURITY")
+    op.execute(_messages_thread_join_policy())
+
+
+def downgrade() -> None:
+    # --- RLS teardown (mirror of upgrade) -------------------------------------
+    for table in ("messages", *DUAL_AXIS_RLS_TABLES.keys()):
+        op.execute(f"DROP POLICY IF EXISTS tenant_and_client_isolation ON {table}")
+        op.execute(f"ALTER TABLE {table} DISABLE ROW LEVEL SECURITY")
+    for table in SINGLE_AXIS_RLS_TABLES:
+        op.execute(f"DROP POLICY IF EXISTS tenant_isolation ON {table}")
+        op.execute(f"ALTER TABLE {table} DISABLE ROW LEVEL SECURITY")
+
+    # --- Partial indexes (mirror of upgrade) ---------------------------------
+    op.execute("DROP INDEX IF EXISTS ix_email_events_provider_message_id")
+    op.execute("DROP INDEX IF EXISTS uq_care_plan_active_per_client")
+
+    # ### commands auto generated by Alembic - please adjust! ###
+    op.drop_index(op.f("ix_visits_shift_id"), table_name="visits")
+    op.drop_index(op.f("ix_visits_caregiver_id"), table_name="visits")
+    op.drop_index(op.f("ix_visits_agency_id"), table_name="visits")
+    op.drop_table("visits")
+    op.drop_index(op.f("ix_shift_offers_status"), table_name="shift_offers")
+    op.drop_index(op.f("ix_shift_offers_shift_id"), table_name="shift_offers")
+    op.drop_index(op.f("ix_shift_offers_caregiver_id"), table_name="shift_offers")
+    op.drop_index(op.f("ix_shift_offers_agency_id"), table_name="shift_offers")
+    op.drop_table("shift_offers")
+    op.drop_index(op.f("ix_invoice_line_items_invoice_id"), table_name="invoice_line_items")
+    op.drop_index(op.f("ix_invoice_line_items_agency_id"), table_name="invoice_line_items")
+    op.drop_table("invoice_line_items")
+    op.drop_index(op.f("ix_charts_template_id"), table_name="charts")
+    op.drop_index(op.f("ix_charts_status"), table_name="charts")
+    op.drop_index(op.f("ix_charts_shift_id"), table_name="charts")
+    op.drop_index(op.f("ix_charts_client_id"), table_name="charts")
+    op.drop_index(op.f("ix_charts_caregiver_id"), table_name="charts")
+    op.drop_index(op.f("ix_charts_agency_id"), table_name="charts")
+    op.drop_table("charts")
+    op.drop_index(op.f("ix_shifts_status"), table_name="shifts")
+    op.drop_index(op.f("ix_shifts_start_time"), table_name="shifts")
+    op.drop_index(op.f("ix_shifts_client_id"), table_name="shifts")
+    op.drop_index(op.f("ix_shifts_caregiver_id"), table_name="shifts")
+    op.drop_index(op.f("ix_shifts_agency_id"), table_name="shifts")
+    op.drop_table("shifts")
+    op.drop_index(op.f("ix_payroll_entries_period_id"), table_name="payroll_entries")
+    op.drop_index(op.f("ix_payroll_entries_caregiver_id"), table_name="payroll_entries")
+    op.drop_index(op.f("ix_payroll_entries_agency_id"), table_name="payroll_entries")
+    op.drop_table("payroll_entries")
+    op.drop_index(op.f("ix_message_threads_last_message_at"), table_name="message_threads")
+    op.drop_index(op.f("ix_message_threads_client_id"), table_name="message_threads")
+    op.drop_index(op.f("ix_message_threads_agency_id"), table_name="message_threads")
+    op.drop_table("message_threads")
+    op.drop_index(op.f("ix_invoices_status"), table_name="invoices")
+    op.drop_index(op.f("ix_invoices_invoice_number"), table_name="invoices")
+    op.drop_index(op.f("ix_invoices_client_id"), table_name="invoices")
+    op.drop_index(op.f("ix_invoices_agency_id"), table_name="invoices")
+    op.drop_table("invoices")
+    op.drop_index(op.f("ix_family_links_user_id"), table_name="family_links")
+    op.drop_index(op.f("ix_family_links_client_id"), table_name="family_links")
+    op.drop_index(op.f("ix_family_links_agency_id"), table_name="family_links")
+    op.drop_table("family_links")
+    op.drop_index(op.f("ix_client_invites_token"), table_name="client_invites")
+    op.drop_index(op.f("ix_client_invites_redeemed_at"), table_name="client_invites")
+    op.drop_index(op.f("ix_client_invites_issued_by_user_id"), table_name="client_invites")
+    op.drop_index(op.f("ix_client_invites_email"), table_name="client_invites")
+    op.drop_index(op.f("ix_client_invites_client_id"), table_name="client_invites")
+    op.drop_index(op.f("ix_client_invites_agency_id"), table_name="client_invites")
+    op.drop_table("client_invites")
+    op.drop_index(op.f("ix_care_plan_versions_version_no"), table_name="care_plan_versions")
+    op.drop_index(op.f("ix_care_plan_versions_is_active"), table_name="care_plan_versions")
+    op.drop_index(op.f("ix_care_plan_versions_client_id"), table_name="care_plan_versions")
+    op.drop_index(
+        op.f("ix_care_plan_versions_authored_by_user_id"), table_name="care_plan_versions"
+    )
+    op.drop_index(op.f("ix_care_plan_versions_agency_id"), table_name="care_plan_versions")
+    op.drop_table("care_plan_versions")
+    op.drop_index(op.f("ix_ai_messages_conversation_id"), table_name="ai_messages")
+    op.drop_index(op.f("ix_ai_messages_agency_id"), table_name="ai_messages")
+    op.drop_table("ai_messages")
+    op.drop_index(op.f("ix_push_subscriptions_user_id"), table_name="push_subscriptions")
+    op.drop_index(op.f("ix_push_subscriptions_agency_id"), table_name="push_subscriptions")
+    op.drop_table("push_subscriptions")
+    op.drop_index(op.f("ix_payroll_periods_status"), table_name="payroll_periods")
+    op.drop_index(op.f("ix_payroll_periods_agency_id"), table_name="payroll_periods")
+    op.drop_table("payroll_periods")
+    op.drop_index(op.f("ix_notifications_user_id"), table_name="notifications")
+    op.drop_index(op.f("ix_notifications_notification_type"), table_name="notifications")
+    op.drop_index(op.f("ix_notifications_is_read"), table_name="notifications")
+    op.drop_index(op.f("ix_notifications_agency_id"), table_name="notifications")
+    op.drop_table("notifications")
+    op.drop_index(op.f("ix_messages_thread_id"), table_name="messages")
+    op.drop_index(op.f("ix_messages_sender_id"), table_name="messages")
+    op.drop_index(op.f("ix_messages_recipient_id"), table_name="messages")
+    op.drop_index(op.f("ix_messages_agency_id"), table_name="messages")
+    op.drop_table("messages")
+    op.drop_index(op.f("ix_credentials_status"), table_name="credentials")
+    op.drop_index(op.f("ix_credentials_credential_type"), table_name="credentials")
+    op.drop_index(op.f("ix_credentials_caregiver_id"), table_name="credentials")
+    op.drop_index(op.f("ix_credentials_agency_id"), table_name="credentials")
+    op.drop_table("credentials")
+    op.drop_index(op.f("ix_clients_status"), table_name="clients")
+    op.drop_index(op.f("ix_clients_last_name"), table_name="clients")
+    op.drop_index(op.f("ix_clients_first_name"), table_name="clients")
+    op.drop_index(op.f("ix_clients_client_user_id"), table_name="clients")
+    op.drop_index(op.f("ix_clients_agency_id"), table_name="clients")
+    op.drop_table("clients")
+    op.drop_index(op.f("ix_caregiver_profiles_user_id"), table_name="caregiver_profiles")
+    op.drop_index(op.f("ix_caregiver_profiles_agency_id"), table_name="caregiver_profiles")
+    op.drop_table("caregiver_profiles")
+    op.drop_index(op.f("ix_ai_conversations_user_id"), table_name="ai_conversations")
+    op.drop_index(op.f("ix_ai_conversations_status"), table_name="ai_conversations")
+    op.drop_index(op.f("ix_ai_conversations_channel"), table_name="ai_conversations")
+    op.drop_index(op.f("ix_ai_conversations_agency_id"), table_name="ai_conversations")
+    op.drop_table("ai_conversations")
+    op.drop_index(op.f("ix_users_email"), table_name="users")
+    op.drop_index(op.f("ix_users_clerk_id"), table_name="users")
+    op.drop_index(op.f("ix_users_agency_id"), table_name="users")
+    op.drop_table("users")
+    op.drop_index(op.f("ix_email_events_status"), table_name="email_events")
+    op.drop_index(op.f("ix_email_events_ref_id"), table_name="email_events")
+    op.drop_index(op.f("ix_email_events_category"), table_name="email_events")
+    op.drop_index(op.f("ix_email_events_agency_id"), table_name="email_events")
+    op.drop_table("email_events")
+    op.drop_index(op.f("ix_compliance_rules_state_code"), table_name="compliance_rules")
+    op.drop_index(op.f("ix_compliance_rules_rule_type"), table_name="compliance_rules")
+    op.drop_index(op.f("ix_compliance_rules_agency_id"), table_name="compliance_rules")
+    op.drop_table("compliance_rules")
+    op.drop_index(op.f("ix_chart_templates_name"), table_name="chart_templates")
+    op.drop_index(op.f("ix_chart_templates_agency_id"), table_name="chart_templates")
+    op.drop_table("chart_templates")
+    op.drop_index(op.f("ix_baa_records_agency_id"), table_name="baa_records")
+    op.drop_table("baa_records")
+    op.drop_index(op.f("ix_audit_events_user_id"), table_name="audit_events")
+    op.drop_index(op.f("ix_audit_events_resource_type"), table_name="audit_events")
+    op.drop_index(op.f("ix_audit_events_is_phi_access"), table_name="audit_events")
+    op.drop_index(op.f("ix_audit_events_agency_id"), table_name="audit_events")
+    op.drop_index(op.f("ix_audit_events_action"), table_name="audit_events")
+    op.drop_table("audit_events")
+    op.drop_index(op.f("ix_ai_feature_flags_feature_name"), table_name="ai_feature_flags")
+    op.drop_index(op.f("ix_ai_feature_flags_agency_id"), table_name="ai_feature_flags")
+    op.drop_table("ai_feature_flags")
+    op.drop_index(op.f("ix_agencies_slug"), table_name="agencies")
+    op.drop_index(op.f("ix_agencies_name"), table_name="agencies")
+    op.drop_table("agencies")
+    # ### end Alembic commands ###

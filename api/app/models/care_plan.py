@@ -13,7 +13,7 @@ version per Client" at the database level.
 import uuid
 from typing import Any
 
-from sqlalchemy import JSON, Text
+from sqlalchemy import JSON, Index, Text, text
 from sqlmodel import Column, Field
 
 from app.models.base import TenantScopedModel
@@ -28,6 +28,15 @@ class CarePlanVersion(TenantScopedModel, table=True):
     """
 
     __tablename__ = "care_plan_versions"
+    __table_args__ = (
+        Index(
+            "uq_care_plan_active_per_client",
+            "client_id",
+            unique=True,
+            postgresql_where=text("is_active = true"),
+            sqlite_where=text("is_active = 1"),
+        ),
+    )
 
     client_id: uuid.UUID = Field(foreign_key="clients.id", index=True)
     version_no: int = Field(index=True)

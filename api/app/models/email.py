@@ -18,6 +18,7 @@ import enum
 import uuid
 from datetime import datetime
 
+from sqlalchemy import Index, text
 from sqlmodel import Field, UniqueConstraint
 
 from app.models.base import TenantScopedModel
@@ -65,7 +66,16 @@ class EmailEvent(TenantScopedModel, table=True):
     """
 
     __tablename__ = "email_events"
-    __table_args__ = (UniqueConstraint("idempotency_key", name="uq_email_events_idempotency_key"),)
+    __table_args__ = (
+        UniqueConstraint("idempotency_key", name="uq_email_events_idempotency_key"),
+        Index(
+            "ix_email_events_provider_message_id",
+            "provider_message_id",
+            unique=True,
+            postgresql_where=text("provider_message_id IS NOT NULL"),
+            sqlite_where=text("provider_message_id IS NOT NULL"),
+        ),
+    )
 
     category: EmailCategory = Field(index=True)
     ref_id: uuid.UUID = Field(index=True)

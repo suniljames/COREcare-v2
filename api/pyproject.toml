@@ -32,6 +32,7 @@ dev = [
     "factory-boy>=3.3",
     "aiosqlite>=0.20",
     "types-python-jose>=3.5.0.20250531",
+    "testcontainers[postgres]>=4.0",
 ]
 
 [tool.ruff]
@@ -53,6 +54,9 @@ plugins = ["pydantic.mypy"]
 asyncio_mode = "auto"
 testpaths = ["app/tests"]
 addopts = "--tb=short -q"
+markers = [
+    "integration: requires a real Postgres container (skipped if Docker is unavailable)",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
