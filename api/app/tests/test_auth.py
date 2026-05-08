@@ -347,3 +347,28 @@ async def test_dev_fallback_emits_telemetry_event(session: AsyncSession) -> None
     assert len(fallback_events) == 1
     assert fallback_events[0].get("environment") == "development"
     assert fallback_events[0].get("path") == "/protected"
+
+
+# Group 5 — edge cases (#260)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("env_value", ["development", "production"])
+async def test_empty_bearer_token_returns_401(session: AsyncSession, env_value: str) -> None:
+    """``Authorization: Bearer `` (header present, token empty) → 401 in any env — see #260.
+
+    Header non-empty so the dev-mock fallback is skipped, then the empty
+    token fails JWT decode and 401s. Pinning today's behavior so a future
+    refactor can't regress it silently.
+    """
+    test_app = _make_protected_app()
+    _attach_session_override(test_app, session)
+    with (
+        patch.object(settings, "environment", env_value),
+        patch.object(settings, "clerk_secret_key", "sk_test_real"),
+        patch("app.auth._get_clerk_jwks", return_value={}),
+    ):
+        transport = ASGITransport(app=test_app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.get("/protected", headers={"Authorization": "Bearer "})
+            assert resp.status_code == 401
