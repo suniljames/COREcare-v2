@@ -874,7 +874,7 @@ def test_low_confidence_pass_emits_warning_log(
     client = FakeAnthropicClient()
     _all_three_pass_with_confidence(client, q1="high", q2="low", q3="high")
 
-    with caplog.at_level(logging.WARNING, logger="coldreader"):
+    with caplog.at_level(logging.WARNING, logger="coldreader.runner"):
         result = run_rotation(
             fx, section=_section(), index=_index(), client=client, allow_retry=True
         )
@@ -884,7 +884,7 @@ def test_low_confidence_pass_emits_warning_log(
     assert result.low_confidence_count == 1
 
     warnings = [
-        r for r in caplog.records if r.name == "coldreader" and r.levelno == logging.WARNING
+        r for r in caplog.records if r.name == "coldreader.runner" and r.levelno == logging.WARNING
     ]
     assert len(warnings) == 1
     msg = warnings[0].getMessage()
@@ -903,7 +903,7 @@ def test_high_confidence_pass_emits_no_warning_log(
     client = FakeAnthropicClient()
     _all_three_pass_with_confidence(client, q1="high", q2="high", q3="high")
 
-    with caplog.at_level(logging.WARNING, logger="coldreader"):
+    with caplog.at_level(logging.WARNING, logger="coldreader.runner"):
         result = run_rotation(
             fx, section=_section(), index=_index(), client=client, allow_retry=True
         )
@@ -911,7 +911,7 @@ def test_high_confidence_pass_emits_no_warning_log(
     assert result.passed
     assert result.low_confidence_count == 0
     warnings = [
-        r for r in caplog.records if r.name == "coldreader" and r.levelno == logging.WARNING
+        r for r in caplog.records if r.name == "coldreader.runner" and r.levelno == logging.WARNING
     ]
     assert warnings == []
 
@@ -966,7 +966,7 @@ def test_low_confidence_failure_does_not_double_log(
         ),
     )
 
-    with caplog.at_level(logging.WARNING, logger="coldreader"):
+    with caplog.at_level(logging.WARNING, logger="coldreader.runner"):
         result = run_rotation(
             fx, section=_section(), index=_index(), client=client, allow_retry=True
         )
@@ -974,7 +974,7 @@ def test_low_confidence_failure_does_not_double_log(
     assert not result.passed
     assert result.low_confidence_count == 0
     warnings = [
-        r for r in caplog.records if r.name == "coldreader" and r.levelno == logging.WARNING
+        r for r in caplog.records if r.name == "coldreader.runner" and r.levelno == logging.WARNING
     ]
     assert warnings == []
 
@@ -1119,7 +1119,7 @@ def test_malformed_confidence_increments_dedicated_counter(
         q3=("low", False),
     )
 
-    with caplog.at_level(logging.WARNING, logger="coldreader"):
+    with caplog.at_level(logging.WARNING, logger="coldreader.runner"):
         result = run_rotation(
             fx, section=_section(), index=_index(), client=client, allow_retry=True
         )
@@ -1133,7 +1133,7 @@ def test_malformed_confidence_increments_dedicated_counter(
     low_conf_warnings = [
         r
         for r in caplog.records
-        if r.name == "coldreader"
+        if r.name == "coldreader.runner"
         and r.levelno == logging.WARNING
         and "low-confidence pass" in r.getMessage()
     ]
@@ -1193,7 +1193,7 @@ def test_malformed_confidence_on_failure_does_not_double_log(
         ),
     )
 
-    with caplog.at_level(logging.WARNING, logger="coldreader"):
+    with caplog.at_level(logging.WARNING, logger="coldreader.runner"):
         result = run_rotation(
             fx, section=_section(), index=_index(), client=client, allow_retry=True
         )
@@ -1204,7 +1204,7 @@ def test_malformed_confidence_on_failure_does_not_double_log(
     low_conf_warnings = [
         r
         for r in caplog.records
-        if r.name == "coldreader"
+        if r.name == "coldreader.runner"
         and r.levelno == logging.WARNING
         and "low-confidence pass" in r.getMessage()
     ]
@@ -1276,7 +1276,7 @@ def test_pass_b_genuine_low_after_pass_a_malformation_fires_low_conf_breadcrumb(
         ),
     )
 
-    with caplog.at_level(logging.WARNING, logger="coldreader"):
+    with caplog.at_level(logging.WARNING, logger="coldreader.runner"):
         result = run_rotation(
             fx, section=_section(), index=_index(), client=client, allow_retry=True
         )
@@ -1290,7 +1290,7 @@ def test_pass_b_genuine_low_after_pass_a_malformation_fires_low_conf_breadcrumb(
     low_conf_warnings = [
         r
         for r in caplog.records
-        if r.name == "coldreader"
+        if r.name == "coldreader.runner"
         and r.levelno == logging.WARNING
         and "low-confidence pass" in r.getMessage()
     ]
