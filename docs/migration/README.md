@@ -61,9 +61,8 @@ These conventions apply to every document in this set. **Authors must read this 
 
 ### Personas
 
-Six personas, exact strings from `.claude/pm-context.md`:
+Five personas, exact strings from `.claude/pm-context.md`:
 
-- `Super-Admin`
 - `Agency Admin`
 - `Care Manager`
 - `Caregiver`
@@ -71,6 +70,8 @@ Six personas, exact strings from `.claude/pm-context.md`:
 - `Family Member`
 
 No drift to lowercase, no hyphenation changes, no synonyms ("admin," "agency administrator," "care worker," "field worker").
+
+`pm-context.md` also lists `Super-Admin` as a stakeholder, but that's v2-forward-looking — v1 has no Super-Admin role (verified per `core/models.py:1471-1476`'s `RoleCapabilityGrant.ROLE_CHOICES`). The few `is_superuser`-gated v1 routes (notably the View-As emergency kill switch) are folded into `## Agency Admin` with `rls_bypass_by_design=true` per #236.
 
 ### v2 status enum
 

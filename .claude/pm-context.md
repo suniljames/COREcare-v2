@@ -31,6 +31,8 @@ Multi-tenant SaaS for home health agencies. COREcare connects caregivers, family
 | Caregiver | Nurse, CNA, HHA | Efficient documentation, clear assignments, minimal paperwork |
 | Family Member | Spouse, adult child | Visibility, peace of mind, communication |
 
+*(Super-Admin is v2 forward-looking; v1 has no Super-Admin role — `is_superuser`-gated views fold into Agency Admin per [#236](https://github.com/suniljames/COREcare-v2/issues/236).)*
+
 ## Key Workflows
 
 | Workflow | Description |
