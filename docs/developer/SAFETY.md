@@ -23,3 +23,10 @@ This file covers COREcare project-specific safety only.
 2. If stashing, use `git stash push -m "descriptive message"`
 3. Never drop a stash after failed pop
 4. Verify restoration after switching back
+
+## Branch-cut invariants
+
+Every feature branch must be cut from a freshly-fetched `origin/<default-branch>` SHA — never from stale local `main` (see issues #146 / #176 / #191).
+
+- Bash invariant lives in [`.claude/commands/implement.md`](../../.claude/commands/implement.md) (Branch base block) and the mirror copy in [`.claude/commands/review.md`](../../.claude/commands/review.md), with regression coverage in [`scripts/tests/test_implement_branch_cut.sh`](../../scripts/tests/test_implement_branch_cut.sh).
+- Harness contract pin: `worktree.baseRef: "fresh"` in [`.claude/settings.json`](../../.claude/settings.json), with regression coverage in [`scripts/tests/test_worktree_base_setting.sh`](../../scripts/tests/test_worktree_base_setting.sh).

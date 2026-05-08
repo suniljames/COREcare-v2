@@ -1,5 +1,9 @@
 {
   "_comment": "Hooks are sourced from suniljames/dotfiles via ~/.claude/hooks/. Each command guards with [ -x ... ] so missing hooks gracefully no-op rather than erroring. Install dotfiles to activate hooks.",
+  "_comment_worktree": "Pin EnterWorktree's base ref to `fresh` (origin/<default-branch>) so worktrees are not silently cut from local HEAD if the harness default ever changes. See issues #146 / #176 / #191; regression test: scripts/tests/test_worktree_base_setting.sh.",
+  "worktree": {
+    "baseRef": "fresh"
+  },
   "hooks": {
     "SessionStart": [
       {
