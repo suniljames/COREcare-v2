@@ -485,8 +485,8 @@ def test_dry_run_smoke_loads_every_fixture_against_live_inventory(
 
     # No client passed; dry_run_smoke must not require one.
     summary = dry_run_smoke()
-    assert summary.fixtures_loaded == 7
-    assert summary.section_bytes_above_floor == 7
+    assert summary.fixtures_loaded == 6
+    assert summary.section_bytes_above_floor == 6
     assert summary.errors == []
 
 

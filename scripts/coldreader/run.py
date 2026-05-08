@@ -6,7 +6,7 @@ Usage:
 
 Modes:
   --dry-run         Parser + fixture validation only; no API call. No key required.
-  --persona <slug>  Run only this persona (default: all 7 in whitelist order).
+  --persona <slug>  Run only this persona (default: all 6 in whitelist order).
   --no-retry        Disable Pass-B extended-thinking retry on a failing question.
 
 The CLI exits 0 on full PASS, 1 on any drift detected, 2 on parser/fixture errors.
@@ -86,7 +86,7 @@ def main(argv: list[str] | None = None) -> int:
         "--persona",
         choices=PERSONAS,
         default=None,
-        help="run only this persona (default: all 7)",
+        help="run only this persona (default: all 6)",
     )
     parser.add_argument(
         "--dry-run",

@@ -30,10 +30,9 @@ def _write_inventory(tmp_path: Path, contents: str) -> Path:
 # --- whitelist ---
 
 
-def test_persona_whitelist_is_exactly_seven() -> None:
+def test_persona_whitelist_is_exactly_six() -> None:
     assert PERSONAS == (
         "agency-admin",
-        "super-admin",
         "caregiver",
         "care-manager",
         "client",
@@ -93,16 +92,6 @@ def test_extract_section_two_word_personas_match(tmp_path: Path) -> None:
     b = extract_section(md, "family-member", min_bytes=0)
     assert "body" in a and "body2" not in a
     assert "body2" in b and "body" not in b.replace("body2", "")
-
-
-def test_extract_section_super_admin_matches_hyphenated_heading(tmp_path: Path) -> None:
-    md = _write_inventory(
-        tmp_path,
-        "## Super-Admin\nrow content\n## Agency Admin\nother\n",
-    )
-    section = extract_section(md, "super-admin", min_bytes=0)
-    assert "row content" in section
-    assert "other" not in section
 
 
 def test_extract_section_shared_routes_matches_lowercase_word(tmp_path: Path) -> None:
@@ -180,8 +169,8 @@ def test_extract_index_returns_subsection_under_shared_routes_by_default(
     """The canonical cross-ref index lives under ## Shared routes — used in rotations."""
     md = _write_inventory(
         tmp_path,
-        "## Super-Admin\n"
-        "### Cross-reference index\nsuper-admin-scoped index, not the canonical one\n"
+        "## Care Manager\n"
+        "### Cross-reference index\ncare-manager-scoped index, not the canonical one\n"
         "## Shared routes\n"
         "### Cross-reference index\n"
         "Routes whose canonical row lives in a persona section.\n"
@@ -194,7 +183,7 @@ def test_extract_index_returns_subsection_under_shared_routes_by_default(
     assert "Routes whose canonical row lives in a persona section." in index
     assert "/foo/" in index
     assert "this comes after the index" not in index
-    assert "super-admin-scoped index, not the canonical one" not in index
+    assert "care-manager-scoped index, not the canonical one" not in index
 
 
 def test_extract_index_missing_raises_index_not_found(tmp_path: Path) -> None:

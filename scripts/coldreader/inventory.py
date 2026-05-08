@@ -11,7 +11,6 @@ from pathlib import Path
 
 PERSONAS: tuple[str, ...] = (
     "agency-admin",
-    "super-admin",
     "caregiver",
     "care-manager",
     "client",
@@ -21,7 +20,6 @@ PERSONAS: tuple[str, ...] = (
 
 _PERSONA_HEADINGS: dict[str, str] = {
     "agency-admin": "## Agency Admin",
-    "super-admin": "## Super-Admin",
     "caregiver": "## Caregiver",
     "care-manager": "## Care Manager",
     "client": "## Client",
@@ -98,9 +96,8 @@ def extract_section(path: Path, persona: str, *, min_bytes: int) -> str:
 def extract_index(path: Path) -> str:
     """Return the body of the canonical `### Cross-reference index` subsection.
 
-    Canonical = the index nested under `## Shared routes` (not the narrower
-    Super-Admin one). Body excludes the heading line; closes at the next `### `
-    or `## ` line, or EOF.
+    Canonical = the index nested under `## Shared routes`. Body excludes the
+    heading line; closes at the next `### ` or `## ` line, or EOF.
     """
     lines = _read(path)
     in_parent = False

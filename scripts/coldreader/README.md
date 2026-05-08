@@ -39,7 +39,7 @@ scripts/coldreader/
 make coldreader-test          # pytest L1+L2+L3 (no API key)
 make coldreader-local-dry     # parser + fixture validation against live inventory; no API call
 make coldreader-local PERSONA=family-member   # live API call for one persona; requires ANTHROPIC_API_KEY
-make coldreader-local         # all 7 personas
+make coldreader-local         # all 6 personas
 ```
 
 CLI flags:
@@ -58,7 +58,7 @@ Exit codes: `0` PASS, `1` DRIFT (content failure), `2` SETUP error (parser/ancho
 Defined in `inventory.py::PERSONAS`. New personas require BOTH a fixture file AND a whitelist edit; there is no auto-discovery.
 
 ```
-agency-admin, super-admin, caregiver, care-manager, client, family-member, shared-routes
+agency-admin, caregiver, care-manager, client, family-member, shared-routes
 ```
 
 ## Fixture schema
