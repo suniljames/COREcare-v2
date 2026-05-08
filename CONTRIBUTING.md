@@ -55,6 +55,13 @@ make coldreader-local-dry # Dry-run the rotation parser + fixtures against the l
 
 Tailscale for network access from other devices.
 
+## Slash-command Invariants
+
+Slash commands that cut branches must do so from an explicit, freshly-fetched
+named remote ref (e.g., `origin/main`) — never from an implicit local branch.
+See [`#176`](https://github.com/suniljames/COREcare-v2/issues/176) and the
+regression test at `scripts/tests/test_implement_branch_cut.sh`.
+
 ## Project Docs
 
 | Topic | File |

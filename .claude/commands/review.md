@@ -25,7 +25,34 @@ Find the linked issue from progress file, branch name, or commit messages.
 make check
 ```
 
-## 0.3: Push and create PR
+## 0.3: Branch base — cut from freshly-fetched origin/main (when creating a new branch)
+
+If `/review` is invoked without a pre-existing feature branch (i.e., this flow
+will create one), apply the same invariant as `/implement`: cut from a
+freshly-fetched `origin/main`, never stale local `main`.
+
+```bash
+# Cut from origin/main, not local main — see issue #176.
+git fetch origin main
+BASE_SHA=$(git rev-parse origin/main)
+if [[ -z "$BASE_SHA" || ! "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+  echo "ERROR: could not resolve origin/main to a SHA. Aborting." >&2
+  exit 1
+fi
+echo "Cutting from origin/main @ ${BASE_SHA:0:8}"
+LOCAL_BEHIND=$(git rev-list --count "main..origin/main" 2>/dev/null || echo 0)
+if [[ "$LOCAL_BEHIND" -gt 0 ]]; then
+  echo "Local main was $LOCAL_BEHIND commits behind origin/main; using origin/main as the base."
+fi
+git checkout -b "<feature-branch-name>" "$BASE_SHA"
+```
+
+Rules:
+- Do **not** silence stderr from `git fetch`. Failure must be loud and abort.
+- Do **not** fall back to local `main` under any condition.
+- Do **not** auto-delete an existing local branch — fail clearly if the target name already exists.
+
+## 0.4: Push and create PR
 
 ```bash
 git push -u origin HEAD
