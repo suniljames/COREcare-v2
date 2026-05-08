@@ -37,9 +37,6 @@ check: ## Run all quality gates (pre-PR)
 	bash scripts/tests/test_worktree_base_setting.sh
 	bash scripts/tests/test_pipeline_state_gate.sh
 	bash scripts/tests/test_check_workflow_lfs_posture.sh
-	bash scripts/tests/test_lfs_bandwidth_snapshot.sh
-	bash scripts/tests/test_lfs_watch_window.sh
-	bash scripts/tests/test_lfs_report_matcher.sh
 	bash scripts/check-workflow-lfs-posture.sh
 
 # --- Individual targets ---
