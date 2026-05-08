@@ -163,6 +163,14 @@ format_comment() {
     fingerprint_callout=$'\n> **Baseline fingerprint match.** The `clients/models.py` diff touches a `ClientFamilyMember` invariant token (one of `is_active`, `deleted_at`, `expires_at`, `role`, `permission`). v1 has changed a previously-stable property of the model — re-author the rows that depend on it.\n'
   fi
 
+  # Issue #211: when the SHA bump touches v1 */urls.py, the static
+  # mount-prefix fixture must be refreshed in the same PR or the
+  # check-v1-inventory-mount-prefixes.sh pre-flight will block merge.
+  local fixture_refresh_callout=""
+  if [[ -n "$urls_diff" ]]; then
+    fixture_refresh_callout=$'\n> **Fixture refresh required (#211).** This SHA bump touches v1 `*/urls.py`. Refresh `docs/migration/fixtures/v1-elitecare-urls.txt` in this PR per the [v1 mount-prefix fixture refresh](../blob/main/docs/migration/README.md#v1-mount-prefix-fixture-refresh) runbook step, or `scripts/check-v1-inventory-mount-prefixes.sh` will fail the bump with a stale-fixture error.\n'
+  fi
+
   local action_block
   case "$action_branch" in
     empty)
@@ -197,7 +205,7 @@ This is the automated **silent drift** check from the [Family Member refresh run
 ### Action
 
 ${action_block}
-${fingerprint_callout}
+${fingerprint_callout}${fixture_refresh_callout}
 ### Stats
 
 | Diff target | Files | +lines | −lines |

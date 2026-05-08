@@ -1,0 +1,28 @@
+# v1 elitecare/urls.py mount-prefix projection
+# Source: https://github.com/hcunanan79/COREcare-access/blob/9738412a6e41064203fc253d9dd2a5c6a9c2e231/elitecare/urls.py
+# v1 SHA: 9738412a6e41064203fc253d9dd2a5c6a9c2e231
+# Refresh: when the V1 Reference Commit SHA in docs/migration/README.md is bumped.
+# Refresh procedure: docs/migration/README.md#v1-mount-prefix-fixture-refresh
+#
+# Format: one production-mount declaration per non-comment line, exactly as it
+# appears in elitecare/urls.py (whitespace-trimmed). Only the inclusion-style
+# mounts (path(..., include(...))) and the Django admin mount are projected.
+# Per-route view registrations and DEBUG-only mounts are intentionally omitted —
+# this fixture is the cross-persona section-mount source of truth, not a v1
+# URLConf mirror.
+path("caregiver/", include("caregiver_dashboard.urls"))
+path("employees/", include("employees.urls"))
+path("admin/settings/service-catalog/", include("billing_catalogs.urls", namespace="billing_catalogs"))
+path("admin/", include("billing.urls", namespace="billing"))
+path("admin/", admin.site.urls)
+path("charting/", include("charting.urls"))
+path("care-manager/", include("care_manager.urls"))
+path("api/care-manager/", include("care_manager.api.urls"))
+path("api/v1/", include("api.urls"))
+path("schedule/", include("clients.urls"))
+path("clients/", include("clients.urls"))
+path("dashboard/", include("dashboard.urls"))
+path("", include("auth_service.urls"))
+path("quickbooks/", include("quickbooks_integration.urls"))
+path("legal/", include("compliance.urls"))
+path("compliance/files/", include("compliance.urls_file_serve"))
