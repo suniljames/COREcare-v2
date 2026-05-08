@@ -3059,8 +3059,12 @@ assert_coverage_parity \
 # labeling drift: SL-1.1, SL_1a, SL-1ab all fail.
 #
 # Detection regex `[A-Z]{2}[-_][0-9]+[A-Za-z0-9_]*` is broader than canonical
-# so it captures plausible drift forms. Period is excluded from the trailing
-# class so prose punctuation ("CR-3.") doesn't false-positive.
+# so it captures plausible drift forms. Two non-obvious choices:
+#   - `[-_]` (not just `-`) catches underscored drift forms like `SL_1a` so
+#     they fail MT-2 instead of silently disappearing from MT-1's set (whose
+#     extractor only matches `[A-Z]{2}-[0-9]+...`).
+#   - Period is EXCLUDED from the trailing `[A-Za-z0-9_]*` class so prose
+#     punctuation ("CR-3.", "JL-7.") doesn't false-positive.
 
 _assert_canonical_code_shape() {
   local file="$1"
