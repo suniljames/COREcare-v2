@@ -167,6 +167,21 @@ The submitter Sarah Johnson reported the receipt.
 EOF
 assert_exit "unquoted Sarah Johnson still trips" 1 "$HYGIENE" "$FIXTURES/unquoted_real_name.md"
 
+# Capitalized words ON EITHER SIDE of a quoted run must NOT become artificially
+# adjacent. Stripping `"..."` to nothing would collapse `Just "x" Worth` into
+# `Just  Worth` (false trip). Replacement with `_` prevents this.
+cat > "$FIXTURES/quote_separator.md" <<'EOF'
+Just "secure login." Worth confirming v2 keeps the role-tuned expirations.
+EOF
+assert_exit "capitalized words flanking a quoted run do not falsely trip" 0 \
+  "$HYGIENE" "$FIXTURES/quote_separator.md"
+
+cat > "$FIXTURES/quote_separator2.md" <<'EOF'
+- **No second person.** Never "you," "your." The catalog reader is generic.
+EOF
+assert_exit "capitalized words flanking quoted runs in a list don't trip" 0 \
+  "$HYGIENE" "$FIXTURES/quote_separator2.md"
+
 # --- Multiple files at once ---
 cat > "$FIXTURES/clean2.md" <<'EOF'
 # Another clean doc

@@ -93,9 +93,18 @@ scan_file() {
   #    which legitimately contain bigram-capitalized phrases that shouldn't
   #    trip the plausible-name heuristic. Stripping `"..."` runs is consistent
   #    with how check-v1-caption-voice.sh exempts literal labels from voice
-  #    scanning. Trade-off: a real name accidentally written inside double
-  #    quotes (e.g., `"John Doe"`) would slip past this scan — accepted
-  #    because the plausible-name heuristic is conservative anyway and other
+  #    scanning.
+  #
+  #    Replace stripped runs with a single underscore (not empty) so that
+  #    bigram-capitalized words on either side of a quote cannot become
+  #    artificially adjacent. Example: `Just "secure login." Worth …`
+  #    must NOT collapse to `Just  Worth` (which would falsely trip).
+  #    Replacing with `_` produces `Just _ Worth` — no adjacent capitalized
+  #    bigram, no false positive.
+  #
+  #    Trade-off: a real name accidentally written inside double quotes
+  #    (e.g., `"John Doe"`) would slip past this scan — accepted because
+  #    the plausible-name heuristic is conservative anyway and other
   #    layers (PR review, caption-PHI check) catch the rest.
   local stripped
   stripped=$(awk '
@@ -107,7 +116,7 @@ scan_file() {
     {
       gsub(/`[^`]*`/, "")
       gsub(/\[[^]]*\]/, "")
-      gsub(/"[^"]*"/, "")
+      gsub(/"[^"]*"/, "_")
       print
     }
   ' "$file")
