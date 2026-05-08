@@ -2,7 +2,7 @@
 # docs/migration/v1-pages-inventory.md.
 #
 # The Shared routes section is unique: it owns the canonical
-# `### Cross-reference index` for the whole inventory, plus five rows for
+# `### Cross-reference index` for the whole inventory, plus rows for
 # routes that don't fit any single persona. Questions are authored fresh.
 #
 # `must_mention` is the validation oracle; `fact_summary` is documentation only.

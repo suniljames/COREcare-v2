@@ -69,6 +69,15 @@ class RotationResult:
         return any(f.failure_class == FAILURE_CLASS_SETUP for f in self.failures)
 
     def format_failure(self, failure: RotationFailure) -> str:
+        # The model's actual answer is the load-bearing detail when triaging
+        # whether a failure is real drift, a fixture-vocabulary mismatch, or
+        # a question the model finds intractable. Without it the docs author
+        # has to dig into Actions logs.
+        answer_block = (
+            f"\n  Model answer: {failure.model_answer.strip()[:500]}"
+            if failure.model_answer
+            else ""
+        )
         return (
             f"FAILED [{failure.failure_class}] — {failure.persona} / "
             f"{failure.question_id} ({failure.question_text!r})\n"

@@ -669,6 +669,39 @@ $INTEGRATIONS_SEP
 EOF
 assert_exit "SL-3: severity empty when v2_status=missing fails" 1 "$STRUCTURE" --dir "$TEST_DIR/integrations-sl3-empty"
 
+# --- SL-3 (bad-token): invalid severity token in {H, M, L, D} set ---
+mkdir -p "$TEST_DIR/integrations-sl3-bad-token"
+write_integrations_inventory "$TEST_DIR/integrations-sl3-bad-token/v1-pages-inventory.md"
+write_good_delta "$TEST_DIR/integrations-sl3-bad-token/v1-functionality-delta.md"
+cat > "$TEST_DIR/integrations-sl3-bad-token/v1-integrations-and-exports.md" <<EOF
+# V1 Integrations and Exports
+
+## Schema
+
+table.
+
+## External integrations
+
+### Billing and payments
+
+$INTEGRATIONS_HEADER
+$INTEGRATIONS_SEP
+| Bad row | Vendor | Trigger | outbound; sync | [/quickbooks/](v1-pages-inventory.md#quickbooks_integration) | Sees: thing. | missing | X |
+
+### Payroll
+### Accounting
+### Messaging and notifications (third-party)
+### Identity, auth, and SSO (third-party)
+### Other
+
+## Internal notification and email backend
+
+## Customer-facing exports
+
+## Cross-references
+EOF
+assert_exit "SL-3: invalid severity token fails" 1 "$STRUCTURE" --dir "$TEST_DIR/integrations-sl3-bad-token"
+
 # --- SL-4: invalid direction_and_sync token ---
 mkdir -p "$TEST_DIR/integrations-sl4"
 write_integrations_inventory "$TEST_DIR/integrations-sl4/v1-pages-inventory.md"
@@ -2099,6 +2132,218 @@ cat > "$TEST_DIR/xref-two-indexes/v1-pages-inventory.md" <<'EOF'
 EOF
 write_good_delta "$TEST_DIR/xref-two-indexes/v1-functionality-delta.md"
 assert_exit "two cross-ref indexes; second has CR-3 violation → fail" 1 "$STRUCTURE" --dir "$TEST_DIR/xref-two-indexes"
+
+# === Refresh-runbook rule group (RR-N) — Issue #132 =========================
+#
+# RR-1 — `## Refresh runbook` H2 exists in README.md.
+# RR-2 — `### Refresh order — Agency Admin first` H3 exists, placed inside
+#        the Refresh runbook section.
+# RR-3 — Each `### <Persona> section …` H3 (persona from REQUIRED_PERSONAS) is
+#        placed inside the Refresh runbook section.
+# RR-4a — Each persona-section override body contains `V1 Reference Commit`.
+# RR-4b — Each persona-section override body contains
+#         `Baseline at the currently-pinned SHA:`.
+# RR-4c — Each persona-section override body contains BOTH
+#         `If any diff is non-empty:` AND `If all diffs are empty:`.
+# RR-4d — Each persona-section override body contains the literal `'*/urls.py'`
+#         AND ≥3 distinct `git diff <old>..<new> -- ` invocations.
+# RR-5 — Every `(#<anchor>)` link in README.md resolves to a heading in the
+#        same README.
+
+write_good_readme() {
+  local path="$1"
+  cat > "$path" <<'EOF'
+# v1 Reference Set
+
+## Refresh runbook
+
+When v1 receives material changes, refresh this docset against the new SHA.
+
+### Family Member section — extra diff checks before re-authoring
+
+Family Member is the lowest-frequency persona surface. Run these checks every time the `V1 Reference Commit` above is bumped.
+
+In your local v1 checkout, against the previously-pinned SHA:
+
+- `git diff <old>..<new> -- '*/urls.py'` — surfaces new family-prefixed routes.
+- `git diff <old>..<new> -- clients/` — surfaces permission-gating changes.
+- `git diff <old>..<new> -- clients/models.py` — surfaces schema shifts.
+
+Baseline at the currently-pinned SHA: `ClientFamilyMember` has no `is_active`.
+
+If any diff is non-empty: re-author affected rows. If all diffs are empty: still bump `last reconciled`.
+
+### Refresh order — Agency Admin first
+
+Agency Admin is the most-iterated persona surface. Refresh first.
+
+See [Family Member section](#family-member-section--extra-diff-checks-before-re-authoring) above.
+
+## Workflow secrets
+
+Closing section.
+EOF
+}
+
+# --- RR pass case: good README + good inventory + good delta → pass ---
+mkdir -p "$TEST_DIR/rr-good"
+write_good_inventory "$TEST_DIR/rr-good/v1-pages-inventory.md"
+write_good_delta     "$TEST_DIR/rr-good/v1-functionality-delta.md"
+write_good_readme    "$TEST_DIR/rr-good/README.md"
+assert_exit "RR: good README passes" 0 "$STRUCTURE" --dir "$TEST_DIR/rr-good"
+
+# --- RR-1: missing `## Refresh runbook` H2 → fail ---
+mkdir -p "$TEST_DIR/rr-1-missing-runbook"
+write_good_inventory "$TEST_DIR/rr-1-missing-runbook/v1-pages-inventory.md"
+write_good_delta     "$TEST_DIR/rr-1-missing-runbook/v1-functionality-delta.md"
+write_good_readme    "$TEST_DIR/rr-1-missing-runbook/README.md"
+# Demote the Refresh runbook H2 to a paragraph mention.
+sed -i.bak 's|^## Refresh runbook$|Refresh runbook is described below.|' "$TEST_DIR/rr-1-missing-runbook/README.md"
+rm -f "$TEST_DIR/rr-1-missing-runbook/README.md.bak"
+assert_exit "RR-1: missing '## Refresh runbook' H2 fails" 1 "$STRUCTURE" --dir "$TEST_DIR/rr-1-missing-runbook"
+
+# --- RR-2: missing `### Refresh order — Agency Admin first` H3 → fail ---
+mkdir -p "$TEST_DIR/rr-2-missing-h3"
+write_good_inventory "$TEST_DIR/rr-2-missing-h3/v1-pages-inventory.md"
+write_good_delta     "$TEST_DIR/rr-2-missing-h3/v1-functionality-delta.md"
+write_good_readme    "$TEST_DIR/rr-2-missing-h3/README.md"
+# Remove the Agency-Admin-first H3 line (and its body paragraph).
+sed -i.bak '/^### Refresh order — Agency Admin first$/,/^Agency Admin is the most-iterated/d' "$TEST_DIR/rr-2-missing-h3/README.md"
+rm -f "$TEST_DIR/rr-2-missing-h3/README.md.bak"
+assert_exit "RR-2: missing '### Refresh order — Agency Admin first' H3 fails" 1 "$STRUCTURE" --dir "$TEST_DIR/rr-2-missing-h3"
+
+# --- RR-2 placement: Agency-Admin-first H3 placed AFTER `## Workflow secrets` (out of section) → fail ---
+mkdir -p "$TEST_DIR/rr-2-placement"
+write_good_inventory "$TEST_DIR/rr-2-placement/v1-pages-inventory.md"
+write_good_delta     "$TEST_DIR/rr-2-placement/v1-functionality-delta.md"
+cat > "$TEST_DIR/rr-2-placement/README.md" <<'EOF'
+# v1 Reference Set
+
+## Refresh runbook
+
+### Family Member section — extra diff checks before re-authoring
+
+Family Member is the lowest-frequency persona surface. Run these checks every time the `V1 Reference Commit` above is bumped.
+
+- `git diff <old>..<new> -- '*/urls.py'` — surfaces new family-prefixed routes.
+- `git diff <old>..<new> -- clients/` — surfaces permission-gating changes.
+- `git diff <old>..<new> -- clients/models.py` — surfaces schema shifts.
+
+Baseline at the currently-pinned SHA: `ClientFamilyMember` has no `is_active`.
+
+If any diff is non-empty: re-author. If all diffs are empty: still bump `last reconciled`.
+
+## Workflow secrets
+
+### Refresh order — Agency Admin first
+
+Agency Admin is the most-iterated persona surface.
+EOF
+assert_exit "RR-2 placement: H3 outside Refresh runbook section fails" 1 "$STRUCTURE" --dir "$TEST_DIR/rr-2-placement"
+
+# --- RR-3 placement: persona-section H3 placed BEFORE `## Refresh runbook` → fail ---
+mkdir -p "$TEST_DIR/rr-3-placement"
+write_good_inventory "$TEST_DIR/rr-3-placement/v1-pages-inventory.md"
+write_good_delta     "$TEST_DIR/rr-3-placement/v1-functionality-delta.md"
+cat > "$TEST_DIR/rr-3-placement/README.md" <<'EOF'
+# v1 Reference Set
+
+## Some other section
+
+### Family Member section — extra diff checks before re-authoring
+
+Family Member is the lowest-frequency persona surface. Run these checks every time the `V1 Reference Commit` above is bumped.
+
+- `git diff <old>..<new> -- '*/urls.py'` — surfaces new family-prefixed routes.
+- `git diff <old>..<new> -- clients/` — surfaces permission-gating changes.
+- `git diff <old>..<new> -- clients/models.py` — surfaces schema shifts.
+
+Baseline at the currently-pinned SHA: `ClientFamilyMember` has no `is_active`.
+
+If any diff is non-empty: re-author. If all diffs are empty: still bump `last reconciled`.
+
+## Refresh runbook
+
+### Refresh order — Agency Admin first
+
+Agency Admin is the most-iterated persona surface.
+
+## Workflow secrets
+
+Closing.
+EOF
+assert_exit "RR-3 placement: persona-section H3 outside Refresh runbook section fails" 1 "$STRUCTURE" --dir "$TEST_DIR/rr-3-placement"
+
+# --- RR-3: persona-name typo (`Family Members section`) → fail ---
+# Typo means the H3 won't match the locked persona regex AND there is no valid
+# persona-section override H3 inside the runbook section. The structure script
+# treats this as zero-overrides plus an unrecognized H3 in the section.
+mkdir -p "$TEST_DIR/rr-3-typo"
+write_good_inventory "$TEST_DIR/rr-3-typo/v1-pages-inventory.md"
+write_good_delta     "$TEST_DIR/rr-3-typo/v1-functionality-delta.md"
+write_good_readme    "$TEST_DIR/rr-3-typo/README.md"
+# Add a typo'd persona H3 (`Members` plural) inside the runbook section. Without
+# the locked persona name, RR-3 must fail.
+sed -i.bak 's|^### Family Member section — extra diff checks before re-authoring$|### Family Members section — extra diff checks before re-authoring|' "$TEST_DIR/rr-3-typo/README.md"
+rm -f "$TEST_DIR/rr-3-typo/README.md.bak"
+assert_exit "RR-3: persona-name typo ('Family Members' plural) fails" 1 "$STRUCTURE" --dir "$TEST_DIR/rr-3-typo"
+
+# --- RR-4a: `V1 Reference Commit` literal removed → fail ---
+mkdir -p "$TEST_DIR/rr-4a"
+write_good_inventory "$TEST_DIR/rr-4a/v1-pages-inventory.md"
+write_good_delta     "$TEST_DIR/rr-4a/v1-functionality-delta.md"
+write_good_readme    "$TEST_DIR/rr-4a/README.md"
+sed -i.bak 's|`V1 Reference Commit`|the pinned commit|' "$TEST_DIR/rr-4a/README.md"
+rm -f "$TEST_DIR/rr-4a/README.md.bak"
+assert_exit "RR-4a: 'V1 Reference Commit' literal removed fails" 1 "$STRUCTURE" --dir "$TEST_DIR/rr-4a"
+
+# --- RR-4b: `Baseline at the currently-pinned SHA:` literal removed → fail ---
+mkdir -p "$TEST_DIR/rr-4b"
+write_good_inventory "$TEST_DIR/rr-4b/v1-pages-inventory.md"
+write_good_delta     "$TEST_DIR/rr-4b/v1-functionality-delta.md"
+write_good_readme    "$TEST_DIR/rr-4b/README.md"
+sed -i.bak 's|Baseline at the currently-pinned SHA:|At the pinned SHA today:|' "$TEST_DIR/rr-4b/README.md"
+rm -f "$TEST_DIR/rr-4b/README.md.bak"
+assert_exit "RR-4b: 'Baseline at the currently-pinned SHA:' literal removed fails" 1 "$STRUCTURE" --dir "$TEST_DIR/rr-4b"
+
+# --- RR-4c: only one of {non-empty, all-empty} branches present → fail ---
+mkdir -p "$TEST_DIR/rr-4c"
+write_good_inventory "$TEST_DIR/rr-4c/v1-pages-inventory.md"
+write_good_delta     "$TEST_DIR/rr-4c/v1-functionality-delta.md"
+write_good_readme    "$TEST_DIR/rr-4c/README.md"
+# Strip the empty-diff branch sentence — leaves only the non-empty branch.
+sed -i.bak 's| If all diffs are empty: still bump `last reconciled`.||' "$TEST_DIR/rr-4c/README.md"
+rm -f "$TEST_DIR/rr-4c/README.md.bak"
+assert_exit "RR-4c: missing 'If all diffs are empty:' branch fails" 1 "$STRUCTURE" --dir "$TEST_DIR/rr-4c"
+
+# --- RR-4d count: only 2 distinct `git diff` invocations → fail ---
+mkdir -p "$TEST_DIR/rr-4d-count"
+write_good_inventory "$TEST_DIR/rr-4d-count/v1-pages-inventory.md"
+write_good_delta     "$TEST_DIR/rr-4d-count/v1-functionality-delta.md"
+write_good_readme    "$TEST_DIR/rr-4d-count/README.md"
+# Remove the third `git diff … clients/models.py` line.
+sed -i.bak '/`git diff <old>..<new> -- clients\/models.py`/d' "$TEST_DIR/rr-4d-count/README.md"
+rm -f "$TEST_DIR/rr-4d-count/README.md.bak"
+assert_exit "RR-4d count: only 2 git-diff invocations fails" 1 "$STRUCTURE" --dir "$TEST_DIR/rr-4d-count"
+
+# --- RR-4d literal: `'*/urls.py'` narrowed to `'dashboard/urls.py'` → fail ---
+mkdir -p "$TEST_DIR/rr-4d-literal"
+write_good_inventory "$TEST_DIR/rr-4d-literal/v1-pages-inventory.md"
+write_good_delta     "$TEST_DIR/rr-4d-literal/v1-functionality-delta.md"
+write_good_readme    "$TEST_DIR/rr-4d-literal/README.md"
+sed -i.bak "s|'\\*/urls.py'|'dashboard/urls.py'|" "$TEST_DIR/rr-4d-literal/README.md"
+rm -f "$TEST_DIR/rr-4d-literal/README.md.bak"
+assert_exit "RR-4d literal: '*/urls.py' narrowed to 'dashboard/urls.py' fails" 1 "$STRUCTURE" --dir "$TEST_DIR/rr-4d-literal"
+
+# --- RR-5: typo in anchor target inside README → fail ---
+mkdir -p "$TEST_DIR/rr-5"
+write_good_inventory "$TEST_DIR/rr-5/v1-pages-inventory.md"
+write_good_delta     "$TEST_DIR/rr-5/v1-functionality-delta.md"
+write_good_readme    "$TEST_DIR/rr-5/README.md"
+# Break the (#…) link target so it no longer resolves to any heading.
+sed -i.bak 's|(#family-member-section--extra-diff-checks-before-re-authoring)|(#family-mmber-section)|' "$TEST_DIR/rr-5/README.md"
+rm -f "$TEST_DIR/rr-5/README.md.bak"
+assert_exit "RR-5: orphan anchor link in README fails" 1 "$STRUCTURE" --dir "$TEST_DIR/rr-5"
 
 # --- Test 13: smoke-check against the actual repo inventory → pass (no false positives) ---
 # This guarantees the new check does not regress against current main content.

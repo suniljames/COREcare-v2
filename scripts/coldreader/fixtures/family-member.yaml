@@ -2,12 +2,11 @@
 # docs/migration/v1-pages-inventory.md.
 #
 # Each question must be answerable from that section + the canonical
-# `### Cross-reference index` (under `## Shared routes`) alone, in <60s
-# by a fresh-context AI agent. Authored against issue #103 / DoD.
+# `### Cross-reference index` (under `## Shared routes`) alone.
+# Authored against issue #103 / DoD.
 #
-# `min_section_bytes` is the floor below which the runner aborts before
-# any API call — calibrated to ~70% of the current authored size (5201
-# bytes) so a halving of the section trips it.
+# `min_section_bytes` floor is calibrated to ~70% of the current
+# authored size so a halving of the section trips it.
 #
 # `must_mention` is the validation oracle; `fact_summary` is documentation only.
 # When you change a question's contract, refresh both fields together.

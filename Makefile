@@ -54,7 +54,6 @@ test-v1-docs: ## Run v1 doc hygiene + structure + catalog scripts self-tests
 	bash scripts/tests/test_check_v1_doc_structure.sh
 	bash scripts/tests/test_check_v1_catalog_coverage.sh
 	bash scripts/tests/test_extract_inventory_routes.sh
-	bash scripts/tests/test_readme_runbook_entries.sh
 	bash scripts/tests/test_post_v1_sha_bump_diff.sh
 
 coldreader-test: ## Run coldreader pytest (L1+L2+L3, no API key needed)

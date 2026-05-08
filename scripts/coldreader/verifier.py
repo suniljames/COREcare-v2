@@ -30,6 +30,26 @@ class VerifyResult:
     total: int = 0
 
 
+def _normalize_for_evidence(text: str) -> str:
+    """Strip surface markdown markers before comparing evidence strings.
+
+    The model occasionally drops bold/italic markers (`**`, `__`, `*`, `_`)
+    from a quoted span when it copies "verbatim" — the substance is identical
+    but a literal substring check rejects it. Normalizing both haystack and
+    needle the same way makes the check robust to that.
+
+    Whitespace and case are left alone — those carry semantic weight.
+    """
+    out = text
+    for marker in ("**", "__"):
+        out = out.replace(marker, "")
+    # Single-char emphasis markers are riskier (they collide with text), so
+    # only strip them when adjacent to alphanumeric chars on both sides — i.e.
+    # likely emphasis, not punctuation. Skipped for now; the double-marker
+    # strip alone covers every observed case.
+    return out
+
+
 def verify_evidence(
     evidence: tuple[str, ...],
     section: str,
@@ -39,14 +59,18 @@ def verify_evidence(
 
     Returns the first missing string for inclusion in the failure message.
     Empty evidence → fail (the model didn't ground its answer).
+
+    Both haystack and needle are normalized to strip bold-markdown markers
+    (`**`, `__`) — the model sometimes drops these when quoting a bolded
+    span. Whitespace and casing are preserved.
     """
     if not evidence:
         return VerifyResult(passed=False, reason="model returned no verbatim_evidence")
 
-    sources = (section, index)
+    sources = (_normalize_for_evidence(section), _normalize_for_evidence(index))
     for s in evidence:
         # Trim whitespace at edges; the model's quoting is sometimes loose.
-        needle = s.strip()
+        needle = _normalize_for_evidence(s.strip())
         if not needle:
             return VerifyResult(passed=False, reason="empty evidence string")
         if not any(needle in src for src in sources):
