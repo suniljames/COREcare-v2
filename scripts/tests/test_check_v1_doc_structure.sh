@@ -743,6 +743,77 @@ $INTEGRATIONS_SEP
 EOF
 assert_exit_and_match "SL-3: invalid severity token fails" 1 'SL-3:.*not in \{H, M, L, D' "$STRUCTURE" --dir "$TEST_DIR/integrations-sl3-bad-token"
 
+# --- SL-3a (lowercase): regex is case-sensitive — 'h' rejected ---
+mkdir -p "$TEST_DIR/integrations-sl3-lowercase"
+write_integrations_inventory "$TEST_DIR/integrations-sl3-lowercase/v1-pages-inventory.md"
+write_good_delta "$TEST_DIR/integrations-sl3-lowercase/v1-functionality-delta.md"
+cat > "$TEST_DIR/integrations-sl3-lowercase/v1-integrations-and-exports.md" <<EOF
+# V1 Integrations and Exports
+
+## Schema
+
+table.
+
+## External integrations
+
+### Billing and payments
+
+$INTEGRATIONS_HEADER
+$INTEGRATIONS_SEP
+| Bad row | Vendor | Trigger | outbound; sync | [/quickbooks/](v1-pages-inventory.md#quickbooks_integration) | Sees: thing. | missing | h |
+
+### Payroll
+### Accounting
+### Messaging and notifications (third-party)
+### Identity, auth, and SSO (third-party)
+### Other
+
+## Internal notification and email backend
+
+## Customer-facing exports
+
+## Cross-references
+EOF
+assert_exit_and_match "SL-3: lowercase severity token fails (case-sensitive regex)" 1 'SL-3:.*not in \{H, M, L, D' "$STRUCTURE" --dir "$TEST_DIR/integrations-sl3-lowercase"
+
+# --- SL-3a (padded): trim() runs before regex — abnormal trailing whitespace accepted ---
+# The data row's severity cell has TWO spaces between 'H' and the closing '|' — extra,
+# non-standard whitespace. trim() at scripts/check-v1-doc-structure.sh:320 strips it
+# before the regex check, so the row passes. Removing trim() would flip this to fail.
+# Editor whitespace-stripping should leave this alone (interior, between non-whitespace
+# tokens). If this fixture starts failing, first verify the second space survived.
+mkdir -p "$TEST_DIR/integrations-sl3-padded"
+write_integrations_inventory "$TEST_DIR/integrations-sl3-padded/v1-pages-inventory.md"
+write_good_delta "$TEST_DIR/integrations-sl3-padded/v1-functionality-delta.md"
+cat > "$TEST_DIR/integrations-sl3-padded/v1-integrations-and-exports.md" <<EOF
+# V1 Integrations and Exports
+
+## Schema
+
+table.
+
+## External integrations
+
+### Billing and payments
+
+$INTEGRATIONS_HEADER
+$INTEGRATIONS_SEP
+| Bad row | Vendor | Trigger | outbound; sync | [/quickbooks/](v1-pages-inventory.md#quickbooks_integration) | Sees: thing. | missing | H  |
+
+### Payroll
+### Accounting
+### Messaging and notifications (third-party)
+### Identity, auth, and SSO (third-party)
+### Other
+
+## Internal notification and email backend
+
+## Customer-facing exports
+
+## Cross-references
+EOF
+assert_exit "SL-3: trailing-space severity token passes (trim-then-validate)" 0 "$STRUCTURE" --dir "$TEST_DIR/integrations-sl3-padded"
+
 # --- SL-4: invalid direction_and_sync token ---
 mkdir -p "$TEST_DIR/integrations-sl4"
 write_integrations_inventory "$TEST_DIR/integrations-sl4/v1-pages-inventory.md"
