@@ -28,11 +28,11 @@ describe("substitutePlaceholders", () => {
   });
 
   it("reports missing placeholders without substituting partials", () => {
-    const r = substitutePlaceholders("/admin/expenses/<int:expense_id>/approve/");
+    const r = substitutePlaceholders("/admin/visits/<int:visit_id>/approve/");
     expect(r.substituted).toBe(false);
-    expect(r.missing).toEqual(["int:expense_id"]);
+    expect(r.missing).toEqual(["int:visit_id"]);
     // URL is left in pattern form so the operator can debug
-    expect(r.url).toBe("/admin/expenses/<int:expense_id>/approve/");
+    expect(r.url).toBe("/admin/visits/<int:visit_id>/approve/");
   });
 
   it("handles routes with mixed known + unknown placeholders", () => {
