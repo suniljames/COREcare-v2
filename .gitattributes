@@ -2,7 +2,6 @@
 #
 # WebP screenshots committed under docs/legacy/v1-ui-catalog/ are stored via
 # Git LFS. Captions, READMEs, and the run manifest stay in regular git.
-#
 # Contributors: run `git lfs install` once after cloning. CONTRIBUTING.md
 # documents the setup. CI workflows that do not need to view the catalog
 # binaries should skip LFS smudging via `LFS_SKIP_SMUDGE=1`.
