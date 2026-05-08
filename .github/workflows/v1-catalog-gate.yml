@@ -1,8 +1,9 @@
 name: V1 Catalog Gate
 
-# Per-PR caption-quality gates for the v1 UI catalog (issue #107 Phase 3 of
-# #107 — caption authoring; #184 final acceptance). Triggers when caption
-# files or the gate scripts/tests change.
+# Per-PR caption-quality gates for the v1 UI catalog. Phase 3 of #107
+# (caption authoring) was tracked under #184; this workflow's final-
+# acceptance state landed in PR 6 of #184. Triggers when caption files
+# or the gate scripts/tests change.
 # Authored captions must pass:
 #   - voice + format lint (scripts/check-v1-caption-voice.sh)
 #   - body-scoped placeholder check (scripts/check-v1-caption-phi.sh)
