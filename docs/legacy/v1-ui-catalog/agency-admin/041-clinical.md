@@ -14,4 +14,4 @@ generated: 2026-05-08
 - Plain-text fallback → returned when `DailyChart` rows for the client + window are empty; the response body is the literal "No health data found for the selected date range." string captured in the WebP.
 - ⚠ Crawler note → Playwright treats normal-data responses as downloads (`Content-Disposition: attachment`) and intercepts them without paint; the captured WebP only renders when the fallback fires.
 - Reached from → [agency-admin/040-generate](040-generate.md) when the Clinical report-type radio is selected and the form posts directly to this URL with the `?days=` query.
-- Permissions → `manage_health_reports` capability + per-client view permission; auditing fires for both successful PDF and fallback responses.
+- Permissions → guarded by Django's `@staff_member_required` decorator (the v1 view applies no finer-grained capability check); auditing fires for both successful PDF and fallback responses.

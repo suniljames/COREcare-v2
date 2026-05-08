@@ -14,4 +14,4 @@ generated: 2026-05-08
 - Bare GET → redirects back to [agency-admin/040-generate](040-generate.md) so the operator can compose the parameters; the captured WebP is that redirect target.
 - Sibling routes → [agency-admin/040-generate](040-generate.md) (form), [agency-admin/041-clinical](041-clinical.md) (direct PDF), [agency-admin/043-email](043-email.md) (email send).
 - Used by → the operator's "preview before sending" workflow when finalizing a health report; the rendered preview applies the formatting options (orientation, font size, detail level) selected on [agency-admin/045-templates](045-templates.md).
-- Security → consumed inside the staff-only domain; PHI in the preview body is rendered server-side and gated on the `view_health_reports` capability.
+- Security → consumed inside the staff-only domain; the v1 view applies Django's `@staff_member_required` decorator to gate access, with no finer-grained capability check.
