@@ -29,6 +29,28 @@ assert_exit() {
   fi
 }
 
+# Like assert_exit, plus asserts that combined stdout+stderr matches a
+# bash-regex pattern. Use when exit code alone cannot distinguish a
+# correct failure from a near-miss regression (e.g., one rule code firing
+# instead of another within the same script).
+assert_exit_and_match() {
+  local description="$1"
+  local expected_code="$2"
+  local pattern="$3"
+  shift 3
+  local actual_output
+  actual_output=$("$@" 2>&1)
+  local actual_code=$?
+  if [[ "$actual_code" == "$expected_code" ]] && [[ "$actual_output" =~ $pattern ]]; then
+    echo "  PASS — $description (exit $actual_code, matched /$pattern/)"
+    PASS=$((PASS + 1))
+  else
+    echo "  FAIL — $description (expected exit $expected_code matching /$pattern/, got exit $actual_code)"
+    echo "    output: $actual_output"
+    FAIL=$((FAIL + 1))
+  fi
+}
+
 write_good_inventory() {
   local path="$1"
   cat > "$path" <<'EOF'
@@ -2132,6 +2154,50 @@ cat > "$TEST_DIR/xref-two-indexes/v1-pages-inventory.md" <<'EOF'
 EOF
 write_good_delta "$TEST_DIR/xref-two-indexes/v1-functionality-delta.md"
 assert_exit "two cross-ref indexes; second has CR-3 violation → fail" 1 "$STRUCTURE" --dir "$TEST_DIR/xref-two-indexes"
+
+# --- Test 13: pass-1 xref-skip is load-bearing — explicit `<a id>` anchor
+#              aliasing pre-binds an xref-index sub-section to the same
+#              anchor as a canonical persona section. With the skip, only
+#              the canonical row lands in the pass-1 map, so pass 2 emits
+#              CR-3 (phi disagreement). WITHOUT the skip, both rows would
+#              hit the same key, triggering CANONICAL_DUP → CR-2 instead.
+#              Exit-code-only assertion would not distinguish the two —
+#              hence the rule-code match in `assert_exit_and_match`. ---
+mkdir -p "$TEST_DIR/xref-anchor-alias-skip"
+cat > "$TEST_DIR/xref-anchor-alias-skip/v1-pages-inventory.md" <<'EOF'
+# v1 Pages Inventory
+
+## Super-Admin
+
+<a id="agency-admin-top-level"></a>
+### Cross-reference index
+
+| route | also reachable by | content branches by role | phi_displayed | row location |
+|-------|-------------------|--------------------------|---------------|--------------|
+| `/admin/foo/` | Agency Admin | no | false | [Agency Admin → top-level](#agency-admin-top-level) |
+
+## Agency Admin
+
+<a id="agency-admin-top-level"></a>
+### top-level
+
+| route | phi_displayed |
+|-------|---------------|
+| `/admin/foo/` | true |
+
+## Care Manager
+
+## Caregiver
+
+## Client
+
+## Family Member
+EOF
+write_good_delta "$TEST_DIR/xref-anchor-alias-skip/v1-functionality-delta.md"
+assert_exit_and_match \
+  "CR-3 (not CR-2) fires when xref index aliases canonical anchor — pass 1 skip is load-bearing" \
+  1 'CR-3:' \
+  "$STRUCTURE" --dir "$TEST_DIR/xref-anchor-alias-skip"
 
 # === Refresh-runbook rule group (RR-N) — Issue #132 =========================
 #
