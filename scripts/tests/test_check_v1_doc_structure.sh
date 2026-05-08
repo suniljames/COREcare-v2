@@ -3157,9 +3157,20 @@ fi
 #   no rule-emit string to substring-match. The detection regex is scoped to
 #   expected-exit-1 lines only. MT-3.C guards this.
 #
+# Self-test construction asymmetry (load-bearing — see #227):
+#   MT-3.B uses `cat <source> + appended violation` because B's claim is
+#   detection-in-context: realism (a full-file shape) is part of what it
+#   guards. MT-3.C and MT-3.D use synthetic-only files (only the appended
+#   line, no `cat`) because their claims are *negative* — that an exempt
+#   pattern is NOT flagged. Synthetic-only construction isolates the
+#   negative claim from any source-file state, so a real-state violation in
+#   the live source cannot masquerade as a regression in the exemption guard
+#   (e.g., during a local mutation experiment by a contributor).
+#
 # See: https://github.com/suniljames/COREcare-v2/issues/201 (this rule),
 #      https://github.com/suniljames/COREcare-v2/issues/174 (convention origin),
-#      https://github.com/suniljames/COREcare-v2/issues/196 (per-branch parity).
+#      https://github.com/suniljames/COREcare-v2/issues/196 (per-branch parity),
+#      https://github.com/suniljames/COREcare-v2/issues/227 (C/D synthetic isolation).
 
 _extract_sl_loose_fixtures() {
   # Three-condition filter on each line of $1 (test file):
@@ -3233,29 +3244,30 @@ assert_sl_substring_discipline \
   "${mt3_sl_code}: synthetic violation"
 
 # C. Self-test — positive-fixture exemption holds.
-# An appended SL-* fixture with expected exit 0 is correctly exempted. Load-
-# bearing: if MT-3's regex were ever narrowed to drop the exit-code-1 filter,
-# this test would fail and signal the regression.
+# The synthetic file contains *only* an appended SL-* fixture with expected
+# exit 0 — no `cat` of the live source. This isolates C from any source-state
+# confounders: a real-state SL-* violation in the live source cannot
+# masquerade as a regression here, because the synthetic file has none of the
+# live source's content. Load-bearing: if MT-3's regex were ever narrowed to
+# drop the exit-code-1 filter, the appended exit-0 line would be flagged and
+# this test would fail.
 mkdir -p "$TEST_DIR/mt-3-positive"
-{
-  cat "$REPO_ROOT/scripts/tests/test_check_v1_doc_structure.sh"
-  printf 'assert_exit "%s: positive sentinel" 0 "$STRUCTURE" --dir /nonexistent\n' "$mt3_sl_code"
-} > "$TEST_DIR/mt-3-positive/test.sh"
+printf 'assert_exit "%s: positive sentinel" 0 "$STRUCTURE" --dir /nonexistent\n' \
+  "$mt3_sl_code" > "$TEST_DIR/mt-3-positive/test.sh"
 assert_sl_substring_discipline \
   "MT-3 self-test: positive (exit 0) SL-* fixture is exempted" \
   "$TEST_DIR/mt-3-positive/test.sh" \
   0
 
 # D. Self-test — out-of-cohort exemption holds.
-# An appended JL-* fixture using bare assert_exit is correctly exempted (per
-# #174's cohort scope-limit). Load-bearing: if MT-3's regex were ever
-# broadened (cohort prefix dropped or generalized), this test would fail and
-# signal the regression.
+# The synthetic file contains *only* an appended JL-* fixture using bare
+# assert_exit (per #174's cohort scope-limit) — no `cat` of the live source,
+# for the same isolation reason as C. Load-bearing: if MT-3's regex were ever
+# broadened beyond `SL-` (cohort prefix dropped or generalized), the appended
+# JL-99 line would be flagged and this test would fail.
 mkdir -p "$TEST_DIR/mt-3-out-of-cohort"
-{
-  cat "$REPO_ROOT/scripts/tests/test_check_v1_doc_structure.sh"
-  printf 'assert_exit "%s: synthetic non-SL fixture" 1 "$STRUCTURE" --dir /nonexistent\n' "$mt3_jl_code"
-} > "$TEST_DIR/mt-3-out-of-cohort/test.sh"
+printf 'assert_exit "%s: synthetic non-SL fixture" 1 "$STRUCTURE" --dir /nonexistent\n' \
+  "$mt3_jl_code" > "$TEST_DIR/mt-3-out-of-cohort/test.sh"
 assert_sl_substring_discipline \
   "MT-3 self-test: out-of-cohort (JL-*) bare-assert_exit fixture is exempted" \
   "$TEST_DIR/mt-3-out-of-cohort/test.sh" \
