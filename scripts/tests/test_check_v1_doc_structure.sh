@@ -1917,14 +1917,17 @@ write_authored_glossary "$TEST_DIR/gl3-all-good/v1-glossary.md"
 assert_exit "GL-3: valid anchors across inventory + journeys + integrations passes" 0 "$STRUCTURE" --dir "$TEST_DIR/gl3-all-good"
 
 # =============================================================================
-# Cross-reference index phi_displayed consistency tests (#124)
+# Cross-reference index phi_displayed consistency tests (#124, #212)
 # CR-1: route at index not found at linked anchor (or no anchor link in row location)
 # CR-2: route slug duplicated under linked anchor (canonical lookup ambiguous)
 # CR-3: phi_displayed value disagreement between index row and canonical row
 # CR-4: phi_displayed value outside {true, false} on either side
+# CR-5: xref index header contains a canonical-row column other than route or
+#       phi_displayed — tripwire pointing at #145's deferred generalization.
 #
-# Trigger: only when the cross-reference-index table header contains BOTH
-# `phi_displayed` and `row location` columns (header-intersection rule).
+# Trigger: CR-1..CR-4 fire only when the cross-reference-index table header
+# contains BOTH `phi_displayed` and `row location` columns (header-intersection
+# rule). CR-5 fires independently on header detection alone (#212).
 # =============================================================================
 
 # Helper: write a six-persona inventory with a Super-Admin cross-reference index
@@ -2330,8 +2333,10 @@ cat > "$TEST_DIR/xref-second-column-tripwire/v1-pages-inventory.md" <<'EOF'
 ## Family Member
 EOF
 write_good_delta "$TEST_DIR/xref-second-column-tripwire/v1-functionality-delta.md"
-assert_exit_and_match \
-  "CR-5: second canonical column in xref index header → fail with #145 link" \
+# Description on same line as assert_exit_and_match so MT-1's regex picks up
+# the CR-5 code (the regex matches description-after-helper, not across line
+# continuations).
+assert_exit_and_match "CR-5: second canonical column in xref index header → fail with #145 link" \
   1 'CR-5:.*#145' \
   "$STRUCTURE" --dir "$TEST_DIR/xref-second-column-tripwire"
 

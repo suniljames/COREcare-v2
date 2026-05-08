@@ -43,6 +43,12 @@
 #        CR-3  `phi_displayed` value disagreement between index row and
 #              canonical row.
 #        CR-4  `phi_displayed` value outside `{true, false}` on either side.
+#        CR-5  Cross-reference index header contains a canonical-row column
+#              other than `route` (the join key) or `phi_displayed` (the only
+#              currently-handled mirrored column). Tripwire — fires before
+#              CR-1..CR-4 evaluation and points the developer at #145's design.
+#              Issue #212 — guarantees the deferred N-column generalization
+#              (#145) gets executed when its trigger condition is met.
 #      Issue #124 — drift in this column would silently mis-scope v2's
 #      operator-portal HIPAA-minimum-necessary controls.
 #   9. docs/migration/README.md `## Refresh runbook` section invariants.
@@ -812,6 +818,9 @@ if [[ -f "$INVENTORY" ]]; then
           for (i = 2; i < n_cells; i++) {
             col = trim(cells[i])
             header_cols[col] = i
+            # Global accumulator across all canonical-table headers — feeds
+            # the CR-5 tripwire in pass 2 (issue #212).
+            CANONICAL_COL_NAMES[col] = 1
           }
           in_canon_table = 1
           next
@@ -862,13 +871,29 @@ if [[ -f "$INVENTORY" ]]; then
 
       n_cells = split($0, cells, /\|/)
       if (!xref_header_seen) {
+        # CR-5 tripwire (#212): collect any canonical-row column other than
+        # the join key (route) or the only currently-handled mirrored column
+        # (phi_displayed). The comparator below only handles phi_displayed;
+        # any other mirrored column would silently truncate on '\''|'\'' in its
+        # value. Fail loud and point the developer at #145.
+        extras = ""
         for (i = 2; i < n_cells; i++) {
           col = trim(cells[i])
           if (col == "phi_displayed") xref_phi_col = i
           if (col == "row location") xref_loc_col = i
+          if ((col in CANONICAL_COL_NAMES) && col != "route" && col != "phi_displayed") {
+            if (extras == "") {
+              extras = "'\''" col "'\''"
+            } else {
+              extras = extras ", '\''" col "'\''"
+            }
+          }
         }
         xref_header_seen = 1
-        # Header-intersection rule: only fire when both columns are present.
+        if (extras != "") {
+          print FILENAME ":" FNR ": CR-5: cross-reference index now mirrors column(s) " extras " beyond phi_displayed. The comparator currently only handles phi_displayed correctly; values containing '\''|'\'' in any other mirrored column would be silently truncated. Generalize the comparator per the design in #145 (https://github.com/suniljames/COREcare-v2/issues/145) before adding this column to the index."
+        }
+        # Header-intersection rule: only fire CR-1..CR-4 when both columns are present.
         if (xref_phi_col == 0 || xref_loc_col == 0) {
           in_xref = 0
         }
