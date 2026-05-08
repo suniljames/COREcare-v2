@@ -273,7 +273,7 @@ Closes the Care Manager catalog gap: 3 inventory rows whose `screenshot_ref` was
 
 5. Edit `~/Code/COREcare-access/fixtures/v2_catalog_snapshot.json`:
    - **Link** the existing `CareManagerProfile` (test CM) to the existing `Client` (PK 1) via the confirmed mechanism. **Do not** add the Client to any caregiver/shift/chart relationships — minimise cross-persona blast radius.
-   - **Enrich** the `Client` row to render rich Client Focus UI: DNR flag, ≥1 alert flag, `diagnosis = "[DIAGNOSIS]"`, `address = "[ADDRESS]"`, `phone = "[PHONE]"`. Reuse the existing `ClientFamilyMember` link.
+   - **Enrich** the `Client` row to render rich `cm_client_focus` UI: DNR flag, ≥1 alert flag, `diagnosis = "[DIAGNOSIS]"`, `address = "[ADDRESS]"`, `phone = "[PHONE]"`. Reuse the existing `ClientFamilyMember` link.
    - **Add** 1 `Expense` row: `pk = 1`, `submitter = <test_cm_user_pk>`, `client = 1`, `status = "REJECTED"`, `description = "[NOTE_TEXT]"`, `amount = 9.99` (deliberately non-realistic — document the convention in `INVESTIGATIONS.md`).
    - **Add** 1 `ExpenseReceipt` row: `pk = 1`, `expense = 1`, `original_filename = "[REDACTED].png"`, `image = "<MEDIA-relative-path-to-placeholder.png>"`.
 6. Place a synthetic placeholder PNG at `<MEDIA_ROOT>/<image-path>`: ≤2 KB, flat-grey or "RECEIPT [REDACTED]" synthetic, no identifying marks.

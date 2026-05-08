@@ -10,37 +10,39 @@ import { classifyScreenshotRef } from "../crawl.ts";
 
 describe("classifyScreenshotRef", () => {
   it("classifies a captured ref as 'capture'", () => {
-    const r = classifyScreenshotRef("care-manager/002-client");
-    expect(r.kind).toBe("capture");
+    expect(classifyScreenshotRef("care-manager/002-client")).toEqual({ kind: "capture" });
   });
 
   it("classifies not_screenshotted: non_html_response as skipped with that reason", () => {
-    const r = classifyScreenshotRef("not_screenshotted: non_html_response");
-    expect(r.kind).toBe("skip");
-    expect(r.reason).toBe("non_html_response");
+    expect(classifyScreenshotRef("not_screenshotted: non_html_response")).toEqual({
+      kind: "skip",
+      reason: "non_html_response",
+    });
   });
 
   it("classifies not_screenshotted: no_seed_data as skipped with that reason", () => {
-    const r = classifyScreenshotRef("not_screenshotted: no_seed_data");
-    expect(r.kind).toBe("skip");
-    expect(r.reason).toBe("no_seed_data");
+    expect(classifyScreenshotRef("not_screenshotted: no_seed_data")).toEqual({
+      kind: "skip",
+      reason: "no_seed_data",
+    });
   });
 
   it("strips whitespace after the colon (operator-format leniency)", () => {
-    const r = classifyScreenshotRef("not_screenshotted:   pending #79");
-    expect(r.kind).toBe("skip");
-    expect(r.reason).toBe("pending #79");
+    expect(classifyScreenshotRef("not_screenshotted:   pending #79")).toEqual({
+      kind: "skip",
+      reason: "pending #79",
+    });
   });
 
   it("handles missing space after the colon", () => {
-    const r = classifyScreenshotRef("not_screenshotted:non_html_response");
-    expect(r.kind).toBe("skip");
-    expect(r.reason).toBe("non_html_response");
+    expect(classifyScreenshotRef("not_screenshotted:non_html_response")).toEqual({
+      kind: "skip",
+      reason: "non_html_response",
+    });
   });
 
   it("does not classify other prefixes as skip", () => {
     // Defensive: only the literal "not_screenshotted:" prefix triggers skip.
-    const r = classifyScreenshotRef("foo: bar");
-    expect(r.kind).toBe("capture");
+    expect(classifyScreenshotRef("foo: bar")).toEqual({ kind: "capture" });
   });
 });
