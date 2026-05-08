@@ -166,6 +166,13 @@ def _score_question(
         )
     )
     failure_b, telemetry_b = _evaluate(fx.persona, q, pass_b, section, index)
+    # `was_confidence_malformed` follows the delivered (Pass-B) response only.
+    # A Pass-A-only malformation that Pass B recovers from is still observable
+    # via the per-extraction WARNING line on stderr — but it does NOT taint the
+    # per-question counter or suppress a Pass-B-genuine low-confidence
+    # breadcrumb. Single semantic load: "this delivered answer's confidence
+    # was coerced." Symmetric with `low_confidence_count`. (Issue #203,
+    # PR #208 round-1 review.)
     combined_response = RotationResponse(
         answer=pass_b.answer,
         verbatim_evidence=pass_b.verbatim_evidence,
@@ -173,9 +180,7 @@ def _score_question(
         usage=pass_a.usage + pass_b.usage,
         used_extended_thinking=True,
         text_block_content=pass_b.text_block_content,
-        was_confidence_malformed=(
-            pass_a.was_confidence_malformed or pass_b.was_confidence_malformed
-        ),
+        was_confidence_malformed=pass_b.was_confidence_malformed,
     )
     return combined_response, failure_b, telemetry_b
 

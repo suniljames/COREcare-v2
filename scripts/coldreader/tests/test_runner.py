@@ -1213,6 +1213,91 @@ def test_malformed_confidence_on_failure_does_not_double_log(
     assert result.low_confidence_count == 0
 
 
+def test_pass_b_genuine_low_after_pass_a_malformation_fires_low_conf_breadcrumb(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Pass A is malformed-low and FAILS; Pass B recovers with a *genuine* low
+    confidence value (was_confidence_malformed=False) and PASSES.
+
+    Pins option (a) semantics from the PR #208 round-1 review: the per-question
+    counter and the breadcrumb-skip follow the *delivered* (Pass-B) answer's
+    malformation state only. Pass-A-only malformations stay observable via
+    the per-extraction WARNING (which fires at extraction time on stderr) but
+    do NOT taint the runner-level counter or suppress a legitimate Pass-B
+    low-confidence-pass breadcrumb.
+
+    This is a regression guard — without it, a future change that resurrects
+    OR-propagation through `_score_question`'s combined response would silently
+    mute the Pass-B low-confidence breadcrumb whenever Pass A had been
+    malformed.
+    """
+    fx = _fixture()
+    client = FakeAnthropicClient()
+    # q1: Pass A fails on evidence with malformed-low; Pass B passes on
+    # evidence + must_mention with genuine low confidence.
+    client.add_response(
+        "family-member",
+        "q1",
+        CannedResponse(
+            answer="They see Y on the dashboard.",
+            verbatim_evidence=("UNFINDABLE_PHRASE_A",),
+            confidence="low",
+            was_confidence_malformed=True,
+        ),
+    )
+    client.add_response(
+        "family-member",
+        "q1",
+        CannedResponse(
+            answer="They see Y on the dashboard, per linked client.",
+            verbatim_evidence=("X sees Y on the dashboard",),
+            confidence="low",
+            was_confidence_malformed=False,
+            used_extended_thinking=True,
+        ),
+    )
+    # q2/q3 pass cleanly with high confidence.
+    client.add_response(
+        "family-member",
+        "q2",
+        CannedResponse(
+            answer="No, gated linked-client only.",
+            verbatim_evidence=("linked-client only via ClientFamilyMember",),
+            confidence="high",
+        ),
+    )
+    client.add_response(
+        "family-member",
+        "q3",
+        CannedResponse(
+            answer="v1 has no active-flag; v2 needs soft-revoke.",
+            verbatim_evidence=("no active-flag on the link",),
+            confidence="high",
+        ),
+    )
+
+    with caplog.at_level(logging.WARNING, logger="coldreader"):
+        result = run_rotation(
+            fx, section=_section(), index=_index(), client=client, allow_retry=True
+        )
+
+    assert result.passed
+    # Counter follows the delivered Pass-B answer (clean), not Pass-A history.
+    assert result.malformed_confidence_count == 0
+    # Pass-B's genuine low fires the existing breadcrumb (the OR-propagation
+    # bug from round 1 would have suppressed this).
+    assert result.low_confidence_count == 1
+    low_conf_warnings = [
+        r
+        for r in caplog.records
+        if r.name == "coldreader"
+        and r.levelno == logging.WARNING
+        and "low-confidence pass" in r.getMessage()
+    ]
+    assert len(low_conf_warnings) == 1
+    assert "q1" in low_conf_warnings[0].getMessage()
+
+
 def test_render_summary_includes_malformed_confidence_count_when_nonzero() -> None:
     fx = _fixture()
     client = FakeAnthropicClient()
