@@ -46,7 +46,9 @@ def test_main_safe_treats_anthropic_error_as_setup_error() -> None:
     class _FakeBadRequestError(Exception):
         """Stand-in for anthropic.BadRequestError — same exit-path semantics."""
 
-    with patch.object(run, "main", side_effect=_FakeBadRequestError("400 invalid_request_error")):
+    with patch.object(
+        run, "main", side_effect=_FakeBadRequestError("400 invalid_request_error")
+    ):
         assert _main_safe() == EXIT_SETUP_ERROR
 
 
@@ -67,6 +69,12 @@ def test_main_returns_setup_error_when_runner_token_counts_exceed_input_cap(
 
     class _RunawayClient:
         def query_rotation(self, call: RotationCall) -> RotationResponse:
+            # The answer + verbatim_evidence values are intentionally orthogonal to the
+            # real fixture's must_mention list. This test exercises the cost-cap-trip
+            # exit-code path (run.py:159-166) which short-circuits before scoring, so
+            # answer/evidence correctness is irrelevant to the contract. Do NOT "fix"
+            # them to match a real fixture — the test would still pass, but a future
+            # reader might mistakenly believe must_mention satisfaction matters here.
             return RotationResponse(
                 answer="dashboard linked-client active-flag soft-revoke",
                 # Generic phrase present in every persona's section.
@@ -94,6 +102,12 @@ def test_main_returns_setup_error_when_runner_token_counts_exceed_output_cap(
 
     class _OutputRunawayClient:
         def query_rotation(self, call: RotationCall) -> RotationResponse:
+            # The answer + verbatim_evidence values are intentionally orthogonal to the
+            # real fixture's must_mention list. This test exercises the cost-cap-trip
+            # exit-code path (run.py:159-166) which short-circuits before scoring, so
+            # answer/evidence correctness is irrelevant to the contract. Do NOT "fix"
+            # them to match a real fixture — the test would still pass, but a future
+            # reader might mistakenly believe must_mention satisfaction matters here.
             return RotationResponse(
                 answer="dashboard linked-client active-flag soft-revoke",
                 verbatim_evidence=("Family Member",),
