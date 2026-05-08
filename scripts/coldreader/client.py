@@ -9,17 +9,30 @@ with prompt caching + structured tool-use. Tests use a separate
 from __future__ import annotations
 
 import json
+import logging
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Final, Literal, Protocol
 
 if TYPE_CHECKING:
     from anthropic import Anthropic
 
+_log = logging.getLogger("coldreader.client")
+
 MODEL = "claude-haiku-4-5-20251001"
 MAX_TOKENS = 1024
 EXTENDED_THINKING_BUDGET = 4096
+
+# Confidence enum — single source of truth for both the tool input schema
+# we send to Anthropic AND the runtime guard in the extractor. Issue #203:
+# the schema enum and the comparison at runner.py must not drift.
+ConfidenceLevel = Literal["high", "low"]
+ALLOWED_CONFIDENCE: Final[tuple[ConfidenceLevel, ...]] = ("high", "low")
+
+# Cap the raw malformed value before repr() so a runaway model output
+# cannot produce an unbounded warning line. Issue #203 (Security).
+_MALFORMED_CONFIDENCE_LOG_MAX = 64
 
 _TOOL_NAME = "record_rotation_answer"
 _TOOL_SCHEMA = {
@@ -45,7 +58,7 @@ _TOOL_SCHEMA = {
         },
         "confidence": {
             "type": "string",
-            "enum": ["high", "low"],
+            "enum": list(ALLOWED_CONFIDENCE),
             "description": (
                 "'high' if the section + index clearly answer the question; "
                 "'low' if the answer required interpretation."
@@ -100,14 +113,21 @@ class RotationResponse:
     `text_block_content` carries any prose the model emitted in a `text`
     block alongside (or instead of) the structured tool call. Used by the
     runner to detect Pass-B tool refusals and surface them as SETUP errors.
+
+    `was_confidence_malformed` is True when the extractor coerced an
+    out-of-enum confidence value to "low" (issue #203). The runner uses
+    this flag to keep `RotationResult.malformed_confidence_count` distinct
+    from `low_confidence_count` — schema drift and genuine low confidence
+    are different drift classes.
     """
 
     answer: str
     verbatim_evidence: tuple[str, ...]
-    confidence: str
+    confidence: ConfidenceLevel
     usage: Usage = field(default_factory=Usage)
     used_extended_thinking: bool = False
     text_block_content: str = ""
+    was_confidence_malformed: bool = False
 
 
 class RotationClient(Protocol):
@@ -219,7 +239,8 @@ class AnthropicRotationClient:
 
         answer = ""
         evidence: tuple[str, ...] = ()
-        confidence = "low"
+        confidence: ConfidenceLevel = "low"
+        was_confidence_malformed = False
         text_block_parts: list[str] = []
         for block in message.content:
             block_type = getattr(block, "type", None)
@@ -232,7 +253,25 @@ class AnthropicRotationClient:
                     raw_ev = payload.get("verbatim_evidence", [])
                     if isinstance(raw_ev, list):
                         evidence = tuple(str(x) for x in raw_ev)
-                    confidence = str(payload.get("confidence", "low"))
+                    raw_conf = str(payload.get("confidence", "low"))
+                    if raw_conf in ALLOWED_CONFIDENCE:
+                        # mypy narrows raw_conf to ConfidenceLevel via the membership check.
+                        confidence = raw_conf
+                    else:
+                        # Schema enum is server-validated under nominal operation,
+                        # but a model rev or an edge case could slip a non-enum
+                        # value past it. Coerce to "low" (defensive default —
+                        # malformation is itself a small drift signal) and emit
+                        # a distinct warning so the runner can count it separately.
+                        # %r escapes CRLF; slice caps log-line length.
+                        coerced: ConfidenceLevel = "low"
+                        _log.warning(
+                            "malformed confidence value: raw=%r coerced=%s",
+                            raw_conf[:_MALFORMED_CONFIDENCE_LOG_MAX],
+                            coerced,
+                        )
+                        confidence = coerced
+                        was_confidence_malformed = True
             elif block_type == "text":
                 text = getattr(block, "text", "")
                 if isinstance(text, str) and text.strip():
@@ -251,4 +290,5 @@ class AnthropicRotationClient:
             ),
             used_extended_thinking=call.use_extended_thinking,
             text_block_content="\n".join(text_block_parts),
+            was_confidence_malformed=was_confidence_malformed,
         )
