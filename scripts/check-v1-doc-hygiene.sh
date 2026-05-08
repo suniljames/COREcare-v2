@@ -87,7 +87,16 @@ scan_file() {
   #    does not because brackets exclude the match.
   #
   #    We strip out placeholders, bracketed text, code spans, fenced code
-  #    blocks, and blockquoted lines before scanning.
+  #    blocks, blockquoted lines, AND double-quoted runs before scanning.
+  #    Double-quoted runs hold literal v1 button / link labels per
+  #    CAPTION-STYLE.md §CTAs visible (e.g., "Submit Expense", "Choose File"),
+  #    which legitimately contain bigram-capitalized phrases that shouldn't
+  #    trip the plausible-name heuristic. Stripping `"..."` runs is consistent
+  #    with how check-v1-caption-voice.sh exempts literal labels from voice
+  #    scanning. Trade-off: a real name accidentally written inside double
+  #    quotes (e.g., `"John Doe"`) would slip past this scan — accepted
+  #    because the plausible-name heuristic is conservative anyway and other
+  #    layers (PR review, caption-PHI check) catch the rest.
   local stripped
   stripped=$(awk '
     BEGIN { in_fence = 0 }
@@ -98,6 +107,7 @@ scan_file() {
     {
       gsub(/`[^`]*`/, "")
       gsub(/\[[^]]*\]/, "")
+      gsub(/"[^"]*"/, "")
       print
     }
   ' "$file")

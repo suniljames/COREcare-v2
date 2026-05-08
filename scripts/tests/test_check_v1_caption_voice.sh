@@ -175,6 +175,24 @@ write_caption_with_body "$TEST_DIR/in_if_safe.md" '**CTAs visible:** "Save".
 - "Save" → persists changes if any are pending in the form.'
 assert_exit "lowercase ''in''/''if'' do not trip first-person ''I'' detector" 0 "$SCRIPT" "$TEST_DIR/in_if_safe.md"
 
+# Voice-rule words inside DOUBLE-QUOTED CTA labels are exempt — v1 buttons
+# can legitimately contain "you/your" in their literal copy. The empty-state
+# CTA on the CM expense list page is exactly this case.
+write_caption_with_body "$TEST_DIR/literal_label_with_your.md" '**CTAs visible:** "Submit your first expense", "Logout".
+
+**Interaction notes:**
+- "Submit your first expense" empty-state link → navigates to the submission form.'
+assert_exit "second-person word inside literal CTA label is exempt" 0 \
+  "$SCRIPT" "$TEST_DIR/literal_label_with_your.md"
+
+# But second-person OUTSIDE quoted labels still fails.
+write_caption_with_body "$TEST_DIR/your_outside_quotes.md" '**CTAs visible:** "Save".
+
+**Interaction notes:**
+- "Save" → persists your changes.'
+assert_exit "second-person OUTSIDE quoted label still fails" 1 \
+  "$SCRIPT" "$TEST_DIR/your_outside_quotes.md"
+
 # --- Format fail: interaction note missing → arrow ---
 write_caption_with_body "$TEST_DIR/no_arrow.md" '**CTAs visible:** "Save".
 
