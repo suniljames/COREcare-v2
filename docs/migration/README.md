@@ -161,6 +161,48 @@ _last reconciled: 2026-05-06 against v1 commit `9738412`_
 
 Update on each refresh.
 
+### H3-italic-mount-prefix declaration form
+
+Every persona-section H3 in `v1-pages-inventory.md` that maps to a Django app mounted at a URL prefix in v1's `elitecare/urls.py` must declare that prefix in a single italic subhead immediately under the H3. The form is locked so a script can validate it; #204 surfaced the silent-drift bug class this contract closes.
+
+**Canonical form** (single-prefix mount):
+
+```markdown
+### <app_name>
+_<one-line description>; mounted at `/<prefix>/` (`<app_name>/urls.py` is included at `/<parent_prefix>/` per `elitecare/urls.py:<line>`)_
+```
+
+**Multi-prefix mount** (e.g., `compliance` is mounted at both `/legal/` and `/compliance/files/`):
+
+```markdown
+### compliance
+_<description>; mounted at `/legal/` and `/compliance/files/` (...)_
+```
+
+**Root-prefix mount** (e.g., `auth_service` mounts at the project root with no path component):
+
+```markdown
+### auth_service
+_<description>; mounted at root prefix with no path component_
+```
+
+**Locked rules** (each enforced by `scripts/check-v1-inventory-mount-prefixes.sh`):
+
+1. Always **"mounted at"** — never "mounted under". One phrase, one regex.
+2. Each backticked prefix has both a **leading and trailing slash**: `` `/X/` ``.
+3. **Multiple prefixes** are joined with `` and `` between backticked tokens.
+4. Each declared prefix must be covered by a non-empty `path("<prefix>/", ...)` line in v1 `elitecare/urls.py` at the pinned SHA — covered meaning equal to, or a strict prefix-of, the declared prefix (`/dashboard/family/` is covered by the top-level `dashboard/` mount even though the `family/` segment is nested inside `dashboard/urls.py`).
+5. The first inventory row beneath the H3 must have a `route` value beginning with one of the declared prefixes.
+
+**Skip cases** (the lint correctly does not validate these):
+
+- H3s with no italic subhead, or whose subhead does not contain the phrase "mounted at".
+- H3s whose subhead is a cross-reference pointer to another section (e.g., `### Cross-reference index`, family-member's `### clients` / `### charting` / `### auth_service` pointer H3s).
+- H3s that name a top-level admin block registered directly in `elitecare/urls.py` outside any `include()` (e.g., `### top-level (elitecare/urls.py)`).
+- H3s whose subhead reads `mounted at root prefix with no path component` (auth_service).
+
+**Refresh:** when the V1 Reference Commit SHA is bumped, refresh `docs/migration/fixtures/v1-elitecare-urls.txt` per the [v1 mount-prefix fixture refresh](#v1-mount-prefix-fixture-refresh) runbook step below.
+
 ### Row prose conventions
 
 These conventions apply inside every persona section in `v1-pages-inventory.md`. Locked in #81 to keep the five subsequent persona-section PRs from drifting.
@@ -234,10 +276,11 @@ The current denominator and numerator are recorded in `v1-pages-inventory.md` un
 
 ## Hygiene and structure enforcement
 
-Two scripts validate this docset on every PR:
+Three scripts validate this docset on every PR:
 
 - `scripts/check-v1-doc-hygiene.sh` — blocks PHI patterns, absolute paths, plausible-real-name two-word sequences. Run via pre-commit hook and CI.
 - `scripts/check-v1-doc-structure.sh` — validates structural invariants of the docset: persona-section coverage and cross-reference header (delta doc), Shared-routes section population, Family-Member visibility-scope and audit-posture discipline, the integrations-and-exports doc's locked H2/H3 set and per-cell schema (CL/SL/EL codes), the user-journeys doc's status header / per-persona minimums / sub-block discipline / anchor resolution (JL codes), the glossary doc's status header / placeholder discipline / anchor resolution (GL codes), consistency between `### Cross-reference index` mirrored cells and the canonical persona-section row they link to (CR codes — Issue #124, today scoped to `phi_displayed`), and this README's `## Refresh runbook` section invariants — Agency-Admin-first H3, locked persona-section override shape, cadence-trigger / baseline-fingerprint / both-branching-outcome literals, `'*/urls.py'` narrowing-resistance, and intra-file anchor resolution (RR codes — Issue #132).
+- `scripts/check-v1-inventory-mount-prefixes.sh` — validates the [H3-italic-mount-prefix declaration form](#h3-italic-mount-prefix-declaration-form) against `docs/migration/fixtures/v1-elitecare-urls.txt` and the inventory's first-row routes. Catches the #204 class of silent-drift bug (a section claims `/family/` but rows actually resolve under `/dashboard/family/`). Issue #211.
 
 Self-tests:
 
@@ -284,6 +327,20 @@ CI posts these diffs as a sticky PR comment when a PR bumps the V1 Reference Com
 ### Refresh order — Agency Admin first
 
 Agency Admin is the most-iterated persona surface in v1 (billing, payroll, scheduling, credentials, compliance). When budget for a refresh is constrained, refresh Agency Admin first; file follow-ups for other personas. The pattern Agency Admin establishes (cell prose, H3 naming, flag accuracy) is the template subsequent persona refreshes inherit.
+
+### v1 mount-prefix fixture refresh
+
+`docs/migration/fixtures/v1-elitecare-urls.txt` is a static projection of v1's `elitecare/urls.py` mount declarations at the pinned SHA. It is the source-of-truth `scripts/check-v1-inventory-mount-prefixes.sh` validates against (Issue #211). When the V1 Reference Commit SHA above is bumped, refresh the fixture in the same PR.
+
+Steps:
+
+1. Fetch v1 `elitecare/urls.py` at the new SHA. From a v1 checkout: `git -C <v1> show <new-sha>:elitecare/urls.py`. Or via the GitHub API: `gh api -H "Accept: application/vnd.github.raw" "/repos/hcunanan79/COREcare-access/contents/elitecare/urls.py?ref=<new-sha>"`.
+2. Extract every `path("<prefix>/", include("<app>.urls"))` line and the `path("<prefix>/", admin.site.urls)` line. Skip per-route view registrations and `if settings.DEBUG:` mounts.
+3. Update `docs/migration/fixtures/v1-elitecare-urls.txt`: bump the `# v1 SHA:` header line; replace the projected `path(...)` lines.
+4. Run `bash scripts/check-v1-inventory-mount-prefixes.sh` from the repo root. The pre-flight cross-checks the fixture-header SHA against this README's V1 Reference Commit SHA — mismatches fail with a clear "fixture stale" message.
+5. If the bump introduced new mount prefixes that map to existing inventory H3s, normalize the H3 italic subhead to the canonical [H3-italic-mount-prefix declaration form](#h3-italic-mount-prefix-declaration-form). If the bump removed prefixes, decide whether the affected H3 is still in scope or should be deprecated.
+
+The refresh is required even when no inventory rows changed — the fixture's SHA must always match the SHA in this README, and the lint pre-flight enforces that.
 
 ---
 
