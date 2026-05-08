@@ -33,6 +33,8 @@ Write 2-3 service-layer test cases based on the issue description:
 
 ## Running Tests
 
+> The pytest suite assumes `ENVIRONMENT=development` (the project default). If you set `ENVIRONMENT` to anything else **without** also setting `CLERK_SECRET_KEY`, conftest's `from app.main import app` will raise `RuntimeError` at collection time — that's the [#241](https://github.com/suniljames/COREcare-v2/issues/241) startup guard doing its job, not a broken fixture.
+
 ```bash
 # All tests
 make test
