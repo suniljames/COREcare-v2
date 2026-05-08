@@ -159,6 +159,50 @@ test_parser_negative_token_rejected() {
 }
 
 # ---------------------------------------------------------------------------
+# Layer 1b: review.md two-stage resolution — covers QA test cases R1/R3
+# where /review must merge ARGUMENTS-parsed issue with context-derived issue.
+# ---------------------------------------------------------------------------
+
+# Mirrors the resolution shape from review.md 0.1:
+#   ISSUE_NUMBER="${PARSED_ISSUE:-$DERIVED_ISSUE_NUMBER}"
+# PARSED_ISSUE wins; falls back to DERIVED_ISSUE_NUMBER when empty.
+resolve_review_issue() {
+  local parsed="$1"
+  local derived="$2"
+  echo "${parsed:-$derived}"
+}
+
+test_review_resolves_derived_when_no_args() {
+  local got
+  got=$(resolve_review_issue "" "213")
+  if [[ "$got" == "213" ]]; then
+    pass "review-resolution: PARSED='', DERIVED='213' → ISSUE='213'"
+  else
+    fail "review-resolution: PARSED='', DERIVED='213' → ISSUE='$got'"
+  fi
+}
+
+test_review_prefers_parsed_over_derived() {
+  local got
+  got=$(resolve_review_issue "999" "213")
+  if [[ "$got" == "999" ]]; then
+    pass "review-resolution: PARSED='999', DERIVED='213' → ISSUE='999' (parsed wins)"
+  else
+    fail "review-resolution: PARSED='999', DERIVED='213' → ISSUE='$got'"
+  fi
+}
+
+test_review_empty_when_neither_set() {
+  local got
+  got=$(resolve_review_issue "" "")
+  if [[ "$got" == "" ]]; then
+    pass "review-resolution: PARSED='', DERIVED='' → ISSUE='' (gate skips silently)"
+  else
+    fail "review-resolution: PARSED='', DERIVED='' → ISSUE='$got'"
+  fi
+}
+
+# ---------------------------------------------------------------------------
 # Layer 2: Gate decision tests — covers QA test cases 1-5 (decisions only).
 # ---------------------------------------------------------------------------
 
@@ -360,6 +404,11 @@ test_parser_empty
 test_parser_garbage_token
 test_parser_garbage_token_with_flag
 test_parser_negative_token_rejected
+
+echo "Layer 1b: review.md two-stage resolution"
+test_review_resolves_derived_when_no_args
+test_review_prefers_parsed_over_derived
+test_review_empty_when_neither_set
 
 echo "Layer 2: gate decision"
 test_gate_open_proceeds

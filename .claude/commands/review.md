@@ -18,6 +18,14 @@ Use `--repo "$REPO"` on every `gh` command.
 ## 0.1: Detect issue context
 
 Find the linked issue from progress file, branch name, or commit messages.
+Store the result in `DERIVED_ISSUE_NUMBER` (empty string if none found):
+
+```bash
+DERIVED_ISSUE_NUMBER=""  # set this to the issue number you derived above, or leave empty
+```
+
+This variable is consumed by the parser block below to resolve the final
+`ISSUE_NUMBER` when the user invokes `/review` without arguments.
 
 Also parse `$ARGUMENTS` for the `--force-on-closed` flag:
 
