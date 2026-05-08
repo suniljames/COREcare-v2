@@ -102,9 +102,17 @@ jobs:
       - uses: actions/checkout@v4
         with:
           lfs: false
-      - name: Run captions-authored gate
-        # NOTE: until the final acceptance PR (PR 6 of #184) lands, this job
-        # is expected to fail on main. Treat as informational until then.
-        # Keep `continue-on-error: true` for now; remove when PR 6 merges.
-        continue-on-error: true
-        run: bash scripts/check-v1-captions-authored.sh
+      - name: Run captions-authored gate (soft-gated until #184 PR 6)
+        # SOFT-GATED: until the final acceptance PR (PR 6 of #184) lands, this
+        # job emits a `::warning::` annotation but does NOT fail the build —
+        # the catalog has 84 stub captions during the authoring window.
+        # When PR 6 lands, replace this whole step with the simple unguarded
+        # `bash scripts/check-v1-captions-authored.sh` invocation.
+        # Tracking: issue #184.
+        run: |
+          if bash scripts/check-v1-captions-authored.sh; then
+            echo "OK: no TODO markers."
+          else
+            COUNT=$(grep -rl '<!-- TODO: author CTAs' docs/legacy/v1-ui-catalog/ 2>/dev/null | wc -l | tr -d ' ')
+            echo "::warning title=Caption authoring incomplete (soft-gated until #184 PR 6)::${COUNT} caption file(s) still contain TODO markers. This is expected during the Phase 3 authoring window. See issue #184."
+          fi

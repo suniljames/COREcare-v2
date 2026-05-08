@@ -38,6 +38,13 @@ VIOLATIONS=0
 # ---- regex patterns ----
 # Each pattern targets a specific rule from CAPTION-STYLE.md §Voice / §CTAs.
 # Patterns are case-insensitive (grep -i) and use word boundaries.
+#
+# NOTE: the editorial-commentary regex is intentionally narrow. It catches
+# the highest-frequency violation patterns surfaced in CAPTION-STYLE.md
+# §Anti-pattern; it does NOT attempt to enumerate all possible negative
+# adjectives. Human review (Writer in /design + /review) remains the
+# load-bearing layer for tone. Widening the regex would create
+# false-positive churn on legitimate observational language.
 
 # Second person
 RE_SECOND_PERSON='\b(you|your|you'\''(ll|re|ve|d))\b'

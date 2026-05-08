@@ -161,6 +161,20 @@ write_caption_with_body "$TEST_DIR/we.md" '**CTAs visible:** "Save".
 - "Save" → we believe this persists changes.'
 assert_exit "first-person ''we'' fails" 1 "$SCRIPT" "$TEST_DIR/we.md"
 
+# Bare uppercase "I" — distinct from "in" / "if". RE_FIRST_PERSON_UPPER must catch it.
+write_caption_with_body "$TEST_DIR/I_alone.md" '**CTAs visible:** "Save".
+
+**Interaction notes:**
+- "Save" → I noted that this persists changes.'
+assert_exit "first-person ''I'' fails" 1 "$SCRIPT" "$TEST_DIR/I_alone.md"
+
+# Lowercase "in" / "if" must NOT trip the uppercase-I pattern.
+write_caption_with_body "$TEST_DIR/in_if_safe.md" '**CTAs visible:** "Save".
+
+**Interaction notes:**
+- "Save" → persists changes if any are pending in the form.'
+assert_exit "lowercase ''in''/''if'' do not trip first-person ''I'' detector" 0 "$SCRIPT" "$TEST_DIR/in_if_safe.md"
+
 # --- Format fail: interaction note missing → arrow ---
 write_caption_with_body "$TEST_DIR/no_arrow.md" '**CTAs visible:** "Save".
 

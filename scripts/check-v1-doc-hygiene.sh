@@ -21,8 +21,15 @@ fi
 
 VIOLATIONS=0
 
-# Allowed all-caps placeholder set. Names matching one of these are intentional.
-ALLOWED_PLACEHOLDERS_RE='\[(CLIENT_NAME|CLIENT_DOB|CLIENT_MRN|CAREGIVER_NAME|AGENCY_NAME|ADDRESS|PHONE|EMAIL|DIAGNOSIS|MEDICATION|NOTE_TEXT|SHIFT_ID|VISIT_ID|INVOICE_ID|REDACTED)\]'
+# Locked placeholder vocabulary — single source of truth.
+# scripts/lib/placeholders.sh sets PLACEHOLDERS_ALLOWED_RE.
+# shellcheck disable=SC1091  # path resolved at runtime via dirname trick.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/placeholders.sh
+source "$SCRIPT_DIR/lib/placeholders.sh"
+
+# Backwards-compat alias for the existing scan logic below.
+ALLOWED_PLACEHOLDERS_RE="$PLACEHOLDERS_ALLOWED_RE"
 
 # Single-word persona-name set. These should not trip the plausible-name heuristic.
 PERSONA_WORDS='Caregiver|Client|Family|Member|Agency|Admin|Care|Manager|Super'
