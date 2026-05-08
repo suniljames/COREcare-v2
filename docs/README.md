@@ -11,9 +11,8 @@ You're inside `docs/`. Pick a lane.
 | **Code reviewer** | [`developer/code-review-lenses.md`](developer/code-review-lenses.md) | The persona for your role + [`adr/`](adr/) for past decisions |
 | **On-call / operator** | [`operations/README.md`](operations/README.md) | The runbook matching the alert |
 | **Porting v1 behavior to v2** | [`migration/README.md`](migration/README.md) | The locked conventions inside |
-| **Reading architectural history** | [`adr/README.md`](adr/README.md) | The ADR(s) covering the area you're touching |
-
-> Need a domain term defined? → [`GLOSSARY.md`](GLOSSARY.md). The 30-second answer for *persona*, *tenant*, *RLS*, *PHI*, etc.
+| **Looking up a past decision** | [`adr/README.md`](adr/README.md) | The ADR(s) covering the area you're touching |
+| **Looking up a domain term** | [`GLOSSARY.md`](GLOSSARY.md) | The cross-references in each definition |
 
 ## Directory map
 
