@@ -35,6 +35,9 @@ check: ## Run all quality gates (pre-PR)
 	$(MAKE) -C web build
 	bash scripts/tests/test_implement_branch_cut.sh
 	bash scripts/tests/test_pipeline_state_gate.sh
+	bash scripts/tests/test_check_workflow_lfs_posture.sh
+	bash scripts/tests/test_lfs_bandwidth_snapshot.sh
+	bash scripts/check-workflow-lfs-posture.sh
 
 # --- Individual targets ---
 
