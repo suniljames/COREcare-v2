@@ -51,12 +51,12 @@ Persona section order matches [`../../migration/README.md` §Personas](../../mig
 |---------|-----------|---------:|---------------|
 | Super-Admin | [`super-admin/`](super-admin/) | 1 | desktop |
 | Agency Admin | [`agency-admin/`](agency-admin/) | 61 | desktop |
-| Care Manager | [`care-manager/`](care-manager/) | 3 | desktop |
+| Care Manager | [`care-manager/`](care-manager/) | 5 | desktop |
 | Caregiver | [`caregiver/`](caregiver/) | 15 | **mobile** |
 | Client | [`client/`](client/) | 0 (no v1 portal) | n/a |
 | Family Member | [`family-member/`](family-member/) | 4 | **mobile** |
 
-**Total:** 84 captured (route, persona) pairs × 2 viewports = 168 WebP files via Git LFS. 50 inventory rows are recorded as `not_screenshotted: <reason>` in [`docs/migration/v1-pages-inventory.md`](../../migration/v1-pages-inventory.md) per the [skip-reason taxonomy](../README.md#skip-reason-taxonomy).
+**Total:** 86 captured (route, persona) pairs × 2 viewports = 172 WebP files via Git LFS. 48 inventory rows are recorded as `not_screenshotted: <reason>` in [`docs/migration/v1-pages-inventory.md`](../../migration/v1-pages-inventory.md) per the [skip-reason taxonomy](../README.md#skip-reason-taxonomy).
 
 The Client persona has no captures because v1 has no Client login portal — Client is an object-of-care, not a User. See [`tools/v1-screenshot-catalog/INVESTIGATIONS.md`](../../../tools/v1-screenshot-catalog/INVESTIGATIONS.md#persona-authentication-mapping) for the persona-mapping decisions.
 
@@ -135,8 +135,10 @@ Quick scan of every captured route by persona, with the inventory's one-line pur
 ### Care Manager
 
 - [`care-manager/001-care-manager`](care-manager/001-care-manager.md) — `/care-manager/` — `My Caseload` — priority-sorted list of every client assigned to this CM, with attention queue and all-clear groups; scope enforced by `C...
+- [`care-manager/002-client`](care-manager/002-client.md) — `/care-manager/client/<int:pk>/` — `Client Focus` — full per-client context for one assigned client across schedule, charting, vitals, and care-request tabs; unassigned-cl...
 - [`care-manager/003-expenses`](care-manager/003-expenses.md) — `/care-manager/expenses/` — CM expense list grouped per assigned client, with budget status; status transitions on the linked expenses are audit-logged via `ExpenseS...
 - [`care-manager/004-submit`](care-manager/004-submit.md) — `/care-manager/expenses/submit/` — CM expense submission form scoped to assigned clients; submission audit-logged via `ExpenseService.create_expense` workflow events.
+- [`care-manager/005-edit`](care-manager/005-edit.md) — `/care-manager/expenses/<int:expense_id>/edit/` — CM expense edit / resubmit form; submitter-only ownership enforced; resubmits on REJECTED expenses route through `ExpenseService.resub...
 
 ### Caregiver
 

@@ -82,10 +82,17 @@ The PHI-scrubbed Django fixture authored in Phase 2B lives in the v1 checkout (n
 | Field | Value |
 |-------|-------|
 | Path (local-only) | `~/Code/COREcare-access/fixtures/v2_catalog_snapshot.json` |
-| sha256 | `03b4148003d67bc8c98129f1d1a8e3bf8f5935d367d5d8b27776bf9ef3afdf92` |
+| sha256 | `2a23bc538b58780cfe1657cc4d9e227f8eab81b32983bd6fc91e9dd9199e5720` |
 | Authored against v1 commit | `9738412a6e41064203fc253d9dd2a5c6a9c2e231` |
-| Records | 5 users + 1 client + 1 CaregiverProfile + 1 CareManagerProfile + 1 ClientFamilyMember link + 5 shifts + 3 caregiver notes + 3 client messages = 20 objects |
+| Records | 5 users + 1 client + 1 CaregiverProfile + 1 CareManagerProfile + 1 ClientFamilyMember link + 1 CareManagerClientAssignment + 5 shifts + 3 caregiver notes + 3 client messages + 1 Expense (REJECTED) + 1 ExpenseReceipt = 23 objects |
 | Faker used | none — all values from the locked PHI placeholder set in [`docs/migration/README.md`](../../docs/migration/README.md#phi-placeholder-convention) |
+| Placeholder blobs | `~/Code/COREcare-access/media/expenses/3/1/receipt-redacted.png` (258 bytes, sha256 `6b8b8de2d293229ad1b435f52476c4904a5d21130d6052407ace775a5d520535`) — flat-grey 200×100 PNG, no identifying marks. Recreate with `PIL.Image.new('RGB', (200,100), (192,192,192)).save(...)`. |
+
+**Linkage model** (#237): the `CareManagerProfile`↔`Client` relationship is **not** a field on `CareManagerProfile`. It's a separate model `clients.CareManagerClientAssignment` with FKs `care_manager → User` and `client → Client`. `CareManagerService.get_assigned_client_ids` in `care_manager/services.py` queries this table. The fixture row links test CM (user pk 3) to client pk 1.
+
+**Amount-value convention** (#237): `Expense.amount` is `9.99` (decimal). Deliberately non-realistic — not a plausible reimbursement value — so future operators can't mistake it for real data. `Expense.notes` is empty; `Expense.description` and `rejection_reason` use `[NOTE_TEXT]`. Status is the lowercase enum value `"rejected"` (Django `TextChoices` stores the value side, not the name).
+
+**Caregiver onboarding fields** (#237): `CaregiverProfile.profile_completed_at` and `onboarding_completed_at` are now set to `2026-04-01T12:00:00Z` in the fixture. Without these, `caregiver_onboarding` view at `caregiver_dashboard/views.py:2690` redirects every caregiver-namespace route to the onboarding wizard. Phase 2D (#184 PR 4) worked around this by stamping the running SQLite DB at runtime; #237 codifies it in the fixture so the captures are reproducible from a clean `loaddata` without any post-load tweaks. The "Partial re-crawls" entry on `RUN-MANIFEST.md` covering this Phase 2D-era workaround is now historical.
 
 ### Persona credentials (for the operator's `.env`)
 
@@ -101,14 +108,14 @@ All five personas share the password `catalog-admin-password` (stored as a `pbkd
 
 ### Validation
 
-Last-validated against v1 SHA `9738412a` on 2026-05-07:
+Last-validated against v1 SHA `9738412a` on 2026-05-08:
 
 ```bash
 cd ~/Code/COREcare-access
 rm -f db.sqlite3 && unset DATABASE_URL
 DJANGO_SETTINGS_MODULE=elitecare.settings.development ./venv/bin/python manage.py migrate
 DJANGO_SETTINGS_MODULE=elitecare.settings.development ./venv/bin/python manage.py loaddata fixtures/v2_catalog_snapshot.json
-# → "Installed 20 object(s) from 1 fixture(s)"
+# → "Installed 23 object(s) from 1 fixture(s)"
 ```
 
 All 5 personas authenticate via `django.contrib.auth.authenticate(username=..., password='catalog-admin-password')`.
