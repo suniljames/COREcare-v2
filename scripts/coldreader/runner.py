@@ -14,6 +14,7 @@ the model declining to use the tool rather than masking it as content drift.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -21,6 +22,8 @@ from client import RotationCall, RotationClient, RotationResponse, Usage
 from fixtures import Fixture, Question, anchor_must_mention, iter_repo_fixtures
 from inventory import extract_index, extract_section
 from verifier import check_must_mention, verify_evidence
+
+_log = logging.getLogger("coldreader")
 
 # Failure-class tags. `CONTENT` failures mean the answer is wrong (drift).
 # `SETUP` failures mean the validator could not score this question at all
@@ -60,6 +63,7 @@ class RotationResult:
     failures: list[RotationFailure] = field(default_factory=list)
     usage: Usage = field(default_factory=Usage)
     telemetry: list[QuestionTelemetry] = field(default_factory=list)
+    low_confidence_count: int = 0
 
     @property
     def passed(self) -> bool:
@@ -272,6 +276,19 @@ def run_rotation(
         result.telemetry.append(telemetry)
         if failure is not None:
             result.failures.append(failure)
+            continue
+        # Question PASSED. Surface model-reported low confidence as a soft
+        # signal — observed-not-acted-on (the must_mention check is the
+        # objective gate). Log payload bounded to persona + question id +
+        # confidence enum value (issue #142): never answer or evidence text.
+        if response.confidence == "low":
+            result.low_confidence_count += 1
+            _log.warning(
+                "low-confidence pass: persona=%s question=%s confidence=%s",
+                fx.persona,
+                q.id,
+                response.confidence,
+            )
     return result
 
 
@@ -320,6 +337,28 @@ def _repo_root_from(start: Path) -> Path:
     raise RuntimeError("Could not locate repo root from runner module location")
 
 
+def check_cost_caps(usage: Usage, *, input_cap: int, output_cap: int) -> str | None:
+    """Return ``None`` if ``usage`` is under both caps; otherwise a reason string.
+
+    Defense-in-depth above the Anthropic-side $5/month organizational cap.
+    Input-trip takes precedence over output-trip for deterministic ordering
+    when both fire. The reason string is for human-readable stderr only —
+    callers must NOT branch on its text. The exit-code mapping
+    (``EXIT_SETUP_ERROR`` on trip) lives in ``run.py``.
+    """
+    if usage.input_tokens > input_cap:
+        return (
+            f"cost guardrail tripped: total uncached input tokens "
+            f"{usage.input_tokens} exceeds {input_cap}"
+        )
+    if usage.output_tokens > output_cap:
+        return (
+            f"cost guardrail tripped: total output tokens "
+            f"{usage.output_tokens} exceeds {output_cap}"
+        )
+    return None
+
+
 def render_summary_markdown(
     results: list[RotationResult],
     *,
@@ -355,6 +394,9 @@ def render_summary_markdown(
     lines.append(f"- Personas checked: {len(results)}")
     lines.append(f"- PASS: {len(pass_personas)} ({', '.join(pass_personas) or '—'})")
     lines.append(f"- FAIL: {len(fail_personas)} ({', '.join(fail_personas) or '—'})")
+    total_low_conf = sum(r.low_confidence_count for r in results)
+    if total_low_conf > 0:
+        lines.append(f"- Low-confidence passes: {total_low_conf}")
     lines.append("")
     # Telemetry section: per-question hit counts across all personas, PASS or FAIL.
     lines.append("### Per-question must_mention coverage")
@@ -381,6 +423,7 @@ __all__ = [
     "RotationFailure",
     "RotationResult",
     "TEXT_BLOCK_TRUNCATE_CHARS",
+    "check_cost_caps",
     "dry_run_smoke",
     "iter_repo_fixtures",
     "render_summary_markdown",

@@ -15,14 +15,21 @@ The CLI exits 0 on full PASS, 1 on any drift detected, 2 on parser/fixture error
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import sys
 from pathlib import Path
 
-from client import MODEL, AnthropicRotationClient
+from client import MODEL, AnthropicRotationClient, Usage
 from fixtures import iter_repo_fixtures, load_fixture
 from inventory import PERSONAS, extract_index, extract_section
-from runner import RotationResult, dry_run_smoke, render_summary_markdown, run_rotation
+from runner import (
+    RotationResult,
+    check_cost_caps,
+    dry_run_smoke,
+    render_summary_markdown,
+    run_rotation,
+)
 
 EXIT_PASS = 0
 EXIT_DRIFT = 1
@@ -63,6 +70,13 @@ def _print_summary_to_step_summary(markdown: str) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # WARNING goes to stderr → workflow run log. Without basicConfig the
+    # runner's "low-confidence pass" log line would be silently dropped in CI.
+    logging.basicConfig(
+        level=logging.WARNING,
+        format="%(levelname)s coldreader: %(message)s",
+        stream=sys.stderr,
+    )
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -142,19 +156,13 @@ def main(argv: list[str] | None = None) -> int:
         total_input += result.usage.input_tokens
         total_output += result.usage.output_tokens
 
-        if total_input > _RUN_TOKEN_INPUT_HARD_CAP:
-            print(
-                f"cost guardrail tripped: total uncached input tokens "
-                f"{total_input} exceeds {_RUN_TOKEN_INPUT_HARD_CAP}; aborting.",
-                file=sys.stderr,
-            )
-            return EXIT_SETUP_ERROR
-        if total_output > _RUN_TOKEN_OUTPUT_HARD_CAP:
-            print(
-                f"cost guardrail tripped: total output tokens "
-                f"{total_output} exceeds {_RUN_TOKEN_OUTPUT_HARD_CAP}; aborting.",
-                file=sys.stderr,
-            )
+        cap_trip = check_cost_caps(
+            Usage(input_tokens=total_input, output_tokens=total_output),
+            input_cap=_RUN_TOKEN_INPUT_HARD_CAP,
+            output_cap=_RUN_TOKEN_OUTPUT_HARD_CAP,
+        )
+        if cap_trip is not None:
+            print(f"{cap_trip}; aborting.", file=sys.stderr)
             return EXIT_SETUP_ERROR
 
     run_url = os.environ.get("GITHUB_SERVER_URL", "") and (
