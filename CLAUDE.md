@@ -1,5 +1,7 @@
 # COREcare v2 — Claude Code Agent Config
 
+> **For Claude Code users.** If you're not using Claude Code as your editor, you can skip this file — start at [`README.md`](README.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
 Read [`CONTRIBUTING.md`](CONTRIBUTING.md) first.
 
 Project-specific docs:
