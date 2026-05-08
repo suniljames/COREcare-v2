@@ -6,6 +6,17 @@ The v1 UI screenshot catalog committed in [#107](https://github.com/suniljames/C
 
 This runbook is the operator-facing companion to that issue. Follow it weekly through 2026-06-07.
 
+## What happens automatically
+
+Per [#233](https://github.com/suniljames/COREcare-v2/issues/233), most of the watch ritual is mechanized:
+
+- A bot posts a check-in comment on issue #185 every Saturday at 17:00 UTC (10:00 PT) during the watch window. Each check-in includes the reset-day caveat below as a one-line reminder.
+- A bot posts a day-30 closure prompt on 2026-06-07 walking the operator through the closure steps.
+- When the operator posts a comment matching the closure-template signature (anchored on `^**30-day Git LFS bandwidth report**`), an auto-closure PR opens within 60 seconds deleting both watch workflows and closing #185 via `Closes #185`. Idempotent — duplicate matches do not produce duplicate PRs.
+- If the report comment also contains "Red flag" or "ADR-010 follow-up", an escalation issue is auto-filed using `.github/ISSUE_TEMPLATE/lfs-bandwidth-escalation.md` and the new issue number appears in the closure PR body.
+
+**The bandwidth read itself stays manual** — no automation touches the meter. If any automation step fails, the manual sections below remain the documented fallback.
+
 ## How to read the meter
 
 GitHub does not expose per-repo Git LFS bandwidth via API for personal accounts. The Settings → Billing → "Git LFS Data" web panel is the only authoritative source. Read it manually.

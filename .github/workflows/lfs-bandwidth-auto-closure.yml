@@ -1,0 +1,149 @@
+name: LFS bandwidth auto-closure
+
+# Triggered when an operator posts the day-30 report comment on issue #185.
+# Opens a PR that deletes both watch workflows (this one + lfs-bandwidth-
+# cron.yml) and closes #185 via `Closes #185`. If the report comment also
+# indicates a red flag (Trigger C per the runbook), files an ADR-010
+# escalation issue first and includes the new issue's number in the
+# closure PR body.
+#
+# Three filter layers — DO NOT loosen any of them without security review:
+#   1. Repo-level event:    on: issue_comment: types: [created]
+#                           (edits do not re-fire)
+#   2. Job-level if:        github.event.issue.number == 185
+#                           AND github.event.comment.user.type != 'Bot'
+#                           (filter scope tightly to this one issue and
+#                           skip bot-authored comments to prevent loops)
+#   3. Step-level matcher:  scripts/lib/lfs-report-matcher.sh anchors on
+#                           `^**30-day Git LFS bandwidth report**`
+#
+# See docs/operations/lfs-bandwidth-watch.md for the runbook and
+# .github/workflows/README.md for the issue_comment-filter convention.
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  issues: write
+  pull-requests: write
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.comment.id }}
+  cancel-in-progress: false
+
+jobs:
+  close-watch:
+    if: |
+      github.event.issue.number == 185 &&
+      github.event.comment.user.type != 'Bot'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Match report-comment signature
+        id: matcher
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        run: |
+          set -u
+          if bash scripts/lib/lfs-report-matcher.sh "$COMMENT_BODY"; then
+            echo "match=true" >> "$GITHUB_OUTPUT"
+            if grep -qE '(Red flag|ADR-010 follow-up)' <<<"$COMMENT_BODY"; then
+              echo "red_flag=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "red_flag=false" >> "$GITHUB_OUTPUT"
+            fi
+            echo "AUTOCLOSE_MATCH issue=185 red_flag=$(grep -qE '(Red flag|ADR-010 follow-up)' <<<"$COMMENT_BODY" && echo true || echo false)"
+          else
+            echo "match=false" >> "$GITHUB_OUTPUT"
+            echo "Comment does not match day-30 report signature; skipping."
+          fi
+
+      - name: Idempotency — skip if closure PR already exists
+        id: idempotency
+        if: steps.matcher.outputs.match == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -u
+          existing=$(gh pr list --repo "${{ github.repository }}" \
+            --head "cleanup/185-lfs-watch-closure" \
+            --state all \
+            --json number --jq '.[0].number // empty')
+          if [[ -n "$existing" ]]; then
+            echo "Closure PR already exists as #$existing. Skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: File ADR-010 escalation issue (red-flag only)
+        id: escalation
+        if: |
+          steps.matcher.outputs.match == 'true' &&
+          steps.matcher.outputs.red_flag == 'true' &&
+          steps.idempotency.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -u
+          # Strip YAML frontmatter from the issue template; gh issue create
+          # --body-file uses raw file contents (not the frontmatter-aware
+          # picker that github.com/new uses).
+          awk '/^---$/{c++;next} c>=2{print}' \
+            .github/ISSUE_TEMPLATE/lfs-bandwidth-escalation.md > /tmp/escalation-body.md
+          esc_url=$(gh issue create \
+            --repo "${{ github.repository }}" \
+            --title "feat(escalation): migrate v1 UI catalog off in-repo LFS — ADR-010 Alt B" \
+            --label "documentation" \
+            --body-file /tmp/escalation-body.md)
+          esc_num="${esc_url##*/}"
+          echo "esc_num=$esc_num" >> "$GITHUB_OUTPUT"
+          echo "esc_url=$esc_url" >> "$GITHUB_OUTPUT"
+          echo "Filed escalation issue #$esc_num at $esc_url"
+
+      - name: Open closure PR
+        if: |
+          steps.matcher.outputs.match == 'true' &&
+          steps.idempotency.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPORT_COMMENT_URL: ${{ github.event.comment.html_url }}
+          ESC_NUM: ${{ steps.escalation.outputs.esc_num }}
+        run: |
+          set -u
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          branch="cleanup/185-lfs-watch-closure"
+          git checkout -b "$branch"
+          git rm .github/workflows/lfs-bandwidth-cron.yml
+          git rm .github/workflows/lfs-bandwidth-auto-closure.yml
+          git commit -m "chore(#185): close LFS bandwidth watch — delete reminder + auto-closure workflows"
+          git push -u origin "$branch"
+
+          # Build the PR body in stages so backticks come through as
+          # literal markdown. The static block is a single-quoted heredoc;
+          # variable interpolation happens via separate concatenation.
+          static_body=$(cat <<'STATIC'
+          Closes #185.
+
+          This PR deletes both workflow files that powered the 30-day watch:
+
+          - `.github/workflows/lfs-bandwidth-cron.yml`
+          - `.github/workflows/lfs-bandwidth-auto-closure.yml`
+          STATIC
+          )
+
+          dynamic_body=$'\n\n**Operator report:** '"$REPORT_COMMENT_URL"
+          if [[ -n "$ESC_NUM" ]]; then
+            dynamic_body+=$'\n\n**Escalation:** filed ADR-010 follow-up issue #'"$ESC_NUM"' (red-flag detected in the operator'"'"'s report comment).'
+          fi
+          dynamic_body+=$'\n\nSee `docs/operations/lfs-bandwidth-watch.md` → "Cleanup after closure" for the runbook context.\n\n_Opened automatically by `.github/workflows/lfs-bandwidth-auto-closure.yml`._'
+
+          gh pr create \
+            --repo "${{ github.repository }}" \
+            --title "chore(#185): close LFS bandwidth watch — delete reminder workflows" \
+            --body "${static_body}${dynamic_body}"
