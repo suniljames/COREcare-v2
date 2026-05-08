@@ -7,7 +7,7 @@ seed_state: populated
 v1_commit: 9738412a6e41064203fc253d9dd2a5c6a9c2e231
 generated: 2026-05-08
 ---
-**CTAs visible:** "stand-in" — the captured WebP shows the admin index. The actual route renders a profile-completion form for caregivers redirected by the v1 `ProfileCompletionMiddleware`; the fixture's super-admin already has a complete profile so the middleware bounces straight to the admin home (see Interaction notes).
+**CTAs visible:** "stand-in" — the captured WebP shows the admin index. The actual route renders a profile-completion form for caregivers redirected by the v1 `ProfileCompletionMiddleware`; the fixture's `is_superuser` test user already has a complete profile so the middleware bounces straight to the admin home (see Interaction notes).
 
 **Interaction notes:**
 - Endpoint → `complete_employee_profile` renders the profile-completion form for existing caregivers redirected by the v1 `ProfileCompletionMiddleware` before they can clock in.

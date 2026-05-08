@@ -36,18 +36,17 @@ Until then: the catalog directory contains only this README and an index skeleto
 
 ## Persona vocabulary
 
-The catalog uses the **six locked personas** from [`../migration/README.md` §Personas](../migration/README.md#personas):
+The catalog uses the **five locked personas** from [`../migration/README.md` §Personas](../migration/README.md#personas):
 
 | Slug | Canonical name |
 |------|----------------|
-| `super-admin` | `Super-Admin` |
 | `agency-admin` | `Agency Admin` |
 | `care-manager` | `Care Manager` |
 | `caregiver` | `Caregiver` |
 | `client` | `Client` |
 | `family-member` | `Family Member` |
 
-Folders use kebab-case slugs; captions and index headings use the canonical capitalized strings.
+Folders use kebab-case slugs; captions and index headings use the canonical capitalized strings. v1 has no platform-operator role per #236; `is_superuser`-gated v1 routes (notably the View-As emergency kill switch) are folded into the Agency Admin catalog under the `100+` numbering convention.
 
 ## How to navigate
 
