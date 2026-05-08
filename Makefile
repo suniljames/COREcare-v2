@@ -1,8 +1,13 @@
 # COREcare v2 — Root Orchestrator
-.PHONY: help up down build check test lint logs health
+.PHONY: help setup up down build check test lint logs health
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+
+# --- Bootstrap ---
+
+setup: ## First-run bootstrap: verify tools, seed .env, start stack, seed data
+	bash scripts/setup.sh
 
 # --- Docker ---
 
