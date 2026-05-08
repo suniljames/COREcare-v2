@@ -608,6 +608,10 @@ rm -f "$TEST_DIR/integrations-sl1/v1-integrations-and-exports.md.bak"
 assert_exit_and_match "SL-1: drifted entry-table header fails" 1 'SL-1:' "$STRUCTURE" --dir "$TEST_DIR/integrations-sl1"
 
 # --- SL-2: invalid v2_status token ---
+# Fixture purity (#174): the bad row's severity cell is intentionally empty.
+# v2_status='partial' (invalid) trips SL-2 alone. If severity were set, SL-3
+# ("severity set but v2_status != missing") would also fire, masking SL-2
+# regressions under exit-code-only assertions.
 mkdir -p "$TEST_DIR/integrations-sl2"
 write_integrations_inventory "$TEST_DIR/integrations-sl2/v1-pages-inventory.md"
 write_good_delta "$TEST_DIR/integrations-sl2/v1-functionality-delta.md"
