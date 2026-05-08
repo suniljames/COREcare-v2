@@ -35,7 +35,7 @@ A Super-Admin manages the platform install by reviewing the role × capability m
 1. [`/admin/role-permissions/`](v1-pages-inventory.md#agency-admin-top-level) — review the role × capability matrix with current grants.
 2. [`/admin/role-permissions/toggle/`](v1-pages-inventory.md#agency-admin-top-level) — flip a single capability bit for a role.
 3. [`/admin/view-as/audit-log/`](v1-pages-inventory.md#agency-admin-top-level) — review chronological View-As entries with filters by initiator, target, and date.
-4. [`/admin/view-as/kill-all/`](v1-pages-inventory.md#super-admin-top-level) — confirm and terminate every active View-As session immediately.
+4. [`/admin/view-as/kill-all/`](v1-pages-inventory.md#agency-admin-top-level) — confirm and terminate every active View-As session immediately.
 
 **Side effects:**
 - DB: each capability toggle writes a capability-grant change record on the affected role; the kill switch closes every active ViewAsSession row in one transaction.
