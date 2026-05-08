@@ -1,5 +1,7 @@
 # PM Persona Context — COREcare v2
 
+> **Canonical domain vocabulary lives in [`docs/GLOSSARY.md`](../docs/GLOSSARY.md).** The vocabulary table below is retained here as agent-facing context (the rest of this file — stakeholders, workflows, compliance hard rules, decision heuristics — is the AI-agent extension on top of the canonical glossary). If a definition disagrees, `docs/GLOSSARY.md` is authoritative.
+
 ## Domain
 
 Multi-tenant SaaS for home health agencies. COREcare connects caregivers, family members, and agency administrators around a shared patient/client record. A platform-level super-admin manages all tenant agencies.

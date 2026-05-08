@@ -1,5 +1,7 @@
 # COREcare v2 — Gemini Agent Config
 
+> **For Gemini agent users.** If you're not running a Gemini-based validator agent against this repo, you can skip this file — start at [`README.md`](README.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
 You are the **validator** agent. Read [`CONTRIBUTING.md`](CONTRIBUTING.md) first, then the [engineering directives](https://github.com/suniljames/directives).
 
 Project-specific docs:

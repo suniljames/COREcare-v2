@@ -134,7 +134,15 @@ Pipeline commands (`/define`, `/design`, `/implement`, `/review`) abort on
 closed issues by default. Pass `--force-on-closed` to override on a single
 run. See [`#213`](https://github.com/suniljames/COREcare-v2/issues/213).
 
+## Domain context (home-care SaaS)
+
+If you're unfamiliar with home-care coordination, read [`docs/GLOSSARY.md`](docs/GLOSSARY.md) once — it defines *persona*, *tenant*, *agency*, *client*, *caregiver*, *family member*, *RLS*, *PHI*, and the other vocabulary that shows up across the codebase. HIPAA-specific rules live in [`docs/developer/SAFETY.md`](docs/developer/SAFETY.md).
+
 ## Project Docs
+
+For a role-based map of the full docs tree, start at [`docs/README.md`](docs/README.md).
+
+Direct links to the docs you'll touch most often:
 
 | Topic | File |
 |-------|------|
@@ -145,3 +153,4 @@ run. See [`#213`](https://github.com/suniljames/COREcare-v2/issues/213).
 | Project context | [`docs/developer/project-context.md`](docs/developer/project-context.md) |
 | Design system | [`docs/design-system/`](docs/design-system/) |
 | ADRs | [`docs/adr/`](docs/adr/) |
+| Glossary | [`docs/GLOSSARY.md`](docs/GLOSSARY.md) |

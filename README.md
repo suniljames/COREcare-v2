@@ -16,13 +16,16 @@ scripts/setup.sh
 
 ## Documentation
 
-| Topic | File |
-|-------|------|
-| Contributing & dev workflow | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
-| Architecture & patterns     | [`docs/developer/ARCHITECTURE.md`](docs/developer/ARCHITECTURE.md) |
-| Testing guide               | [`docs/developer/TESTING.md`](docs/developer/TESTING.md) |
-| Safety (project-specific)   | [`docs/developer/SAFETY.md`](docs/developer/SAFETY.md) |
-| Architecture decisions      | [`docs/adr/`](docs/adr/) |
+**Start here:** [`docs/README.md`](docs/README.md) routes you by role (backend, frontend, reviewer, on-call, PM) and explains the rest of the docs tree.
+
+**Domain glossary:** [`docs/GLOSSARY.md`](docs/GLOSSARY.md) — persona, tenant, RLS, PHI, ADLs, and the rest of the home-care vocabulary in one place.
+
+| Direct link | When to use it |
+|---|---|
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | First-day setup + branch / commit / PR conventions |
+| [`docs/developer/`](docs/developer/) | Architecture, testing, safety, code review |
+| [`docs/design-system/`](docs/design-system/) | Frontend tokens, components, accessibility |
+| [`docs/adr/`](docs/adr/) | 11 numbered Architecture Decision Records |
 
 ## Healthcare context
 
