@@ -237,7 +237,7 @@ fi
 # table in the same PR or fix the inventory row.
 # ---------------------------------------------------------------------------
 
-LOCKED_REASONS_RE='^(pending #79|destructive_endpoint|gated_by_capability|no_seed_data|no_authenticated_surface|auth_redirect)$'
+LOCKED_REASONS_RE='^(pending #79|destructive_endpoint|gated_by_capability|no_seed_data|no_authenticated_surface|auth_redirect|non_html_response)$'
 UNKNOWN_REASONS=$(awk -F'\t' -v re="$LOCKED_REASONS_RE" '$2 !~ re {print $0}' "$INV_SKIP_REASONS")
 UNKNOWN_COUNT=$(echo -n "$UNKNOWN_REASONS" | grep -c . || true)
 

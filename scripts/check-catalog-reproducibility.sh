@@ -27,5 +27,48 @@ if [[ ! -d "$TOOL_DIR/node_modules" ]]; then
   exit 2
 fi
 
+# Convert any relative path-shaped arguments to absolute so they survive
+# the cd into TOOL_DIR. Flags and the next-arg of known path-flags both get
+# resolved; bare numeric values (e.g., "0.5" for --threshold-pct) pass
+# through unchanged.
+# Convert relative path-shaped args to absolute so they survive the cd
+# into TOOL_DIR. Flags pass through; positional path args are resolved
+# against the user's PWD; the value following a path-flag is also resolved.
+PWD_ABS="$(pwd)"
+RESOLVED_ARGS=()
+prev_was_path_flag=false
+abs_path() {
+  case "$1" in
+    /*) echo "$1" ;;
+    *)  echo "$PWD_ABS/$1" ;;
+  esac
+}
+for arg in "$@"; do
+  if $prev_was_path_flag; then
+    RESOLVED_ARGS+=("$(abs_path "$arg")")
+    prev_was_path_flag=false
+    continue
+  fi
+  case "$arg" in
+    --output-dir|--baseline|--rerun)
+      RESOLVED_ARGS+=("$arg")
+      prev_was_path_flag=true
+      ;;
+    --*)
+      RESOLVED_ARGS+=("$arg")
+      ;;
+    /*)
+      RESOLVED_ARGS+=("$arg")
+      ;;
+    *)
+      if [[ "$arg" == */* || -e "$arg" ]]; then
+        RESOLVED_ARGS+=("$(abs_path "$arg")")
+      else
+        RESOLVED_ARGS+=("$arg")
+      fi
+      ;;
+  esac
+done
+
 cd "$TOOL_DIR"
-exec pnpm exec tsx check-reproducibility.ts "$@"
+exec pnpm exec tsx check-reproducibility.ts "${RESOLVED_ARGS[@]}"

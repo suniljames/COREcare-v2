@@ -1,6 +1,8 @@
 # v1 UI Catalog — Index
 
-**Status:** SCAFFOLDED. Catalog binaries (WebP screenshots) and captions land in [#107](https://github.com/suniljames/COREcare-v2/issues/107). Until then: this index lists the persona directory structure and the conventions captions will follow.
+> **This catalog operates against v1 (`hcunanan79/COREcare-access`).** v2 contributors browse the screenshots + captions here without ever needing v1 access. The crawler that produced these binaries lives at [`tools/v1-screenshot-catalog/`](../../../tools/v1-screenshot-catalog/) — read its [`README.md`](../../../tools/v1-screenshot-catalog/README.md) first if you want to understand how the catalog is generated or refresh it.
+
+**Status:** AUTHORITATIVE. Phase 2D crawl ran on 2026-05-07 against v1 commit [`9738412a`](https://github.com/hcunanan79/COREcare-access/commit/9738412a6e41064203fc253d9dd2a5c6a9c2e231). Caption frontmatter is complete; caption bodies (CTAs visible + interaction notes) are tracked separately in the Phase 3 follow-up issue (linked below).
 
 > **Read [`../README.md`](../README.md) first.** It locks sensitivity classification, persona vocabulary, pinned references, and the skip-reason taxonomy used here.
 
@@ -14,20 +16,20 @@ Every captured (route, persona) pair has three files in the persona's directory:
 |------|---------|
 | `<NNN>-<route>.desktop.webp` | Full-page screenshot at 1440×900 |
 | `<NNN>-<route>.mobile.webp` | Full-page screenshot at 390×844 |
-| `<NNN>-<route>.md` | Caption — frontmatter + observed CTAs + interaction notes |
+| `<NNN>-<route>.md` | Caption — frontmatter + (Phase 3) observed CTAs + interaction notes |
 
-Numbering is 3-digit zero-padded, sequential within the persona section. Caregiver- and Family-Member-mobile-primary surfaces still produce both viewports; the caption lists `viewport: mobile` as the lead — see [`../README.md`](../README.md).
+Numbering is 3-digit zero-padded, sequential within the persona section. The caption's `lead_viewport` field encodes which viewport is canonical for the persona: Caregiver and Family Member lead with **mobile** (per [`docs/design-system/RESPONSIVE.md`](../../design-system/RESPONSIVE.md) — they operate from phones in the field); other personas lead with desktop. Both viewports are always captured.
 
-The caption is the cross-reference handle. Its frontmatter `canonical_id` field (e.g., `agency-admin/001-dashboard`) is what the [pages inventory](../../migration/v1-pages-inventory.md) `screenshot_ref` column points at.
+The caption is the cross-reference handle. Its frontmatter `canonical_id` field (e.g., `agency-admin/001-todays-shifts`) is what the [pages inventory](../../migration/v1-pages-inventory.md) `screenshot_ref` column points at.
 
 ## Caption schema
 
 ```yaml
 ---
 canonical_id: <persona-slug>/<NNN>-<route-slug>
-route: <v1 URL pattern, with `:id` placeholders>
+route: <v1 URL pattern, with <int:id> placeholders>
 persona: <canonical persona name from ../migration/README.md>
-viewport: desktop | mobile
+lead_viewport: desktop | mobile
 seed_state: populated | empty
 v1_commit: <SHA the catalog was generated against>
 generated: <YYYY-MM-DD>
@@ -43,27 +45,31 @@ Interaction-note rules (from [#79](https://github.com/suniljames/COREcare-v2/iss
 
 ## Persona index
 
-| Persona | Directory | Status |
-|---------|-----------|--------|
-| Super-Admin | [`super-admin/`](super-admin/) | Scaffolded — pending #107 |
-| Agency Admin | [`agency-admin/`](agency-admin/) | Scaffolded — pending #107 |
-| Care Manager | [`care-manager/`](care-manager/) | Scaffolded — pending #107 |
-| Caregiver | [`caregiver/`](caregiver/) | Scaffolded — pending #107 |
-| Client | [`client/`](client/) | Scaffolded — pending #107 (depends on v1 client-portal seeding) |
-| Family Member | [`family-member/`](family-member/) | Scaffolded — pending #107 |
+Persona section order matches [`../../migration/README.md` §Personas](../../migration/README.md#personas). Within-persona routes are ordered by `canonical_id` ascending (sequence number preserves "what comes next" navigation).
 
-Each persona directory will be populated by the crawler in #107. Per-persona route lists are derived from the [pages inventory](../../migration/v1-pages-inventory.md) — that is the authoritative source.
+| Persona | Directory | Captures | Lead viewport |
+|---------|-----------|---------:|---------------|
+| Super-Admin | [`super-admin/`](super-admin/) | 1 | desktop |
+| Agency Admin | [`agency-admin/`](agency-admin/) | 61 | desktop |
+| Care Manager | [`care-manager/`](care-manager/) | 3 | desktop |
+| Caregiver | [`caregiver/`](caregiver/) | 15 | **mobile** |
+| Client | [`client/`](client/) | 0 (no v1 portal) | n/a |
+| Family Member | [`family-member/`](family-member/) | 4 | **mobile** |
+
+**Total:** 84 captured (route, persona) pairs × 2 viewports = 168 WebP files via Git LFS. 50 inventory rows are recorded as `not_screenshotted: <reason>` in [`docs/migration/v1-pages-inventory.md`](../../migration/v1-pages-inventory.md) per the [skip-reason taxonomy](../README.md#skip-reason-taxonomy).
+
+The Client persona has no captures because v1 has no Client login portal — Client is an object-of-care, not a User. See [`tools/v1-screenshot-catalog/INVESTIGATIONS.md`](../../../tools/v1-screenshot-catalog/INVESTIGATIONS.md#persona-authentication-mapping) for the persona-mapping decisions.
 
 ## Coverage
 
-Run [`../../../scripts/check-v1-catalog-coverage.sh`](../../../scripts/check-v1-catalog-coverage.sh) to verify that every inventory row either has a matching caption file or carries a `not_screenshotted: <reason>` skip-reason. The CI workflow [`v1-catalog-coverage.yml`](../../../.github/workflows/v1-catalog-coverage.yml) runs this check automatically on PRs touching the inventory or this catalog.
+Run [`../../../scripts/check-v1-catalog-coverage.sh`](../../../scripts/check-v1-catalog-coverage.sh) to verify that every inventory row either has a matching caption file or carries a `not_screenshotted: <reason>` skip-reason. The CI workflow [`v1-catalog-coverage.yml`](../../../.github/workflows/v1-catalog-coverage.yml) runs this check automatically on PRs touching the inventory or this catalog. Current state: **100% coverage, 0 orphans.**
 
 ## Generation provenance
 
-Once #107 lands, this section will hold:
+This catalog was generated on **2026-05-07** by running the [`tools/v1-screenshot-catalog/`](../../../tools/v1-screenshot-catalog/) crawler against v1 at commit [`9738412a`](https://github.com/hcunanan79/COREcare-access/commit/9738412a6e41064203fc253d9dd2a5c6a9c2e231) with a PHI-scrubbed seed fixture (sha256 [`03b41480…3afdf92`](../../../tools/v1-screenshot-catalog/INVESTIGATIONS.md#fixture-snapshot)). Authoritative crawl ran for ~62 seconds; reproducibility re-run + pixelmatch diff confirmed 166/168 images within the 0.5%-pixel-diff threshold (2 marginal outliers documented in [`reproducibility-report/report.md`](reproducibility-report/report.md)).
 
-- v1 commit SHA the catalog was generated against
-- Seed-data snapshot hash
-- Generation timestamp
-- Crawler version (link to `hcunanan79/COREcare-access` PR)
-- `RUN-MANIFEST.md` link (audit trail of routes visited / skipped / errored)
+The full audit trail — pre-flight gates, network-interception log, PHI placeholder vocabulary used by the fixture, RUN-DATE, route counts — lives in [`RUN-MANIFEST.md`](RUN-MANIFEST.md) alongside the screenshots. Caption bodies (CTAs visible + interaction notes per [`tools/v1-screenshot-catalog/CAPTION-STYLE.md`](../../../tools/v1-screenshot-catalog/CAPTION-STYLE.md)) are tracked in the Phase 3 caption-authoring follow-up issue and land in a follow-up PR.
+
+### Refresh
+
+When v1 advances and the catalog needs a refresh, follow [`tools/v1-screenshot-catalog/PHASE-2-RUNBOOK.md`](../../../tools/v1-screenshot-catalog/PHASE-2-RUNBOOK.md). The runbook documents the v1 bring-up sequence, fixture re-validation, crawler invocation, reproducibility two-run, and PR procedure.
