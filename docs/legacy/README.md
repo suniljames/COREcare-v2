@@ -77,5 +77,6 @@ When the inventory's `screenshot_ref` field is `not_screenshotted: <reason>`, `<
 | `no_seed_data` | Route requires a data state the seed snapshot does not provide. |
 | `no_authenticated_surface` | Persona has no v1 login route — the row is recorded for completeness but is not screenshottable. |
 | `auth_redirect` | Login / magic-link / role-switch routes; intentionally not screenshotted to avoid credential capture. |
+| `non_html_response` | Endpoint returns a binary file (PDF / CSV / Excel) via `Content-Disposition: attachment`; nothing to render. |
 
 Authors of new skip-reason values: extend this table in the same PR.

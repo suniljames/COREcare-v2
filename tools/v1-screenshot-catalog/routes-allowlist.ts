@@ -16,12 +16,11 @@ export interface AllowlistRoute {
 }
 
 export const ROUTES_ALLOWLIST: AllowlistRoute[] = [
-  // 404 chrome — deliberately invalid URL.
-  {
-    url: "/this-route-does-not-exist-on-purpose-for-the-catalog/",
-    persona: "Agency Admin",
-    description: "404 page chrome — not a real route",
-  },
+  // Currently empty. Phase 2D's coverage check uses 0-orphan as a pass
+  // criterion; allowlist entries are by-design orphans (not in the
+  // inventory), so a separate "known-allowlist" exception list would be
+  // needed to keep the coverage script clean. Re-introduce when that gap
+  // is solved (e.g., by adding allowlist routes to the inventory directly).
 ];
 
 // HTTP methods + URL fragments that are permitted to leave the crawler.

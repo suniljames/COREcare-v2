@@ -180,6 +180,54 @@ export function deriveRouteSlug(route: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// URL-pattern placeholder substitution. v1's inventory rows use Django
+// URL-pattern syntax (`<int:client_id>`, `<int:user_id>`, etc.). Django won't
+// match a literal `<...>` in the URL, so the crawler must substitute concrete
+// IDs from the seed fixture before issuing the GET.
+//
+// SEED_IDS is the in-code mapping of placeholder name → fixture-pk. Update
+// here when the v2_catalog_snapshot.json fixture's pks change.
+// ---------------------------------------------------------------------------
+
+export const SEED_IDS: Record<string, number> = {
+  "int:client_id": 1,        // clients.client.pk = 1
+  "int:user_id": 4,          // auth.user.pk = 4 (caregiver)
+  "int:caregiver_id": 4,     // same caregiver user
+  "id": 1,                   // generic int (default to client)
+};
+
+export interface SubstitutionResult {
+  url: string;
+  substituted: boolean;       // true if all placeholders resolved
+  missing: string[];          // unresolved placeholder names
+}
+
+export function substitutePlaceholders(
+  route: string,
+  ids: Record<string, number> = SEED_IDS,
+): SubstitutionResult {
+  // Match <name> where name doesn't contain `<` or `>`. Preserves <> empty
+  // patterns by requiring at least one character.
+  const placeholderRe = /<([^<>]+)>/g;
+  const found = Array.from(route.matchAll(placeholderRe)).map((m) => m[1]);
+  const missing: string[] = [];
+  let url = route;
+  for (const name of found) {
+    const id = ids[name];
+    if (id !== undefined) {
+      url = url.replace(`<${name}>`, String(id));
+    } else if (!missing.includes(name)) {
+      missing.push(name);
+    }
+  }
+  return {
+    url,
+    substituted: found.length > 0 && missing.length === 0,
+    missing,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Retry-with-backoff. Used to wrap page.goto + screenshot calls in
 // captureRoute. Only TimeoutError is retried; other errors propagate
 // immediately. Schedule: 1s, 3s, 9s (each = baseMs × 3^attempt).
@@ -564,6 +612,19 @@ async function captureRoute(args: CaptureArgs): Promise<CaptureResult> {
     return { status: "skipped", reason, durationMs: Date.now() - start };
   }
 
+  // Substitute Django URL-pattern placeholders. Routes whose placeholders
+  // can't be resolved from SEED_IDS skip with no_seed_data — the operator
+  // can extend the fixture (and SEED_IDS) in a future refresh cycle.
+  const sub = substitutePlaceholders(args.row.route);
+  if (sub.missing.length > 0) {
+    return {
+      status: "skipped",
+      reason: `no_seed_data (missing: ${sub.missing.join(", ")})`,
+      durationMs: Date.now() - start,
+    };
+  }
+  const concreteRoute = sub.url;
+
   const routeSlug = deriveRouteSlug(args.row.route);
   const seq = String(args.index).padStart(3, "0");
   const fileBase = `${seq}-${routeSlug}`;
@@ -578,7 +639,7 @@ async function captureRoute(args: CaptureArgs): Promise<CaptureResult> {
   try {
     await retryWithBackoff(
       async () => {
-        const url = `${args.baseUrl}${args.row.route}`;
+        const url = `${args.baseUrl}${concreteRoute}`;
         await page.goto(url, { waitUntil: "networkidle" });
 
         for (const [viewport, dims] of [
