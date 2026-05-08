@@ -31,8 +31,13 @@ class Settings(BaseSettings):
 
     @property
     def is_dev_mode(self) -> bool:
-        """Single source of truth for dev-mode behavior gates — see #241."""
-        return self.environment == "development"
+        """Single source of truth for dev-mode behavior gates — see #241.
+
+        Case-insensitive (#257): ``ENVIRONMENT=Development`` and similar
+        capitalizations resolve to dev mode rather than tripping the
+        startup guard with no security upside.
+        """
+        return self.environment.lower() == "development"
 
 
 settings = Settings()
