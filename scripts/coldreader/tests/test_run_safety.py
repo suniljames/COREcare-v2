@@ -46,9 +46,7 @@ def test_main_safe_treats_anthropic_error_as_setup_error() -> None:
     class _FakeBadRequestError(Exception):
         """Stand-in for anthropic.BadRequestError — same exit-path semantics."""
 
-    with patch.object(
-        run, "main", side_effect=_FakeBadRequestError("400 invalid_request_error")
-    ):
+    with patch.object(run, "main", side_effect=_FakeBadRequestError("400 invalid_request_error")):
         assert _main_safe() == EXIT_SETUP_ERROR
 
 

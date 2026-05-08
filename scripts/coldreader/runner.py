@@ -227,9 +227,7 @@ def _evaluate(
             QuestionTelemetry(question_id=q.id, hits=0, total=len(q.must_mention)),
         )
 
-    mention_check = check_must_mention(
-        response.answer, q.must_mention, tolerance=q.tolerance
-    )
+    mention_check = check_must_mention(response.answer, q.must_mention, tolerance=q.tolerance)
     telemetry = QuestionTelemetry(
         question_id=q.id, hits=mention_check.hits, total=mention_check.total
     )
@@ -360,10 +358,7 @@ def check_cost_caps(
             f"{input_tokens} exceeds {input_cap}"
         )
     if output_tokens > output_cap:
-        return (
-            f"cost guardrail tripped: total output tokens "
-            f"{output_tokens} exceeds {output_cap}"
-        )
+        return f"cost guardrail tripped: total output tokens {output_tokens} exceeds {output_cap}"
     return None
 
 
