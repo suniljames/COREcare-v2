@@ -26,9 +26,9 @@ Canonical definitions for terms that show up across the COREcare codebase and do
 |------|-----------|
 | **PHI** | Protected Health Information — any individually identifiable health data. HIPAA-regulated. Never appears in logs, errors, URLs, or analytics. See [`docs/developer/SAFETY.md`](developer/SAFETY.md). |
 | **RLS** | PostgreSQL Row-Level Security. The mechanism that enforces tenant isolation: queries automatically filter to the calling user's `agency_id` regardless of what the application code asks for. See [ADR-002](adr/002-postgresql-rls-multi-tenancy.md). |
-| **RLS-bypass surface** | Routes that intentionally cross tenant boundaries (e.g., Super-Admin operations). Every such route requires audit logging by design. |
+| <a id="rls-bypass-surface"></a>**RLS-bypass surface** | Routes that intentionally cross tenant boundaries (e.g., Super-Admin operations). Every such route requires audit logging by design. |
 | **ADLs** | Activities of Daily Living — bathing, dressing, eating, mobility, toileting. Standard home-care vocabulary used in care plans and visit documentation. |
-| **Persona** | A role-based user archetype the product designs for: Caregiver, Family Member, Care Manager, Agency Admin, Super-Admin. Distinct from a user's literal `role` enum (which is the implementation), a persona is the *experience* that role gets. |
+| **Persona** | A role-based user archetype the product designs for, distinct from the literal `role` enum (the implementation). The product surface targets five personas: Caregiver, Family Member, Care Manager, Client, and Agency Admin — these are tenant-scoped. v2 design adds a sixth, Super-Admin, the platform-operator role that bypasses tenant Row-Level Security (see [`RLS-bypass surface`](#rls-bypass-surface) and [ADR-002](adr/002-postgresql-rls-multi-tenancy.md)); Super-Admin is forward-looking and has no v1 equivalent. |
 
 ## Process terms
 
