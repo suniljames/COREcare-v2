@@ -173,8 +173,8 @@
 | family-member/003-billing-pdf | mobile | 0.0484% | ok |
 | family-member/004-health-report | desktop | 0.0212% | ok |
 | family-member/004-health-report | mobile | 0.0394% | ok |
-| super-admin/001-kill-all | desktop | 0.0000% | ok |
-| super-admin/001-kill-all | mobile | 0.0000% | ok |
+| agency-admin/100-kill-all | desktop | 0.0000% | ok |
+| agency-admin/100-kill-all | mobile | 0.0000% | ok |
 
 ## Summary
 

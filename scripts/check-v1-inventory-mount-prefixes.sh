@@ -112,7 +112,7 @@ awk -v inventory="$INVENTORY" -v sha="$README_SHA" -v fixture_prefixes="$FIXTURE
     # Locked persona vocabulary (matches docs/migration/README.md). Plus
     # "Shared routes" so its H3s are walked (and naturally skipped by the
     # no-mount-at rule, since it has none).
-    persona_set["Super-Admin"] = 1
+    # MUST match scripts/check-v1-doc-structure.sh REQUIRED_PERSONAS — see #236.
     persona_set["Agency Admin"] = 1
     persona_set["Care Manager"] = 1
     persona_set["Caregiver"] = 1

@@ -31,11 +31,11 @@ describe("extract-inventory-routes.sh", () => {
     const dir = mkdtempSync(join(tmpdir(), "inv-test-"));
     const fixture = join(dir, "inv.md");
     writeFileSync(fixture, [
-      "## Super-Admin",
+      "## Agency Admin",
       "",
       "| route | purpose | what | v2 | sev | mt | rls | phi | screenshot_ref | v2_link |",
       "|-------|---------|------|----|-----|----|----|-----|----------------|---------|",
-      "| `/admin/dashboard/` | x | x | x | x | x | x | x | super-admin/001-dashboard |  |",
+      "| `/admin/dashboard/` | x | x | x | x | x | x | x | agency-admin/001-dashboard |  |",
       "| `/admin/clients/` | x | x | x | x | x | x | x | not_screenshotted: pending #79 |  |",
       "",
     ].join("\n"));
@@ -82,11 +82,11 @@ describe("extract-inventory-routes.sh", () => {
     const dir = mkdtempSync(join(tmpdir(), "inv-test-"));
     const fixture = join(dir, "inv.md");
     writeFileSync(fixture, [
-      "## Super-Admin",
+      "## Agency Admin",
       "",
       "| route | purpose | what | v2 | sev | mt | rls | phi | screenshot_ref | v2_link |",
       "|-------|---------|------|----|-----|----|----|-----|----------------|---------|",
-      "| `/admin/dashboard/` | x | x | x | x | x | x | x | super-admin/001 |  |",
+      "| `/admin/dashboard/` | x | x | x | x | x | x | x | agency-admin/001 |  |",
       "| total | summary | x | x | x | x | x | x | x |  |",
       "",
     ].join("\n"));
@@ -94,10 +94,10 @@ describe("extract-inventory-routes.sh", () => {
     expect(rows).toHaveLength(1);
   });
 
-  it("handles all six locked persona names", () => {
+  it("handles all five locked persona names", () => {
     const dir = mkdtempSync(join(tmpdir(), "inv-test-"));
     const fixture = join(dir, "inv.md");
-    const sections = ["Super-Admin", "Agency Admin", "Care Manager", "Caregiver", "Client", "Family Member"]
+    const sections = ["Agency Admin", "Care Manager", "Caregiver", "Client", "Family Member"]
       .map((name, i) => [
         `## ${name}`,
         "",
@@ -109,7 +109,7 @@ describe("extract-inventory-routes.sh", () => {
       .join("\n");
     writeFileSync(fixture, sections);
     const rows = runScript(fixture) as Array<{ persona: string }>;
-    expect(rows).toHaveLength(6);
+    expect(rows).toHaveLength(5);
     const personas = rows.map((r) => r.persona).sort();
     expect(personas).toEqual([
       "Agency Admin",
@@ -117,7 +117,6 @@ describe("extract-inventory-routes.sh", () => {
       "Caregiver",
       "Client",
       "Family Member",
-      "Super-Admin",
     ]);
   });
 

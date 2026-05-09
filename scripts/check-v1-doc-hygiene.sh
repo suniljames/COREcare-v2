@@ -146,6 +146,35 @@ for file in "$@"; do
   fi
 done
 
+# Repo-wide regression gate per #236 — v1 has no platform-owner role.
+# Catches reintroductions of role-as-v1-attribution patterns (the H2, the
+# anchor, the cross-reference id). Use is_staff / is_superuser flag
+# references, "platform operator", or v2-forward-looking framing instead.
+#
+# Carve-outs:
+#   scripts/tests/test_check_v1_doc_structure.sh — negative-test fixtures
+#     intentionally retain the patterns to assert the validator rejects them.
+#   scripts/check-v1-doc-hygiene.sh — this script (its regex literal would
+#     otherwise trip its own gate).
+ROLE_REGEX='#'"super"'-admin|## '"Super"'-Admin|'"super"'-admin-top-level'
+if git rev-parse --git-dir >/dev/null 2>&1; then
+  if git grep -nE "$ROLE_REGEX" \
+       -- 'docs/migration/' 'docs/legacy/' 'scripts/' '.github/' \
+       ':!scripts/tests/test_check_v1_doc_structure.sh' \
+       ':!scripts/check-v1-doc-hygiene.sh' >/dev/null 2>&1; then
+    echo ""
+    echo "Role-as-v1-attribution references detected (v1 has no platform-owner role per #236):"
+    git grep -nE "$ROLE_REGEX" \
+      -- 'docs/migration/' 'docs/legacy/' 'scripts/' '.github/' \
+      ':!scripts/tests/test_check_v1_doc_structure.sh' \
+      ':!scripts/check-v1-doc-hygiene.sh' | sed 's/^/  /'
+    echo ""
+    echo "Use is_staff / is_superuser flag references, 'platform operator',"
+    echo "or v2-forward-looking framing instead. See #236."
+    VIOLATIONS=$((VIOLATIONS + 1))
+  fi
+fi
+
 if [[ "$VIOLATIONS" -gt 0 ]]; then
   echo ""
   echo "Hygiene check FAILED with $VIOLATIONS violation group(s) across files."
