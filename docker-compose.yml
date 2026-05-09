@@ -60,7 +60,13 @@ services:
       # exporting CLERK_PUBLISHABLE_KEY (or setting it in a project-root .env
       # that docker compose loads) to test live Clerk auth.
       NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${CLERK_PUBLISHABLE_KEY:-pk_test_Y2xlcmsuaW5jbHVkZWQua2F0eWRpZC05Mi5sY2wuZGV2JA}
-      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY:-}
+      # clerkMiddleware throws "Missing secretKey" at runtime on every request
+      # when CLERK_SECRET_KEY is empty, so localhost:3000 returns 500 on every
+      # route. Provide a format-valid dummy so a fresh checkout is navigable
+      # without a Clerk account. The api service deliberately keeps an empty
+      # CLERK_SECRET_KEY (above) so its dev fallback in app/auth.py keeps
+      # mocking super_admin. Real auth requires real keys for both services.
+      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY:-sk_test_dummylocaldevkey}
     volumes:
       - ./web:/app
       - /app/node_modules
