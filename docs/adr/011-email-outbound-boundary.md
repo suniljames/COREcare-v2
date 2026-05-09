@@ -164,7 +164,7 @@ CI if any imports `sendgrid`, `smtplib`, or
 | Redaction | `api/app/services/email/redaction.py` |
 | Public surface | `api/app/services/email/__init__.py` |
 | Audit row | `api/app/models/email.py` |
-| Schema | `api/alembic/versions/0002_email_events.py` |
+| Schema | `api/alembic/versions/0001_initial_schema.py` (`email_events` table; the original 0002 was folded into 0001 by the squash for #240) |
 | Sender unit tests | `api/app/tests/services/email/test_sender.py` |
 | Feature tests | `api/app/tests/services/test_billing_email.py` |
 | Architecture-fitness | `api/app/tests/architecture/test_email_boundary.py` |

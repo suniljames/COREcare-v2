@@ -9,7 +9,13 @@ This project follows the [engineering directives](https://github.com/suniljames/
 
 ## Get running in 10 minutes
 
-**Prerequisite:** [Docker Desktop](https://www.docker.com/products/docker-desktop) installed and running. Everything else (Python, Node, pnpm, uv, git-lfs) is recommended but optional — Docker handles the runtime.
+**Hard requirements:**
+- [Docker Desktop](https://www.docker.com/products/docker-desktop) — runs the local stack.
+- `uv` (Python package manager) — `brew install uv`. Needed by `make api-migrate`, `make api-seed`, and the API half of `make check`, all of which run on the host.
+- `pnpm` and Node 20 — `brew install pnpm node@20`. Needed by the web half of `make check` and any host-side `pnpm dev`.
+
+**Optional:**
+- `git-lfs` — only required if you'll be touching the [v1 UI catalog](docs/legacy/v1-ui-catalog/) WebP binaries.
 
 ```bash
 git clone https://github.com/suniljames/COREcare-v2.git
@@ -35,7 +41,7 @@ make health       # API / Web / DB / Redis health
 make check        # Lint + typecheck + test + build (must pass before PRs)
 ```
 
-If `make setup` warns about missing tools (Node, Python, pnpm, uv), those are only needed for non-Docker workflows — the Docker stack will still come up. See [Troubleshooting](#troubleshooting) below if anything fails.
+If `make setup` warns about missing `uv`, `pnpm`, or Node, install them before running `make api-migrate` / `make api-seed` / `make check` — the Docker stack will come up either way, but those targets execute on the host. See [Troubleshooting](#troubleshooting) below if anything fails.
 
 ## Tech Stack
 
@@ -53,25 +59,25 @@ If `make setup` warns about missing tools (Node, Python, pnpm, uv), those are on
 
 ## Dev/Test Environment
 
-After cloning, install Git LFS once so the [v1 UI catalog](docs/legacy/v1-ui-catalog/) WebP binaries (per [ADR-010](docs/adr/010-v1-ui-catalog-storage.md)) are fetched correctly:
-
-```bash
-git lfs install
-```
+`make setup` runs `git lfs install --local` for you so the [v1 UI catalog](docs/legacy/v1-ui-catalog/) WebP binaries (per [ADR-010](docs/adr/010-v1-ui-catalog-storage.md)) get fetched. The setup script will warn if `git-lfs` itself isn't on your system — install with `brew install git-lfs` and re-run `make setup`.
 
 Local Docker Compose: `docker compose up` starts API (8000), Web (3000), PostgreSQL, Redis.
 
 Test accounts (seeded by `make api-seed`):
 
-| Role | Email | Password |
-|------|-------|----------|
-| Super-Admin | superadmin@test.com | `TestSuper123!` |
-| Agency Admin | admin@test.com | `TestAdmin123!` |
-| Care Manager | manager1@test.com | `TestManager123!` |
-| Caregiver 1 | caregiver1@test.com | `TestCare123!` |
-| Caregiver 2 | caregiver2@test.com | `TestCare123!` |
-| Family 1 | family1@test.com | `TestFamily123!` |
-| Family 2 | family2@test.com | `TestFamily123!` |
+| Role | Email |
+|------|-------|
+| Super-Admin | superadmin@test.com |
+| Agency Admin | admin@test.com |
+| Care Manager | manager1@test.com |
+| Caregiver 1 | caregiver1@test.com |
+| Caregiver 2 | caregiver2@test.com |
+| Family 1 | family1@test.com |
+| Family 2 | family2@test.com |
+
+Auth is Clerk-only — there is no local password column on `User`. Two ways to use these accounts:
+- **API testing (default):** `ENVIRONMENT=development` + empty `CLERK_SECRET_KEY` resolves every request to a mock `super_admin` (see [Local authentication](#local-authentication) below). The seeded rows in the DB are what API endpoints look up by `agency_id` / `role`.
+- **Web sign-in:** create matching users in your own Clerk dev instance with the same emails, then set real `pk_test_…` / `sk_test_…` keys.
 
 ```bash
 make check                # Lint + typecheck + test + build (must pass before PRs)
@@ -103,13 +109,21 @@ When to set real Clerk keys:
 | Run E2E tests against the full stack | Yes |
 | Run any non-development environment (`ENVIRONMENT != development`) | **Yes — the API refuses to boot without it** |
 
-Get keys from [Clerk's dashboard](https://dashboard.clerk.com/) and put them in `web/.env.local` and `api/.env`.
+Get keys from [Clerk's dashboard](https://dashboard.clerk.com/), then place them according to how you're running the stack:
+
+- **Docker Compose (default `make setup` flow):** `docker compose` reads from a project-root `.env` file, *not* `api/.env` or `web/.env.local`. Create `./.env` with:
+  ```
+  CLERK_SECRET_KEY=sk_test_…
+  CLERK_PUBLISHABLE_KEY=pk_test_…
+  ```
+  Then `docker compose up -d --force-recreate web api` to pick them up.
+- **Host workflows (`pnpm dev`, `uv run …` outside Docker):** put `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` + `CLERK_SECRET_KEY` in `web/.env.local`, and `CLERK_SECRET_KEY` + `CLERK_PUBLISHABLE_KEY` in `api/.env`.
 
 ## Branches and commits
 
 Branch names: `<type>/<issue>-<short-desc>` (e.g. `feat/235-onboarding-cleanup`, `docs/106-readme-rewrite`).
 
-Commit messages: `<type>(#<issue>): <subject>` (e.g. `feat(#235): add scripts/setup.sh`). See `git log` for the project's prevailing style. Every change must be associated with a GitHub issue — see [`#213`](https://github.com/suniljames/COREcare-v2/issues/213).
+Commit messages: `<type>(#<issue>): <subject>` (e.g. `feat(#235): add scripts/setup.sh`). See `git log` for the project's prevailing style. Every change must be associated with a GitHub issue (rule established in [#213](https://github.com/suniljames/COREcare-v2/issues/213)).
 
 PRs run `make check` in CI; they're blocked until that passes. Use [`.github/pull_request_template.md`](.github/pull_request_template.md) — the template prompts for the linked issue, summary, and test plan.
 
@@ -137,12 +151,12 @@ Run `make api-migrate` first. If the DB is in an unknown state (created by stray
 
 Slash commands that cut branches must do so from an explicit, freshly-fetched
 named remote ref (e.g., `origin/main`) — never from an implicit local branch.
-See [`#176`](https://github.com/suniljames/COREcare-v2/issues/176) and the
+Invariant established in [#176](https://github.com/suniljames/COREcare-v2/issues/176);
 regression test at `scripts/tests/test_implement_branch_cut.sh`.
 
 Pipeline commands (`/define`, `/design`, `/implement`, `/review`) abort on
 closed issues by default. Pass `--force-on-closed` to override on a single
-run. See [`#213`](https://github.com/suniljames/COREcare-v2/issues/213).
+run. Behavior established in [#213](https://github.com/suniljames/COREcare-v2/issues/213).
 
 ## Domain context (home-care SaaS)
 

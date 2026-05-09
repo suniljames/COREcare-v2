@@ -126,23 +126,20 @@ printf '%b✅ COREcare v2 stack is up.%b\n' "$G$B" "$X"
 echo
 info "Next steps"
 cat <<'EOF'
-  • Open http://localhost:3000 to see the web app.
-  • API docs at http://localhost:8000/docs.
-  • Run quality gates before committing: make check
-  • Run tests:                            make test
-  • Stop containers:                      make down
+  • Apply schema:    make api-migrate   # alembic upgrade head
+  • Seed test data:  make api-seed      # demo agency + 7 test users
+  • Verify health:   make health        # API / Web / DB / Redis
+  • Open the web app: http://localhost:3000
+  • Open API docs:    http://localhost:8000/docs
+  • Pre-PR gate:     make check
+  • Stop the stack:  make down
 
-Database schema and seed data are NOT applied automatically — the schema
-init / migration sequence has a known issue (no migration creates the
-initial tables; SQLModel.metadata.create_all is only used in tests). Once
-that's fixed, the next steps will be:
-
-  make api-migrate    # apply migrations
-  make api-seed       # seed test accounts
+Note: make api-migrate / api-seed / check run on the host (not inside the
+api container) and require uv + pnpm + Node. If the warnings above flagged
+any of those missing, install them with: brew install uv pnpm node@20.
 
 Local auth: by default the API uses a dev fallback — requests sent without
 an Authorization header receive a mock super_admin user (api/app/auth.py).
-That works against an empty schema for endpoints that don't query a table.
 
 See CONTRIBUTING.md for the full contributor workflow.
 EOF

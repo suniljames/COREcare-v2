@@ -6,7 +6,7 @@ help: ## Show this help
 
 # --- Bootstrap ---
 
-setup: ## First-run bootstrap: verify tools, seed .env, start stack, seed data
+setup: ## First-run bootstrap: verify tools, seed .env, start Docker stack, wait for /healthz (run api-migrate + api-seed afterwards)
 	bash scripts/setup.sh
 
 # --- Docker ---
