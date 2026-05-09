@@ -31,7 +31,7 @@ You're inside `docs/`. Pick a lane.
 ## Common questions
 
 **What's a "persona" in this product?**
-A role-based user archetype the product designs for — Caregiver, Family Member, Care Manager, Agency Admin, Super-Admin. It's the *experience* that role gets, distinct from the literal `role` enum. Full table in [`GLOSSARY.md`](GLOSSARY.md).
+A role-based user archetype the product designs for — distinct from the literal `role` enum (the implementation). The full enumeration with v1/v2 scope notes lives in [`GLOSSARY.md`](GLOSSARY.md).
 
 **How is multi-tenancy enforced?**
 PostgreSQL Row-Level Security (RLS) at the database layer. Every tenant-scoped table has a policy keyed on `app.current_tenant_id`, set per-request from the authenticated user's `agency_id`. See [ADR-002](adr/002-postgresql-rls-multi-tenancy.md) for the decision and [`developer/ARCHITECTURE.md`](developer/ARCHITECTURE.md) for the implementation pattern.
