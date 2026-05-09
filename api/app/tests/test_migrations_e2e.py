@@ -5,7 +5,7 @@ the empty DB, runs `app.seed.seed()`, and asserts:
 
 - T1 — fresh-DB migrate + seed succeeds with the expected row counts
 - T2 — `SQLModel.metadata` matches migration head (drift guard)
-- T3 — RLS policy parity matches the post-0008 design state
+- T3 — RLS policy parity matches the design state
 - T4 — `messages.recipient_id` is nullable
 
 Tests are marked `integration`. Skipped when Docker is unavailable.
@@ -165,14 +165,14 @@ async def test_t2_no_schema_drift_after_migration(migrated_database_url: str) ->
 
 
 # ---------------------------------------------------------------------------
-# T3 — RLS policy parity (post-0008 state)
+# T3 — RLS policy parity
 # ---------------------------------------------------------------------------
 
 
-# Single-axis tenant_isolation tables (post-0001 + 0002 design state).
+# Single-axis tenant_isolation tables.
 SINGLE_AXIS_TABLES = {"users", "email_events"}
 
-# Dual-axis tenant_and_client_isolation tables (post-0008 design state).
+# Dual-axis tenant_and_client_isolation tables.
 DUAL_AXIS_TABLES = {
     "clients",
     "shifts",
@@ -182,7 +182,7 @@ DUAL_AXIS_TABLES = {
 }
 
 
-async def test_t3_rls_policies_match_post_0008_state(session: AsyncSession) -> None:
+async def test_t3_rls_policies_match_design_state(session: AsyncSession) -> None:
     rows = (
         await session.execute(
             text("SELECT tablename, policyname FROM pg_policies WHERE schemaname='public'")
@@ -220,7 +220,7 @@ async def test_t3_rls_force_enabled_on_all_protected_tables(session: AsyncSessio
 
 
 # ---------------------------------------------------------------------------
-# T4 — messages.recipient_id nullability (preserves 0009 correctness)
+# T4 — messages.recipient_id nullability
 # ---------------------------------------------------------------------------
 
 
@@ -235,4 +235,4 @@ async def test_t4_messages_recipient_id_nullable(session: AsyncSession) -> None:
             )
         )
     ).scalar()
-    assert is_nullable is True, "messages.recipient_id must be nullable (post-0009)"
+    assert is_nullable is True, "messages.recipient_id must be nullable"

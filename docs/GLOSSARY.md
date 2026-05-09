@@ -10,7 +10,7 @@ Canonical definitions for terms that show up across the COREcare codebase and do
 |------|-----------|
 | **Agency** | A home-care business that employs caregivers and serves clients. Each agency is a tenant. |
 | **Tenant** | An agency and all its associated data, isolated by PostgreSQL Row-Level Security (RLS). One tenant per agency. |
-| **Client** | The person receiving home-care services (often elderly or disabled). In v2, Clients can optionally have a User record and log in (the "Client persona" — see [#125](https://github.com/suniljames/COREcare-v2/issues/125)). |
+| **Client** | The person receiving home-care services (often elderly or disabled). In v2, Clients can optionally have a User record and log in (the "Client persona" — shipped in [#125](https://github.com/suniljames/COREcare-v2/issues/125)). |
 | **Caregiver** | Field worker (RN, CNA, HHA, therapist) who provides direct care in client homes. Highest-volume, lowest-patience user — UX defaults to their mobile experience. |
 | **Care Manager** | Supervising nurse or coordinator who creates care plans and oversees caregiver assignments. |
 | **Family Member** | A client's relative or authorized representative with limited platform visibility. Linked to a Client via `ClientFamilyMember`. |

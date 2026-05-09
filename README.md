@@ -6,13 +6,18 @@ Multi-tenant SaaS platform for home care agencies — coordinates clients, careg
 
 ## Get started
 
-New contributor? **Run `scripts/setup.sh`** for a guided bootstrap — checks tool versions, seeds `.env` files from examples, brings up the Docker stack, and waits for `/healthz`. Then read [`CONTRIBUTING.md`](CONTRIBUTING.md) for the development workflow (including the schema-init caveat tracked in [#240](https://github.com/suniljames/COREcare-v2/issues/240)).
+New contributor? **Run `make setup`** for a guided bootstrap — checks tool versions, seeds `.env` files from examples, brings up the Docker stack, and waits for `/healthz`. Then apply migrations, seed test data, and verify the stack:
 
 ```bash
 git clone https://github.com/suniljames/COREcare-v2.git
 cd COREcare-v2
-scripts/setup.sh
+make setup        # bootstrap (or: bash scripts/setup.sh)
+make api-migrate  # alembic upgrade head — creates the schema
+make api-seed     # demo agency + 7 test users
+make health       # API / Web / DB / Redis check
 ```
+
+Read [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full development workflow, the test-account roster, and `make check` (the pre-PR quality gate).
 
 ## Documentation
 

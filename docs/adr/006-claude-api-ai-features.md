@@ -13,7 +13,7 @@ COREcare v2 includes AI-powered features: conversational agent (SMS/WhatsApp), s
 Use the **Claude API (Anthropic)** as the primary AI backend.
 
 ### Integration Pattern
-- **Agent service** — centralized service in `api/app/services/ai/` that manages all Claude API interactions
+- **Agent service** — centralized service in `api/app/services/ai.py` that manages all Claude API interactions
 - **Prompt templates** — versioned templates stored in code, never user-editable
 - **Safety guardrails:**
   - No PHI in prompts (substitute with anonymized placeholders)

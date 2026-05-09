@@ -1,5 +1,11 @@
 # Component Library
 
+> **Status: forward-looking design spec.** The components and layouts described
+> below are the target shadcn/ui surface for COREcare v2; most do not yet exist
+> in `web/src/components/` (the directory is created when the first component
+> lands). Use this file as the contract for what to build, not as a catalog of
+> what's already importable. Tracked component-by-component as work lands.
+
 Built on shadcn/ui with COREcare theme overrides.
 
 ## shadcn/ui Base Components

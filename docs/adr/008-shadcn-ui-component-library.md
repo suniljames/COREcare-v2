@@ -20,7 +20,7 @@ Options:
 Use **shadcn/ui** as the component foundation.
 
 ### Why shadcn/ui
-- **Copy-paste, not dependency** — components live in our codebase (`web/src/components/ui/`), fully customizable
+- **Copy-paste, not dependency** — components will live in our codebase under `web/src/components/ui/` (directory created on first component), fully customizable
 - **Radix UI primitives** — accessible by default (ARIA, keyboard nav, focus management)
 - **Tailwind CSS native** — integrates perfectly with our design token system
 - **HSL CSS variables** — theming via CSS custom properties, matching our `TOKENS.md`

@@ -25,7 +25,7 @@ The dev-mode auth fallback (mock `super_admin` user, JWT signature-skip) is gate
 - Do not introduce new env-blind dev fallbacks.
 - Any new dev-only behavior must route through `settings.is_dev_mode`.
 
-Issue reference: [#241](https://github.com/suniljames/COREcare-v2/issues/241).
+Implemented in [#241](https://github.com/suniljames/COREcare-v2/issues/241).
 
 ## Safe Branch-Switching
 
