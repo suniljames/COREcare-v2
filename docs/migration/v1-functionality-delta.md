@@ -215,7 +215,6 @@ v1 has `ViewAsSession`, `ViewAsPageView`, `ViewAsFailedAttempt` — staff can im
 
 v1 has a custom capability layer (Issue #1255) overlaying Django permissions — fine-grained capabilities like `VISIT_SERVICE_ATTACH`. v2 mentions only RBAC tiers (super-admin, admin, manager, caregiver, family) per ADR-003. <!-- v2-forward-looking RBAC tier names quoted from ADR-003; v1 has no platform-owner role per #236. -->
 
-
 **v2 docs say:** Q46 mentions RBAC in a single line. Coarse roles are simpler but lose the granularity that lets agencies, e.g., let a billing clerk attach services without giving them full admin.
 
 ### 5.4 Family invite codes for self-registration — **M**
