@@ -37,7 +37,7 @@ A role-based user archetype the product designs for — Caregiver, Family Member
 PostgreSQL Row-Level Security (RLS) at the database layer. Every tenant-scoped table has a policy keyed on `app.current_tenant_id`, set per-request from the authenticated user's `agency_id`. See [ADR-002](adr/002-postgresql-rls-multi-tenancy.md) for the decision and [`developer/ARCHITECTURE.md`](developer/ARCHITECTURE.md) for the implementation pattern.
 
 **How do I add a database migration?**
-*Currently blocked by [#240](https://github.com/suniljames/COREcare-v2/issues/240)* — schema-init is broken (no migration creates the initial tables). Once that's resolved, the workflow will be: create a new revision under `api/alembic/versions/`, run `make api-migrate` against a fresh DB, add a test, ship. Until then, schema lives in `SQLModel.metadata.create_all` in test fixtures.
+Edit models in `api/app/models/`, run `make -C api migration MSG="describe-the-change"` to autogenerate a revision under `api/alembic/versions/`, inspect it, apply with `make api-migrate`, add a test, ship. See [`developer/migrations-runbook.md`](developer/migrations-runbook.md) for the full workflow — autogenerate gotchas (partial indexes, RLS, JSONB), reset, bootstrap, and CI drift recovery.
 
 ## What's *not* here
 
