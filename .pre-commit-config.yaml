@@ -45,3 +45,10 @@ repos:
       # would fail on every commit until the very last TODO is replaced).
       # That gate runs in CI only on the final-acceptance PR and on push to
       # main; locally invoke via `make test-v1-captions-authored`.
+
+      - id: agents-md
+        name: AGENTS.md mechanical checks (line budget / internal links / cross-mentions)
+        entry: bash scripts/check-agents-md.sh
+        language: system
+        files: '^(AGENTS|README|CLAUDE|GEMINI)\.md$'
+        pass_filenames: false

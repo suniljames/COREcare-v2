@@ -1,19 +1,16 @@
-# COREcare v2 — Claude Code Agent Config
+# COREcare v2 — Claude Code
 
-> **For Claude Code users.** If you're not using Claude Code as your editor, you can skip this file — start at [`README.md`](README.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md).
+> **Read [`AGENTS.md`](AGENTS.md) first.** This file carries only what's unique to Claude Code; shared agent guidance (verify, don't-touch, repo map, conventions, glossary) lives in `AGENTS.md`.
 
-Read [`CONTRIBUTING.md`](CONTRIBUTING.md) first.
+You are the **builder** agent for this repo (per the [engineering team manifest](https://github.com/suniljames/directives/blob/main/teams/engineering/manifest.yml) — all roles where `agent: builder`). When operating without an orchestrator, assume validator roles as separate review passes.
 
-Project-specific docs:
-- [`docs/developer/ARCHITECTURE.md`](docs/developer/ARCHITECTURE.md) — codebase patterns
-- [`docs/developer/TESTING.md`](docs/developer/TESTING.md) — test tools and conventions
-- [`docs/developer/SAFETY.md`](docs/developer/SAFETY.md) — project-specific safety rules
-- [`docs/developer/code-review-lenses.md`](docs/developer/code-review-lenses.md) — tech-specific review checklists
-- [`docs/developer/project-context.md`](docs/developer/project-context.md) — project-specific persona knowledge
+## Pipeline commands
+
+The slash-commands in [`.claude/commands/`](.claude/commands/) — `/define`, `/design`, `/implement`, `/review`, `/summarize` — are Claude-specific and will not work in other AI tools.
 
 ## Shared Claude Code magic
 
-This project inherits shared hooks and scripts from [`suniljames/dotfiles`](https://github.com/suniljames/dotfiles). `.claude/settings.json` references hooks at `$HOME/.claude/hooks/*` with graceful no-op fallback if dotfiles isn't installed on the machine.
+This project inherits hooks and scripts from [`suniljames/dotfiles`](https://github.com/suniljames/dotfiles). `.claude/settings.json` references hooks at `$HOME/.claude/hooks/*` with graceful no-op fallback if dotfiles isn't installed on the machine.
 
 To activate hooks locally:
 
