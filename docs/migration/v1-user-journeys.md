@@ -25,7 +25,7 @@ Each journey **cites pages-inventory anchors** rather than redefining route fact
 
 _last reconciled: 2026-05-07 against v1 commit `9738412`_
 
-Agency Admin is v1's largest persona surface and v2's highest-volume rebuild target. The first five journeys below cover the operational spine: client onboarding, caregiver onboarding, weekly payroll, billing, and credential expiry handling. Two additional journeys are folded here per #236 — they describe the v1 platform-operator surfaces (capability administration with the View-As kill switch, and the View-As impersonation suite). Those routes are gated on Django's stock `is_staff` flag (and `is_superuser` exclusively for the kill-switch backstop) rather than the Agency Admin role grant; v1 has no separate platform-operator role. v2 design is expected to elevate these to genuinely cross-tenant surfaces with a dedicated platform-operator boundary.
+Agency Admin is v1's largest persona surface and v2's highest-volume rebuild target. The first five journeys below cover the operational spine: client onboarding, caregiver onboarding, weekly payroll, billing, and credential expiry handling. Two additional journeys are folded here per #236 — the v1 platform-operator surfaces: capability administration with the View-As kill switch, and the View-As impersonation suite. v1 has no separate platform-operator role, so those routes are gated on Django's stock `is_staff` flag, with `is_superuser` reserved exclusively for the kill-switch backstop. v2 design is expected to elevate them to genuinely cross-tenant surfaces with a dedicated platform-operator boundary.
 
 ### Client intake — onboarding a new client into operations
 
