@@ -18,7 +18,7 @@ You're inside `docs/`. Pick a lane.
 
 | Directory | Purpose | When to read |
 |---|---|---|
-| [`adr/`](adr/) | 11 numbered Architecture Decision Records — the *why* behind tech choices | Before proposing a major architectural change, or when you want to know why a decision was made |
+| [`adr/`](adr/) | 12 numbered Architecture Decision Records — the *why* behind tech choices | Before proposing a major architectural change, or when you want to know why a decision was made |
 | [`developer/`](developer/) | Core engineering reference — architecture, testing, safety, code review, project context | On every contribution |
 | [`design-system/`](design-system/) | shadcn/ui tokens, components, accessibility, brand, content guide | When building anything frontend |
 | [`migration/`](migration/) | v1 → v2 reference docset (pages, journeys, integrations, glossary, locked conventions, CI-validated) | Only if porting v1 behavior to v2 |

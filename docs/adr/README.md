@@ -15,6 +15,7 @@ Numbered, dated, and decision-focused records of the major technical choices tha
 | [009](009-multi-agent-engineering-split.md) | Multi-Agent Engineering Split | Builder vs validator roles, pipeline |
 | [010](010-v1-ui-catalog-storage.md) | v1 UI Screenshot Catalog Storage | `docs/legacy/`, Git LFS |
 | [011](011-email-outbound-boundary.md) | Email Outbound Boundary | Email transport, PHI rules in messages |
+| [012](012-cloud-pilot-hosting.md) | Cloud Pilot Hosting (Render + Vercel + R2) | Pilot-env deploy target; partially supersedes ADR-005 |
 
 ## When to write a new ADR
 

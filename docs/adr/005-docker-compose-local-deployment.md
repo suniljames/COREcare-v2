@@ -1,8 +1,8 @@
 # ADR-005: Docker Compose Local Deployment
 
-**Status:** Accepted
+**Status:** Accepted (deployment portion partially superseded by [ADR-012](012-cloud-pilot-hosting.md) for the pilot environment)
 **Date:** 2026-03-07
-**Related:** ADR-001 (Architecture)
+**Related:** ADR-001 (Architecture), [ADR-012](012-cloud-pilot-hosting.md)
 
 ## Context
 
