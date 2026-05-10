@@ -31,7 +31,7 @@ Read [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full development workflow, the
 | [`AGENTS.md`](AGENTS.md) | Canonical entry point for AI coding assistants (verify command, repo map, don't-touch list) |
 | [`docs/developer/`](docs/developer/) | Architecture, testing, safety, code review |
 | [`docs/design-system/`](docs/design-system/) | Frontend tokens, components, accessibility |
-| [`docs/adr/`](docs/adr/) | 11 numbered Architecture Decision Records |
+| [`docs/adr/`](docs/adr/) | 12 numbered Architecture Decision Records |
 
 ## Healthcare context
 
