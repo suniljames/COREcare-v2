@@ -146,6 +146,11 @@ Agency Admin pages cover scheduling, billing, payroll, credentialing, compliance
 
 A small subset of rows in the `top-level (elitecare/urls.py)` group are gated on Django's stock `is_superuser` boolean rather than the Agency Admin role grant — v1 has no Super-Admin role, so these platform-operator surfaces are folded here with `rls_bypass_by_design=true`. v2 design is expected to introduce a dedicated platform-operator boundary for these routes; the merged rows preserve that intent in their `purpose` cells.
 
+**Screens needing bespoke v2 design treatment.** Two categories in this section warrant deliberate v2 design rather than a mechanical port:
+
+1. **PHI-displaying screens** — rows marked `🔒 PHI ·` (carrying `phi_displayed=true` in the row table), concentrated in [`### charting`](#charting) (the clinical surface — health reports, chart templates, the staff approval queue), [`### clients`](#clients) (per-client calendars and events rendering linked-client data with attachments), [`### compliance`](#compliance) (the two authenticated PHI file-stream routes mounted at `compliance/files/` — physician-order proofs and service-signature images), and [`### billing`](#billing) (invoice lists, single-client billing PDFs, the client billing-email flow, and QuickBooks invoice sends). The `/admin/expenses/review/...` routes in the `top-level (elitecare/urls.py)` group also carry `phi_displayed=true`.
+2. **Admin-elevation / RLS-bypass screens** — `/admin/view-as/kill-all/` is the platform-operator kill-switch that terminates every active impersonation session at once, gated on Django's stock `is_superuser` flag rather than the Agency Admin role grant (folded into this section per [#236](https://github.com/suniljames/COREcare-v2/issues/236) because v1 has no Super-Admin role). v2 must add a comparable platform-operator gate distinct from Agency Admin role authority — see the `rls_bypass_by_design=true` rows in the `top-level (elitecare/urls.py)` group.
+
 <a id="agency-admin-top-level"></a>
 ### top-level (elitecare/urls.py)
 _admin-prefixed routes registered directly in the project root, outside any include()_
